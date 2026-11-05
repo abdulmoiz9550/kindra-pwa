@@ -51,7 +51,7 @@ export default function Admin() {
           <ul className="flex md:flex-col gap-1 overflow-x-auto pb-2 md:pb-0 -mx-1 px-1">
             {nav.map((n) => (
               <li key={n.to} className="shrink-0">
-                <NavLink to={n.to} end={n.to === ''} className={({ isActive }) => `block rounded-lg px-3 py-2 text-sm whitespace-nowrap ${isActive ? 'bg-primary text-primary-ink font-semibold' : 'hover:bg-surface-2'}`}>
+                <NavLink to={n.to ? `/admin/${n.to}` : '/admin'} end={n.to === ''} className={({ isActive }) => `block rounded-lg px-3 py-2 text-sm whitespace-nowrap ${isActive ? 'bg-primary text-primary-ink font-semibold' : 'hover:bg-surface-2'}`}>
                   {n.label}
                 </NavLink>
               </li>
@@ -76,7 +76,7 @@ export default function Admin() {
             {preregOn && <Route path="preregistro" element={<Prereg />} />}
             <Route path="bitacora" element={<Audit />} />
             <Route path="demo" element={<Demo />} />
-            <Route path="*" element={<Navigate to="" replace />} />
+            <Route path="*" element={<Navigate to="/admin" replace />} />
           </Routes>
         </div>
       </div>
