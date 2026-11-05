@@ -127,14 +127,22 @@ function DepartureModal({ open, onClose, data, initialSelected, onDone }: { open
               <option value="">Elige un vehículo</option>
               {data.vehicles.map((v) => (
                 <option key={v.id} value={v.id}>
-                  {v.plate} · {v.typeName} · {v.capacityM3} m³
+                  {v.plate} · {v.typeName}
+                  {v.capacityM3 != null ? ` · ${v.capacityM3} m³` : ''}
                 </option>
               ))}
             </Select>
           </Field>
           {vehicle && (
             <p className="text-sm">
-              <Badge tone={qrChecked ? 'ok' : 'info'}>{qrChecked ? 'QR verificado' : 'Elegido de la lista'}</Badge> {vehicle.plate} · {vehicle.typeName} · capacidad nominal {vehicle.capacityM3} m³ <span className="badge bg-warn-soft text-warn">provisional</span>
+              <Badge tone={qrChecked ? 'ok' : 'info'}>{qrChecked ? 'QR verificado' : 'Elegido de la lista'}</Badge> {vehicle.plate} · {vehicle.typeName}
+              {vehicle.capacityM3 != null ? (
+                <>
+                  {' '}· capacidad nominal {vehicle.capacityM3} m³ <span className="badge bg-warn-soft text-warn">estimado</span>
+                </>
+              ) : (
+                <span className="text-muted"> · sin capacidad registrada: el viaje se registra igual</span>
+              )}
             </p>
           )}
         </section>

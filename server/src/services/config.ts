@@ -4,6 +4,7 @@ import { DEFAULT_CONFIG } from '../config/defaults';
 import { DEFAULT_AURA_TEXTS } from '../config/auraTexts';
 import { DEFAULT_LESSONS } from '../config/lessons';
 import { env } from '../config/env';
+import { ensureDefaultSpace } from './spaces';
 
 const CONFIG_ID = 'main';
 
@@ -36,6 +37,7 @@ export function ensureDefaults(): void {
     for (const t of DEFAULT_AURA_TEXTS) if (!store.get('auraTexts', t.key)) store.put('auraTexts', { ...t, id: t.key } as AuraTextEntry & { id: string });
   }
   if (store.count('lessons') === 0) for (const l of DEFAULT_LESSONS) store.put('lessons', l);
+  ensureDefaultSpace();
 }
 
 export function getAuraText(key: string): AuraTextEntry | undefined {

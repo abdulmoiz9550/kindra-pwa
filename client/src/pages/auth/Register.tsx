@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import type { PublicUser } from '@kindra/shared';
 import { api, errorMessage } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
-import { usePublicConfig } from '../../lib/config';
+import { usePublicConfig, useFeature } from '../../lib/config';
 import { Alert, Button, Card, Field, Input, PageTitle, Select } from '../../components/ui';
 
 /** Cuenta ciudadana opcional. */
@@ -13,7 +13,9 @@ export default function Register() {
   const qc = useQueryClient();
   const setSession = useAuth((s) => s.setSession);
   const { data: cfg } = usePublicConfig();
-  const [form, setForm] = useState({ alias: '', password: '', phone: '', name: '', sectorId: '' });
+  const referralsOn = useFeature('referrals');
+  const [params] = useSearchParams();
+  const [form, setForm] = useState({ alias: '', password: '', phone: '', name: '', sectorId: '', referralCode: (params.get('ref') || '').toUpperCase() });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm({ ...form, [k]: e.target.value });
@@ -23,7 +25,7 @@ export default function Register() {
     setBusy(true);
     setError(null);
     try {
-      const s = await api.post<{ token: string; user: PublicUser }>('/auth/register', { alias: form.alias, password: form.password, phone: form.phone || undefined, name: form.name || undefined, sectorId: form.sectorId || null });
+      const s = await api.post<{ token: string; user: PublicUser }>('/auth/register', { alias: form.alias, password: form.password, phone: form.phone || undefined, name: form.name || undefined, sectorId: form.sectorId || null, referralCode: referralsOn && form.referralCode.trim() ? form.referralCode.trim() : null });
       setSession(s);
       qc.clear();
       navigate('/mis-reportes');
@@ -61,6 +63,11 @@ export default function Register() {
               ))}
             </Select>
           </Field>
+          {referralsOn && (
+            <Field label="Código de invitación" hint="Opcional. Si alguien te invitó, suma puntos cuando tu primer reporte sea validado, no al registrarte.">
+              <Input value={form.referralCode} onChange={(e) => setForm({ ...form, referralCode: e.target.value.toUpperCase() })} placeholder="INV-XXXXXX" className="font-mono tracking-wider" />
+            </Field>
+          )}
           {error && (
             <Alert tone="bad" className="mb-3">
               {error}

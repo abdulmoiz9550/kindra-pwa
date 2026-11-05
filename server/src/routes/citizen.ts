@@ -15,6 +15,9 @@ import { citizenOriginView } from './helpers';
 import { forbidden, notFound } from '../core/errors';
 import { toPublicUser } from '../services/auth';
 import { env } from '../config/env';
+import { cardFor, regenerateCard, achievementsFor } from '../services/card';
+import { referralSummary } from '../services/referrals';
+import { assertFeature } from '../services/features';
 
 export const citizenRouter = Router();
 
@@ -122,13 +125,43 @@ citizenRouter.get('/me/origins', requireAuth, (req, res) => {
   res.json(listOriginsForReporter(req.auth!.user.id).map(citizenOriginView));
 });
 
+// ---------------------------------------------------------------- tarjeta Kindra, logros y referidos (addendum)
+citizenRouter.get(
+  '/me/card',
+  requireAuth,
+  wrap(async (req, res) => {
+    assertFeature('kindra_card');
+    res.json(await cardFor(req.auth!.user));
+  }),
+);
+
+citizenRouter.post(
+  '/me/card/regenerate',
+  requireAuth,
+  wrap(async (req, res) => {
+    assertFeature('kindra_card');
+    const u = regenerateCard(req.auth!.user);
+    res.json(await cardFor(u));
+  }),
+);
+
+citizenRouter.get('/me/achievements', requireAuth, wrap((req, res) => {
+  assertFeature('achievements');
+  res.json(achievementsFor(req.auth!.user));
+}));
+
+citizenRouter.get('/me/referrals', requireAuth, wrap((req, res) => {
+  assertFeature('referrals');
+  res.json(referralSummary(req.auth!.user));
+}));
+
 citizenRouter.get('/me/profile', requireAuth, (req, res) => {
   const u = req.auth!.user;
   const pts = computePoints(u.id);
   const cert = certificateFor(u.id);
   const monitorRequest = db().find('monitorRequests', (r) => r.userId === u.id && r.status === 'pending');
   res.json({
-    user: toPublicUser(u, req.auth!.role),
+    user: toPublicUser(u, req.auth!.role, req.auth!.mfa),
     points: pts,
     certificate: cert ? { ...cert, verifyUrl: `${env.publicBaseUrl}/publico/certificado/${cert.code}` } : null,
     monitorRequestPending: !!monitorRequest,

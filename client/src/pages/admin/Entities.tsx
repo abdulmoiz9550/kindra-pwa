@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import type { Entity, EntityType, PublicationPolicy, PublicationRule } from '@kindra/shared';
-import { ENTITY_TYPE_LABELS } from '@kindra/shared';
+import type { Entity, EntityType, PublicationPolicy, PublicationRule, LegalType, Space } from '@kindra/shared';
+import { ENTITY_TYPE_LABELS, LEGAL_TYPE_LABELS } from '@kindra/shared';
 import { Card, Button, Field, Input, Select, Textarea, Badge, Modal, Spinner } from '../../components/ui';
 import { Section, useAdminList, useAdminAction } from './shared';
 
@@ -18,10 +18,14 @@ const EMPTY: Omit<Entity, 'id'> & { id?: string } = {
   logoUrl: null,
   active: true,
   publicationPolicy: { officialFigures: { mode: 'public' }, discrepancies: { mode: 'public' }, photos: { mode: 'public' }, observations: { mode: 'public' } },
+  legalType: 'public_institution',
+  taxId: null,
+  spaceId: null,
 };
 
 export default function Entities() {
   const q = useAdminList<Entity>('entities');
+  const spaces = useAdminList<Space>('spaces');
   const { post, busy } = useAdminAction();
   const [editing, setEditing] = useState<typeof EMPTY | null>(null);
   const save = async () => {
@@ -31,14 +35,14 @@ export default function Entities() {
   };
   const setRule = (k: keyof PublicationPolicy, patch: Partial<PublicationRule>) => editing && setEditing({ ...editing, publicationPolicy: { ...editing.publicationPolicy, [k]: { ...editing.publicationPolicy[k], ...patch } } });
   return (
-    <Section title="Entidades" subtitle="Nombre, tipo, descripción pública, logo y política de publicación por tipo de dato (13.4)." actions={<Button onClick={() => setEditing({ ...EMPTY })}>Nueva entidad</Button>}>
+    <Section title="Entidades" subtitle="Personas jurídicas del convenio (instituciones públicas y empresas): nombre, tipo, RIF, espacio, descripción pública, logo y política de publicación por tipo de dato (13.4)." actions={<Button onClick={() => setEditing({ ...EMPTY })}>Nueva entidad</Button>}>
       {q.isLoading && <Spinner />}
       <ul className="grid md:grid-cols-2 gap-3">
         {(q.data || []).map((e) => (
           <li key={e.id}>
             <Card
               title={e.name}
-              subtitle={ENTITY_TYPE_LABELS[e.type]}
+              subtitle={`${ENTITY_TYPE_LABELS[e.type]} · ${LEGAL_TYPE_LABELS[e.legalType || 'public_institution']}${e.taxId ? ` · RIF ${e.taxId}` : ''}`}
               actions={
                 <Button variant="ghost" size="sm" onClick={() => setEditing({ ...e })}>
                   Editar
@@ -76,6 +80,30 @@ export default function Entities() {
                 ))}
               </Select>
             </Field>
+            <div className="grid sm:grid-cols-3 sm:gap-3">
+              <Field label="Persona jurídica">
+                <Select value={editing.legalType || 'public_institution'} onChange={(e) => setEditing({ ...editing, legalType: e.target.value as LegalType })}>
+                  {(Object.keys(LEGAL_TYPE_LABELS) as LegalType[]).map((t) => (
+                    <option key={t} value={t}>
+                      {LEGAL_TYPE_LABELS[t]}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="RIF" hint="Identificador fiscal, si se tiene.">
+                <Input value={editing.taxId || ''} onChange={(e) => setEditing({ ...editing, taxId: e.target.value || null })} placeholder="G-00000000-0" />
+              </Field>
+              <Field label="Espacio (convenio)">
+                <Select value={editing.spaceId || ''} onChange={(e) => setEditing({ ...editing, spaceId: e.target.value || null })}>
+                  <option value="">Espacio principal</option>
+                  {(spaces.data || []).map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </div>
             <Field label="Descripción pública de su papel" required>
               <Textarea value={editing.description} onChange={(e) => setEditing({ ...editing, description: e.target.value })} />
             </Field>

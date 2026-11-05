@@ -9,7 +9,8 @@
     "test": "tsx --test test/*.test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "backup": "tsx src/scripts/backup.ts",
-    "db:schema": "tsx src/scripts/applySchema.ts"
+    "db:schema": "tsx src/scripts/applySchema.ts",
+    "reset-2fa": "tsx src/scripts/reset2fa.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.3.0",

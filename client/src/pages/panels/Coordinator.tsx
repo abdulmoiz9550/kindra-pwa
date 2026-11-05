@@ -4,7 +4,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { SIZE_LABELS, URGENCY_LABELS, PRIORITY_LABELS, REJECTION_REASON_LABELS, STRUCTURE_TYPE_LABELS, CAUSE_LABELS, SUBCATEGORY_LABELS } from '@kindra/shared';
 import type { OriginPriority, RejectionReason, StructureType, DebrisCause, OriginSize, Subcategory } from '@kindra/shared';
 import { api, errorMessage } from '../../lib/api';
-import { usePublicConfig } from '../../lib/config';
+import { usePublicConfig, useFeature } from '../../lib/config';
+import { SectorAnnouncements } from '../../components/panels/SectorAnnouncements';
 import { toast } from '../../lib/toast';
 import { fmtDateTime, fmtRelative } from '../../lib/format';
 import { Card, Button, Field, Input, Select, Textarea, Alert, EmptyState, Modal, PageTitle, Tabs, Spinner, Badge, OriginStateBadge, KeyValue } from '../../components/ui';
@@ -14,10 +15,11 @@ import { LocationPicker, type LocationValue } from '../../components/LocationPic
 import { OriginRow, MapLegend, stateColor, PriorityBadge, useSubmit } from '../../components/panels/shared';
 import type { CoordOverview, OriginView } from '../../components/panels/types';
 
-type Tab = 'inbox' | 'track' | 'map' | 'alerts' | 'disputes' | 'monitor' | 'zones' | 'manual' | 'new';
+type Tab = 'inbox' | 'track' | 'map' | 'alerts' | 'disputes' | 'monitor' | 'zones' | 'manual' | 'announcements' | 'new';
 
 export default function Coordinator() {
   const qc = useQueryClient();
+  const announcementsOn = useFeature('community_announcements');
   const q = useQuery({ queryKey: ['coord', 'overview'], queryFn: () => api.get<CoordOverview>('/coord/overview') });
   const [tab, setTab] = useState<Tab>('inbox');
   const [openId, setOpenId] = useState<string | null>(null);
@@ -54,6 +56,7 @@ export default function Coordinator() {
           { value: 'monitor', label: 'Contralores', count: d.monitorRequests.length },
           { value: 'zones', label: 'Zonas', count: d.sectors.filter((s) => !s.authorized).length },
           { value: 'manual', label: 'Revisión manual', count: d.manualReview.length },
+          ...(announcementsOn ? [{ value: 'announcements' as const, label: 'Avisos al sector' }] : []),
           { value: 'new', label: 'Origen institucional' },
         ]}
       />
@@ -138,6 +141,7 @@ export default function Coordinator() {
             {d.manualReview.length === 0 ? <EmptyState title="Nada en revisión manual" /> : <div className="space-y-2">{d.manualReview.map((o) => <OriginRow key={o.id} o={o} onOpen={(x) => setOpenId(x.id)} extra={<div className="mt-2 flex flex-wrap gap-2"><QuickActions o={o} onDone={refresh} onOpen={() => setOpenId(o.id)} /></div>} />)}</div>}
           </Card>
         )}
+        {tab === 'announcements' && announcementsOn && <SectorAnnouncements />}
         {tab === 'new' && <InstitutionalForm onDone={() => { refresh(); setTab('inbox'); }} />}
       </div>
       <OriginDetail o={openOrigin} onClose={() => setOpenId(null)} onDone={refresh} />

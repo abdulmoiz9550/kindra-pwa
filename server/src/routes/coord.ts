@@ -5,11 +5,30 @@ import { wrap, requireRole } from '../middleware/auth';
 import { createInstitutionalOrigin, validateOrigin, rejectOrigin, markDuplicate, setPriority, setOriginZone, setSectorAuthorization, markRemoved, resolveDispute, requestPhotoRetake } from '../services/origins';
 import { decideMonitorRequest } from '../services/monitor';
 import { originView } from './helpers';
+import { sendSectorAnnouncement, listSectorAnnouncements, residentCount } from '../services/announcements';
 
 export const coordRouter = Router();
 coordRouter.use(requireRole('coordinator'));
 
 const geo = z.object({ lat: z.number(), lng: z.number() }).nullable().optional();
+
+// ---------------------------------------------------------------- avisos comunitarios por sector (addendum, parte 1)
+coordRouter.get('/announcements', (req, res) => {
+  const sectorId = typeof req.query.sector === 'string' && req.query.sector ? req.query.sector : null;
+  const store = db();
+  res.json({
+    announcements: listSectorAnnouncements(sectorId).map((n) => ({ id: n.id, kind: n.kind, text: n.text, sectorName: n.sectorName, createdAt: n.createdAt })),
+    sectors: store.list('sectors').map((s) => ({ id: s.id, name: s.name, residents: residentCount(s.id) })),
+  });
+});
+
+coordRouter.post(
+  '/announcements',
+  wrap((req, res) => {
+    const body = z.object({ sectorId: z.string(), text: z.string().min(10).max(400) }).parse(req.body);
+    res.status(201).json(sendSectorAnnouncement(req.auth!.actor, body.sectorId, body.text));
+  }),
+);
 
 coordRouter.get('/overview', (req, res) => {
   const store = db();

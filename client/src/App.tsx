@@ -31,6 +31,9 @@ const Evaluator = lazy(() => import('./pages/panels/Evaluator'));
 const Destination = lazy(() => import('./pages/panels/Destination'));
 const Supervisor = lazy(() => import('./pages/panels/Supervisor'));
 const Admin = lazy(() => import('./pages/admin/Admin'));
+const EntityAdmin = lazy(() => import('./pages/panels/EntityAdmin'));
+const KindraCard = lazy(() => import('./pages/KindraCard'));
+const PublicCard = lazy(() => import('./pages/public/PublicCard'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
 export default function App() {
@@ -47,6 +50,7 @@ export default function App() {
           <Route path="/aprende" element={<Learn />} />
           <Route path="/aprende/:id" element={<Lesson />} />
           <Route path="/perfil" element={<Profile />} />
+          <Route path="/tarjeta" element={<KindraCard />} />
           <Route path="/notificaciones" element={<Notifications />} />
           <Route path="/ajustes" element={<Settings />} />
           <Route path="/ingresar" element={<Login />} />
@@ -59,12 +63,14 @@ export default function App() {
           <Route path="/publico/ficha/:code" element={<PublicRecord />} />
           <Route path="/publico/certificado/:code" element={<Certificate />} />
           <Route path="/publico/qr/:kind/:code" element={<QRPoster />} />
+          <Route path="/publico/tarjeta/:code" element={<PublicCard />} />
           <Route path="/panel/coordinador" element={<RequireRole roles={['coordinator']}><Coordinator /></RequireRole>} />
           <Route path="/panel/retiro" element={<RequireRole roles={['removal']}><Removal /></RequireRole>} />
           <Route path="/panel/centro" element={<RequireRole roles={['center']}><Center /></RequireRole>} />
           <Route path="/panel/evaluador" element={<RequireRole roles={['evaluator']}><Evaluator /></RequireRole>} />
           <Route path="/panel/destino" element={<RequireRole roles={['destination']}><Destination /></RequireRole>} />
           <Route path="/panel/supervisor" element={<RequireRole roles={['supervisor']}><Supervisor /></RequireRole>} />
+          <Route path="/panel/entidad" element={<RequireRole roles={['entity_admin']}><EntityAdmin /></RequireRole>} />
           <Route path="/admin/*" element={<RequireRole roles={['admin']}><Admin /></RequireRole>} />
           <Route path="*" element={<NotFound />} />
         </Routes>

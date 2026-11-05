@@ -1,8 +1,17 @@
 import type { Role, OriginEffectiveState, TripState, BatchState, OriginSize, OriginUrgency, Subcategory, WorkUseType, RejectionReason, StructureType, DebrisCause, EntityType, OriginPriority, SatisfactionAnswer, DispatchState } from './types';
 
-export const ROLES: Role[] = ['citizen', 'monitor', 'coordinator', 'removal', 'center', 'evaluator', 'supervisor', 'destination', 'admin'];
+export const ROLES: Role[] = ['citizen', 'monitor', 'coordinator', 'removal', 'center', 'evaluator', 'supervisor', 'destination', 'entity_admin', 'admin'];
 
-export const INSTITUTIONAL_ROLES: Role[] = ['coordinator', 'removal', 'center', 'evaluator', 'supervisor', 'destination', 'admin'];
+export const INSTITUTIONAL_ROLES: Role[] = ['coordinator', 'removal', 'center', 'evaluator', 'supervisor', 'destination', 'entity_admin', 'admin'];
+
+/**
+ * Roles que un administrador de entidad puede asignar a los usuarios de su entidad.
+ * No incluye evaluador (lo propone la entidad y lo activa Kindra), ni administrador.
+ */
+export const ENTITY_ASSIGNABLE_ROLES: Role[] = ['coordinator', 'removal', 'center', 'supervisor', 'destination'];
+
+/** Roles que solo el administrador principal de Kindra puede activar. */
+export const KINDRA_ONLY_ROLES: Role[] = ['admin', 'entity_admin', 'evaluator'];
 
 export const ROLE_LABELS: Record<Role, string> = {
   citizen: 'Ciudadano',
@@ -13,7 +22,8 @@ export const ROLE_LABELS: Record<Role, string> = {
   evaluator: 'Evaluador técnico',
   supervisor: 'Supervisor ambiental',
   destination: 'Destino final (obras)',
-  admin: 'Administrador',
+  entity_admin: 'Administrador de entidad',
+  admin: 'Administrador principal Kindra',
 };
 
 export const ROLE_HOME: Record<Role, string> = {
@@ -25,6 +35,7 @@ export const ROLE_HOME: Record<Role, string> = {
   evaluator: '/panel/evaluador',
   supervisor: '/panel/supervisor',
   destination: '/panel/destino',
+  entity_admin: '/panel/entidad',
   admin: '/admin',
 };
 
@@ -219,6 +230,10 @@ export const EVENT_TYPES = [
   'photo_retake_requested',
   'escalation_alert',
   'trip_arrival_late',
+  // administración (addendum, parte 3: toda acción del administrador queda como evento)
+  'admin_action',
+  'entity_admin_action',
+  'sector_announcement',
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -269,7 +284,66 @@ export const EVENT_LABELS: Record<EventType, string> = {
   photo_retake_requested: 'Se pidió repetir la foto',
   escalation_alert: 'Alerta de escalamiento',
   trip_arrival_late: 'Llegada tardía (discrepancia resuelta)',
+  admin_action: 'Acción del administrador principal',
+  entity_admin_action: 'Acción del administrador de entidad',
+  sector_announcement: 'Aviso comunitario al sector',
 };
+
+export const LEGAL_TYPE_LABELS: Record<'public_institution' | 'company', string> = {
+  public_institution: 'Institución pública',
+  company: 'Empresa',
+};
+
+// ---------------------------------------------------------------------------
+// Funciones activables (addendum: partes 1, 2 y 4)
+// ---------------------------------------------------------------------------
+
+export type FeatureGroup = 'debris' | 'later_phase' | 'hidden';
+
+export interface FeatureDefinition {
+  key: string;
+  label: string;
+  description: string;
+  group: FeatureGroup;
+  /** Valor por defecto en este módulo. */
+  defaultOn: boolean;
+  /**
+   * false = la función no está construida en esta instalación (vive en otro módulo o en una fase posterior).
+   * Su interruptor queda bloqueado en apagado.
+   */
+  available: boolean;
+}
+
+export const FEATURES: FeatureDefinition[] = [
+  // Funciones del módulo de escombros que el administrador principal puede apagar
+  { key: 'kindra_card', label: 'Tarjeta Kindra y QR personal', description: 'Tarjeta con QR personal e intransferible. Los puntos de escombros van al mismo saldo.', group: 'debris', defaultOn: true, available: true },
+  { key: 'achievements', label: 'Logros (dos capas)', description: 'Logros personales y logros comunitarios del sector.', group: 'debris', defaultOn: true, available: true },
+  { key: 'referrals', label: 'Referidos', description: 'Solo suman puntos cuando el primer reporte de la persona invitada se valida, nunca al registrarse.', group: 'debris', defaultOn: true, available: true },
+  { key: 'community_announcements', label: 'Avisos comunitarios por sector', description: 'Avisa a los vecinos de un sector cuando hay puntos asignados para retiro.', group: 'debris', defaultOn: true, available: true },
+  { key: 'preregistration', label: 'Códigos de pre-registro', description: 'Ingreso con código para personas sin teléfono. Oculto en esta fase.', group: 'debris', defaultOn: false, available: true },
+  // Fase posterior
+  { key: 'ai_photo_detection', label: 'Detección de escombro en fotos con IA', description: 'Con confirmación humana. Queda para una fase posterior; no forma parte de esta entrega.', group: 'later_phase', defaultOn: false, available: false },
+  // Ocultas en el módulo de escombros (addendum, parte 4)
+  { key: 'hero_subscription', label: 'Suscripción Kindra Hero', description: 'Nivel de pago. Este módulo es un servicio de interés público.', group: 'hidden', defaultOn: false, available: false },
+  { key: 'kindra_gift', label: 'Kindra Gift', description: 'Monetización, no aplica a escombros.', group: 'hidden', defaultOn: false, available: false },
+  { key: 'ad_spaces', label: 'Espacios de publicidad', description: 'No es apropiado en un módulo público posterior a un desastre.', group: 'hidden', defaultOn: false, available: false },
+  { key: 'semanas_locas', label: 'Semanas Locas', description: 'Premia volumen, lo que incentivaría reportes falsos.', group: 'hidden', defaultOn: false, available: false },
+  { key: 'payments', label: 'Pagos y precios', description: 'Sin incentivo económico en este módulo.', group: 'hidden', defaultOn: false, available: false },
+  { key: 'driver_tracking_map', label: 'Mapa de seguimiento de conductores en tiempo real', description: 'Sin seguimiento público de vehículos para escombros.', group: 'hidden', defaultOn: false, available: false },
+  { key: 'oil_module', label: 'Módulo de aceite de cocina usado', description: 'Se mantiene fuera de esta instalación en la fase 1.', group: 'hidden', defaultOn: false, available: false },
+];
+
+export const DEFAULT_FEATURES: Record<string, boolean> = Object.fromEntries(FEATURES.map((f) => [f.key, f.defaultOn && f.available]));
+
+/** Una función está activa solo si existe, está construida y el interruptor está encendido. */
+export function featureOn(features: Record<string, boolean> | undefined | null, key: string): boolean {
+  const def = FEATURES.find((f) => f.key === key);
+  if (!def || !def.available) return false;
+  const v = features?.[key];
+  return v === undefined ? def.defaultOn : !!v;
+}
+
+export const DEFAULT_SPACE_ID = 'sp_principal';
 
 export const KINDRA_TAGLINE = 'con tecnología Kindra';
 

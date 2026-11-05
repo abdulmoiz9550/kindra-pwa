@@ -20,7 +20,7 @@ export default function Vehicles() {
 function TypeList() {
   const q = useAdminList<VehicleType>('vehicle-types');
   const { post, del, busy } = useAdminAction();
-  const [editing, setEditing] = useState<{ id?: string; name: string; capacityM3: number; provisional: boolean } | null>(null);
+  const [editing, setEditing] = useState<{ id?: string; name: string; capacityM3: number | null; provisional: boolean } | null>(null);
   const save = async () => {
     if (!editing) return;
     const r = await post('vehicle-types', editing, 'Tipo guardado.');
@@ -37,7 +37,13 @@ function TypeList() {
           <li key={t.id}>
             <Card title={<span>{t.name} {t.provisional && <Provisional />}</span>} actions={<Button variant="ghost" size="sm" onClick={() => setEditing({ ...t })}>Editar</Button>}>
               <p className="text-2xl font-bold">
-                {t.capacityM3} <span className="text-base font-normal text-muted">m³ nominales</span>
+                {t.capacityM3 != null ? (
+                  <>
+                    {t.capacityM3} <span className="text-base font-normal text-muted">m³ nominales</span>
+                  </>
+                ) : (
+                  <span className="text-base font-normal text-muted">Sin capacidad registrada</span>
+                )}
               </p>
               <div className="mt-2">
                 <ConfirmButton label="Eliminar" variant="secondary" onConfirm={async () => {
@@ -56,8 +62,8 @@ function TypeList() {
             <Field label="Nombre" required>
               <Input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
             </Field>
-            <Field label="Capacidad nominal (m³)" required>
-              <Input type="number" min={0.1} step={0.1} value={editing.capacityM3} onChange={(e) => setEditing({ ...editing, capacityM3: Number(e.target.value) })} />
+            <Field label="Capacidad nominal (m³)" hint="Opcional. Los viajes se registran en la salida y en la llegada sin necesitarla; si se indica, solo sirve para un volumen marcado como estimado.">
+              <Input type="number" min={0.1} step={0.1} value={editing.capacityM3 ?? ''} onChange={(e) => setEditing({ ...editing, capacityM3: e.target.value === '' ? null : Number(e.target.value) })} />
             </Field>
             <label className="flex items-center gap-2 text-sm mb-4">
               <input type="checkbox" checked={editing.provisional} onChange={(e) => setEditing({ ...editing, provisional: e.target.checked })} /> Valor provisional
@@ -152,7 +158,8 @@ function VehicleList() {
                 <option value="">Elige un tipo</option>
                 {(types.data || []).map((t) => (
                   <option key={t.id} value={t.id}>
-                    {t.name} · {t.capacityM3} m³
+                    {t.name}
+                    {t.capacityM3 != null ? ` · ${t.capacityM3} m³` : ''}
                   </option>
                 ))}
               </Select>

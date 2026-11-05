@@ -12,6 +12,9 @@ import { getConfig } from './config';
 import { notify, notifyOrigin, notifyRole, pickText } from './notifications';
 import { refreshRecognition, maybeNotifySuspension, computePoints } from './points';
 import { env } from '../config/env';
+import { spaceOfSector } from './spaces';
+import { announceSectorAssigned } from './announcements';
+import { rewardReferrerIfFirstValidated } from './referrals';
 
 // ---------------------------------------------------------------- consultas
 
@@ -148,6 +151,7 @@ export function createCitizenReport(input: CitizenReportInput, actor: Actor): Ci
     source: input.source,
     possibleDuplicateOfId: possibleDuplicate?.id ?? null,
     clientKey: input.clientKey ?? null,
+    spaceId: spaceOfSector(sector.id),
   };
 
   appendEvent({ type: 'origin_registered', objectType: 'origin', objectId: origin.id, actor: { id: userId, role: 'citizen', entityId: null }, data: { origin }, deviceTime: input.deviceTime, offlineQueuedAt: input.offlineQueuedAt });
@@ -219,9 +223,11 @@ export function createInstitutionalOrigin(input: InstitutionalOriginInput, actor
     batchIds: [],
     workIds: [],
     source: 'institutional',
+    spaceId: spaceOfSector(sector.id),
   };
   appendEvent({ type: 'origin_registered', objectType: 'origin', objectId: origin.id, actor, data: { origin }, deviceTime: input.deviceTime });
   if (input.priority) notifyRole('removal', 'prioritized', pickText('notif_removal_prioritized', { número: 1, sector: sector.name }), { link: '/panel/retiro' });
+  announceSectorAssigned(sector.id);
   return store.get('origins', origin.id)!;
 }
 
@@ -235,7 +241,11 @@ export function validateOrigin(id: string, actor: Actor, priority?: OriginPriori
   const sector = sectorName(o.sectorId);
   notifyOrigin(o, 'validated', pickText('validated_notice', { código: o.code, sector }));
   if (priority) notifyRole('removal', 'prioritized', pickText('notif_removal_prioritized', { número: 1, sector }), { link: '/panel/retiro' });
-  if (o.reporterId) refreshRecognition(o.reporterId);
+  if (o.reporterId) {
+    refreshRecognition(o.reporterId);
+    rewardReferrerIfFirstValidated(o.reporterId, o.id);
+  }
+  announceSectorAssigned(o.sectorId);
   return db().get('origins', o.id)!;
 }
 

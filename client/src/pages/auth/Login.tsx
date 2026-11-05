@@ -5,7 +5,7 @@ import type { PublicUser, Role } from '@kindra/shared';
 import { ROLE_HOME, ROLE_LABELS } from '@kindra/shared';
 import { api, errorMessage } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
-import { usePublicConfig } from '../../lib/config';
+import { usePublicConfig, useFeature } from '../../lib/config';
 import { Alert, Button, Card, Field, Input, PageTitle, Tabs } from '../../components/ui';
 
 type Mode = 'password' | 'code';
@@ -17,7 +17,10 @@ export default function Login() {
   const qc = useQueryClient();
   const setSession = useAuth((s) => s.setSession);
   const { data: cfg } = usePublicConfig();
-  const [mode, setMode] = useState<Mode>('password');
+  // Addendum: el pre-registro por código queda oculto en esta fase (se enciende desde Funciones).
+  const preregOn = useFeature('preregistration');
+  const [modeState, setMode] = useState<Mode>('password');
+  const mode: Mode = preregOn ? modeState : 'password';
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
@@ -45,14 +48,16 @@ export default function Login() {
   return (
     <div className="max-w-md mx-auto">
       <PageTitle title="Ingresar" subtitle="Para avisar de un escombro no hace falta cuenta. La cuenta sirve para sumar puntos, disputar un retiro y usar roles institucionales." />
-      <Tabs
-        value={mode}
-        onChange={setMode}
-        items={[
-          { value: 'password', label: 'Alias y contraseña' },
-          { value: 'code', label: 'Código de pre-registro' },
-        ]}
-      />
+      {preregOn && (
+        <Tabs
+          value={mode}
+          onChange={setMode}
+          items={[
+            { value: 'password', label: 'Alias y contraseña' },
+            { value: 'code', label: 'Código de pre-registro' },
+          ]}
+        />
+      )}
       <Card className="mt-2">
         {mode === 'password' ? (
           <form

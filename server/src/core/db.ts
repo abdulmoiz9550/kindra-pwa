@@ -1,7 +1,7 @@
 import type {
   Entity, User, Sector, Origin, VehicleType, Vehicle, Trip, Center, Reception, Batch, HazardDecision,
   QualityVerification, Work, Dispatch, Closure, DailySummary, JobsRecord, Observation, Lesson, LessonCompletion,
-  MonitorRequest, Alert, Photo, Notification, AuraTextEntry, PreregistrationCode, KEvent, AppConfig,
+  MonitorRequest, Alert, Photo, Notification, AuraTextEntry, PreregistrationCode, KEvent, AppConfig, Space,
 } from '@kindra/shared';
 import type { Persistence } from '../persistence/types';
 
@@ -29,6 +29,13 @@ export interface Certificate {
   issuedAt: string;
 }
 
+export interface TwoFactorSecret {
+  id: string; // userId
+  secret: string | null;
+  pendingSecret: string | null;
+  updatedAt: string;
+}
+
 export interface Collections {
   entities: Entity;
   users: User;
@@ -44,6 +51,9 @@ export interface Collections {
   notifications: Notification;
   auraSessions: AuraSession;
   certificates: Certificate;
+  spaces: Space;
+  /** Secretos de verificación en dos pasos (nunca salen del servidor). */
+  twoFactorSecrets: TwoFactorSecret;
   // Proyecciones derivadas de eventos
   origins: Origin;
   trips: Trip;
@@ -72,7 +82,7 @@ export const PROJECTION_COLLECTIONS: CollectionName[] = [
 
 const ALL_COLLECTIONS: CollectionName[] = [
   'entities', 'users', 'sectors', 'centers', 'vehicleTypes', 'vehicles', 'lessons', 'auraTexts', 'config', 'photos',
-  'preregistrationCodes', 'notifications', 'auraSessions', 'certificates', ...PROJECTION_COLLECTIONS,
+  'preregistrationCodes', 'notifications', 'auraSessions', 'certificates', 'spaces', 'twoFactorSecrets', ...PROJECTION_COLLECTIONS,
 ];
 
 /**

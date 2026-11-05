@@ -17,6 +17,16 @@ import { completeLesson } from '../services/lessons';
 import { verifyOnSite, recordBeforeAfter } from '../services/monitor';
 import { runEscalations } from '../services/escalation';
 import { ensureCertificate, computePoints } from '../services/points';
+import { DEFAULT_SPACE_ID } from '@kindra/shared';
+import { ensureDefaultSpace } from '../services/spaces';
+import { newCardCode, newReferralCode } from '../services/referrals';
+import { seedTwoFactor } from '../services/twoFactor';
+
+/**
+ * Secreto conocido de la verificación en dos pasos del administrador principal de demostración.
+ * Solo existe en los datos de prueba; en modo demostración la pantalla muestra además el código vigente.
+ */
+export const DEMO_ADMIN_TOTP_SECRET = 'KINDRADEMOJESUS2FA234567';
 
 export const DEMO_PASSWORD = 'demo1234';
 const DAY = 86_400_000;
@@ -67,11 +77,13 @@ export async function seedDemo(): Promise<SeedSummary> {
   ensureDefaults();
   updateConfig({ demoMode: env.demoMode, branding: { entityName: 'Ente Coordinador', logoUrl: null, tagline: 'Trazabilidad del retiro de escombros en La Guaira: lo que se reporta se sigue hasta convertirse en otra obra pública.', provisional: true } });
 
-  // ---- Entidades (19.1) ----
-  const ent = (id: string, name: string, type: Entity['type'], description: string): Entity =>
-    store.put('entities', { id, name, type, description, logoUrl: null, active: true, publicationPolicy: { officialFigures: { mode: 'public' }, discrepancies: { mode: 'public' }, photos: { mode: 'public' }, observations: { mode: 'public' } } });
+  ensureDefaultSpace();
+
+  // ---- Entidades (19.1): personas jurídicas del convenio ----
+  const ent = (id: string, name: string, type: Entity['type'], description: string, legalType: Entity['legalType'] = 'public_institution'): Entity =>
+    store.put('entities', { id, name, type, description, logoUrl: null, active: true, legalType, taxId: null, spaceId: DEFAULT_SPACE_ID, publicationPolicy: { officialFigures: { mode: 'public' }, discrepancies: { mode: 'public' }, photos: { mode: 'public' }, observations: { mode: 'public' } } });
   const eCoord = ent('en_coord', 'Ente Coordinador', 'coordinating', 'Coordina el registro, la validación y la priorización del retiro de escombros.');
-  const eEjec = ent('en_ejec', 'Ente Ejecutor', 'removal', 'Ejecuta el retiro de escombros con camiones y los lleva a los centros de disposición.');
+  const eEjec = ent('en_ejec', 'Ente Ejecutor', 'removal', 'Ejecuta el retiro de escombros con camiones y los lleva a los centros de disposición.', 'company');
   const eNorte = ent('en_cnorte', 'Centro de Disposición Norte', 'center', 'Centro de disposición temporal: recibe, clasifica y tritura el escombro.');
   const eSur = ent('en_csur', 'Centro de Disposición Sur', 'center', 'Centro de disposición temporal: recibe, clasifica y tritura el escombro.');
   const eFinal = ent('en_cfinal', 'Centro de Disposición Final', 'center', 'Recibe el material que no puede aprovecharse.');
@@ -80,7 +92,7 @@ export async function seedDemo(): Promise<SeedSummary> {
   const eObras = ent('en_obras', 'Ente de Obras', 'destination', 'Usa el agregado reciclado en obras públicas y registra su uso.');
 
   // ---- Sectores provisionales (19.2) alrededor del litoral de La Guaira ----
-  const sec = (id: string, name: string, poly: [number, number][]): Sector => store.put('sectors', { id, name, parish: 'Parroquia piloto (provisional)', polygon: poly, authorized: true, provisional: true });
+  const sec = (id: string, name: string, poly: [number, number][]): Sector => store.put('sectors', { id, name, parish: 'Parroquia piloto (provisional)', polygon: poly, authorized: true, provisional: true, spaceId: DEFAULT_SPACE_ID });
   const sA = sec('sc_a', 'Sector A (provisional)', [[10.6080, -66.9700], [10.6080, -66.9560], [10.5990, -66.9560], [10.5990, -66.9700]]);
   const sB = sec('sc_b', 'Sector B (provisional)', [[10.6080, -66.9560], [10.6080, -66.9420], [10.5990, -66.9420], [10.5990, -66.9560]]);
   const sC = sec('sc_c', 'Sector C (provisional)', [[10.5990, -66.9700], [10.5990, -66.9560], [10.5900, -66.9560], [10.5900, -66.9700]]);
@@ -112,9 +124,10 @@ export async function seedDemo(): Promise<SeedSummary> {
   // ---- Usuarios de prueba, uno por rol (19.3) ----
   const hash = hashPassword(DEMO_PASSWORD);
   const usr = (id: string, alias: string, name: string, roles: Role[], extra: Partial<User> = {}): User =>
-    store.put('users', { id, alias, name, phone: extra.phone, roles, entityId: extra.entityId ?? null, centerId: extra.centerId ?? null, sectorId: extra.sectorId ?? null, passwordHash: hash, verificationStatus: roles.some((r) => r !== 'citizen') ? 'verified' : 'not_required', selfiePhotoId: null, active: true, createdAt: nowIso(), isDemo: true, ...extra });
+    store.put('users', { id, alias, name, phone: extra.phone, roles, entityId: extra.entityId ?? null, centerId: extra.centerId ?? null, sectorId: extra.sectorId ?? null, passwordHash: hash, verificationStatus: roles.some((r) => r !== 'citizen') ? 'verified' : 'not_required', selfiePhotoId: null, active: true, createdAt: nowIso(), isDemo: true, spaceId: DEFAULT_SPACE_ID, cardCode: newCardCode(), referralCode: newReferralCode(), referredBy: null, proposedRoles: [], ...extra });
   const uCiud = usr('us_ciudadano', 'ciudadano', 'Carlos Demo', ['citizen'], { sectorId: sA.id, phone: '04140000001' });
-  const uVecina = usr('us_vecina', 'vecina', 'María Demo', ['citizen'], { sectorId: sB.id, phone: '04140000002', verificationStatus: 'verified' });
+  // María llegó invitada por Carlos: Carlos suma puntos solo cuando el primer reporte de María se valida.
+  const uVecina = usr('us_vecina', 'vecina', 'María Demo', ['citizen'], { sectorId: sB.id, phone: '04140000002', verificationStatus: 'verified', referredBy: 'us_ciudadano' });
   const uContra = usr('us_contralor', 'contralora', 'Ana Demo', ['citizen', 'monitor'], { sectorId: sA.id, phone: '04140000003', verificationStatus: 'verified' });
   const uCoord = usr('us_coordinador', 'coordinador', 'Luis Coordinación', ['coordinator'], { entityId: eCoord.id });
   const uRetiro = usr('us_retiro', 'retiro', 'Pedro Retiro', ['removal'], { entityId: eEjec.id });
@@ -123,7 +136,14 @@ export async function seedDemo(): Promise<SeedSummary> {
   const uEval = usr('us_evaluador', 'evaluador', 'Ing. Elena Técnica', ['evaluator'], { entityId: eTec.id });
   const uSup = usr('us_supervisor', 'supervisor', 'Sofía Supervisión', ['supervisor'], { entityId: eSup.id });
   const uObras = usr('us_obras', 'obras', 'Miguel Obras', ['destination'], { entityId: eObras.id });
-  usr('us_admin', 'admin', 'Administración', ['admin'], { entityId: eCoord.id });
+  // Administrador principal de Kindra: uno solo, con verificación en dos pasos (addendum, parte 3).
+  usr('us_admin', 'admin', 'Jesús (Kindra)', ['admin'], { entityId: eCoord.id });
+  seedTwoFactor('us_admin', DEMO_ADMIN_TOTP_SECRET);
+  // Administrador de entidad: designado por escrito por el Ente Ejecutor y activado por Kindra.
+  usr('us_admin_ejecutor', 'admin-ejecutor', 'Laura Administración Ejecutor', ['entity_admin'], {
+    entityId: eEjec.id,
+    appointment: { documentRef: 'Oficio de designación EE-2026-014 (provisional)', documentPhotoId: null, appointedAt: nowIso(), activatedBy: 'us_admin', activatedAt: nowIso() },
+  });
   store.put('preregistrationCodes', { code: 'PR-DEMO01', alias: 'vecino-sin-telefono', used: false, userId: null, createdAt: nowIso() } as never);
 
   const actor = (u: User, role: Role): Actor => ({ id: u.id, role, entityId: u.entityId ?? null });

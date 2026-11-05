@@ -1,5 +1,5 @@
 import type { Entity, User, Sector, Center, VehicleType, Vehicle, Lesson, AuraTextEntry, Role, PreregistrationCode, TransitionRule, AppConfig } from '@kindra/shared';
-import { INSTITUTIONAL_ROLES, CODE_ALPHABET } from '@kindra/shared';
+import { INSTITUTIONAL_ROLES, CODE_ALPHABET, DEFAULT_SPACE_ID } from '@kindra/shared';
 import { customAlphabet } from 'nanoid';
 import { db, type CollectionName } from '../core/db';
 import { newId, nowIso } from '../core/ids';
@@ -7,6 +7,10 @@ import { badRequest, conflict, notFound } from '../core/errors';
 import { hashPassword } from './auth';
 import { containsForbiddenExpression } from './notifications';
 import { updateConfig } from './config';
+import { withFixedGates } from '../core/transitions';
+import { DEFAULT_TRANSITIONS } from '../config/transitions';
+import { assertSpace } from './spaces';
+import { newCardCode, newReferralCode } from './referrals';
 
 const DEFAULT_POLICY = { officialFigures: { mode: 'public' }, discrepancies: { mode: 'public' }, photos: { mode: 'public' }, observations: { mode: 'public' } } as Entity['publicationPolicy'];
 
@@ -23,6 +27,9 @@ export function upsertEntity(input: Partial<Entity> & { name: string; type: Enti
     logoUrl: input.logoUrl ?? existing?.logoUrl ?? null,
     publicationPolicy: input.publicationPolicy || existing?.publicationPolicy || structuredClone(DEFAULT_POLICY),
     active: input.active ?? existing?.active ?? true,
+    legalType: input.legalType !== undefined ? input.legalType : existing?.legalType ?? 'public_institution',
+    taxId: input.taxId !== undefined ? input.taxId?.trim() || null : existing?.taxId ?? null,
+    spaceId: assertSpace(input.spaceId !== undefined ? input.spaceId : existing?.spaceId),
   };
   if (!entity.name || !entity.description) throw badRequest('Nombre y descripción pública son obligatorios.');
   return store.put('entities', entity);
@@ -42,11 +49,31 @@ export interface UserInput {
   password?: string;
   active?: boolean;
   verificationStatus?: User['verificationStatus'];
+  spaceId?: string | null;
+  /** Referencia del documento de designación (obligatoria para administrador de entidad). */
+  appointmentDocumentRef?: string | null;
+  appointmentPhotoId?: string | null;
 }
 
-export function upsertUser(input: UserInput): User {
+/** Quién está creando o editando: el administrador principal (Kindra) o un administrador de entidad. */
+export interface UserEditor {
+  id: string;
+  kind: 'kindra' | 'entity_admin';
+  entityId?: string | null;
+}
+
+export function upsertUser(input: UserInput, editor?: UserEditor): User {
   const store = db();
   const existing = input.id ? store.get('users', input.id) : undefined;
+  if (input.id && !existing) throw notFound('El usuario no existe.');
+  // Administrador principal: solo uno (addendum, parte 3: "solo Jesús").
+  if (input.roles.includes('admin')) {
+    const other = store.find('users', (u) => u.active && u.roles.includes('admin') && u.id !== existing?.id);
+    if (other) throw conflict(`Ya existe un administrador principal (${other.alias}). Solo puede haber uno.`, 'single_main_admin');
+  }
+  // Administrador de entidad: designado por escrito por la institución y activado por Kindra.
+  const becomesEntityAdmin = input.roles.includes('entity_admin') && !existing?.roles.includes('entity_admin');
+  if (becomesEntityAdmin && !input.appointmentDocumentRef?.trim()) throw badRequest('Indica la referencia del documento de designación por escrito de la institución.', 'appointment_required');
   const alias = input.alias.trim();
   if (alias.length < 3) throw badRequest('El alias debe tener al menos 3 caracteres.');
   const clash = store.find('users', (u) => u.alias.toLowerCase() === alias.toLowerCase() && u.id !== existing?.id);
@@ -74,8 +101,49 @@ export function upsertUser(input: UserInput): User {
     active: input.active ?? existing?.active ?? true,
     createdAt: existing?.createdAt || nowIso(),
     isDemo: existing?.isDemo,
+    spaceId: assertSpace(input.spaceId !== undefined ? input.spaceId : existing?.spaceId ?? (input.entityId ? store.get('entities', input.entityId)?.spaceId : null) ?? DEFAULT_SPACE_ID),
+    cardCode: existing?.cardCode || newCardCode(),
+    referralCode: existing?.referralCode || newReferralCode(),
+    referredBy: existing?.referredBy ?? null,
+    proposedRoles: (existing?.proposedRoles || []).filter((p) => !input.roles.includes(p.role)),
+    twoFactor: existing?.twoFactor ?? null,
+    appointment: becomesEntityAdmin
+      ? { documentRef: input.appointmentDocumentRef!.trim(), documentPhotoId: input.appointmentPhotoId ?? null, appointedAt: nowIso(), activatedBy: editor?.id || 'kindra', activatedAt: nowIso() }
+      : input.roles.includes('entity_admin')
+        ? existing?.appointment ?? null
+        : null,
   };
   return store.put('users', user);
+}
+
+/** Usuario sin datos sensibles (hash de contraseña). Los secretos de dos pasos viven en otra colección. */
+export function stripUser(u: User): Omit<User, 'passwordHash'> {
+  const { passwordHash: _p, ...rest } = u;
+  return rest;
+}
+
+// ---------------------------------------------------------------- propuestas de rol (evaluadores)
+
+/** Kindra activa un rol propuesto por la entidad (evaluadores: addendum, parte 3). */
+export function activateProposedRole(userId: string, role: Role): User {
+  const store = db();
+  const u = store.get('users', userId);
+  if (!u) throw notFound('El usuario no existe.');
+  const proposal = (u.proposedRoles || []).find((p) => p.role === role);
+  if (!proposal) throw notFound('No hay una propuesta pendiente de ese rol para este usuario.');
+  return store.update('users', userId, {
+    roles: [...new Set([...u.roles, role])],
+    proposedRoles: (u.proposedRoles || []).filter((p) => p.role !== role),
+    verificationStatus: u.verificationStatus === 'not_required' ? 'pending' : u.verificationStatus,
+  });
+}
+
+export function rejectProposedRole(userId: string, role: Role): User {
+  const store = db();
+  const u = store.get('users', userId);
+  if (!u) throw notFound('El usuario no existe.');
+  if (!(u.proposedRoles || []).some((p) => p.role === role)) throw notFound('No hay una propuesta pendiente de ese rol.');
+  return store.update('users', userId, { proposedRoles: (u.proposedRoles || []).filter((p) => p.role !== role) });
 }
 
 export function setVerification(userId: string, status: User['verificationStatus']): User {
@@ -85,7 +153,7 @@ export function setVerification(userId: string, status: User['verificationStatus
 }
 
 export function listUsersPublic(): Omit<User, 'passwordHash'>[] {
-  return db().list('users').map(({ passwordHash: _p, ...u }) => u);
+  return db().list('users').map(stripUser);
 }
 
 // ---------------------------------------------------------------- sectores, centros, vehículos
@@ -95,7 +163,7 @@ export function upsertSector(input: Partial<Sector> & { name: string; polygon: [
   const existing = input.id ? store.get('sectors', input.id) : undefined;
   if (!input.name?.trim()) throw badRequest('El nombre del sector es obligatorio.');
   if (!Array.isArray(input.polygon) || input.polygon.length < 3) throw badRequest('El polígono necesita al menos tres puntos.');
-  return store.put('sectors', { id: existing?.id || newId('sc'), name: input.name.trim(), parish: input.parish?.trim() || existing?.parish || '', polygon: input.polygon, authorized: input.authorized ?? existing?.authorized ?? true, provisional: input.provisional ?? existing?.provisional ?? false });
+  return store.put('sectors', { id: existing?.id || newId('sc'), name: input.name.trim(), parish: input.parish?.trim() || existing?.parish || '', polygon: input.polygon, authorized: input.authorized ?? existing?.authorized ?? true, provisional: input.provisional ?? existing?.provisional ?? false, spaceId: assertSpace(input.spaceId !== undefined ? input.spaceId : existing?.spaceId) });
 }
 
 export function upsertCenter(input: Partial<Center> & { name: string; type: Center['type']; sectorId: string; entityId: string }): Center {
@@ -107,11 +175,13 @@ export function upsertCenter(input: Partial<Center> & { name: string; type: Cent
   return store.put('centers', { id: existing?.id || newId('ce'), name: input.name.trim(), shortCode, type: input.type, sectorId: input.sectorId, entityId: input.entityId, location: input.location ?? existing?.location ?? null });
 }
 
-export function upsertVehicleType(input: Partial<VehicleType> & { name: string; capacityM3: number }): VehicleType {
+export function upsertVehicleType(input: Partial<VehicleType> & { name: string; capacityM3?: number | null }): VehicleType {
   const store = db();
   const existing = input.id ? store.get('vehicleTypes', input.id) : undefined;
-  if (!(input.capacityM3 > 0)) throw badRequest('La capacidad nominal debe ser mayor que cero.');
-  return store.put('vehicleTypes', { id: existing?.id || newId('vt'), name: input.name.trim(), capacityM3: input.capacityM3, provisional: input.provisional ?? existing?.provisional ?? false });
+  // Addendum, parte 2: la capacidad del camión no es obligatoria. Si se indica, solo sirve para un volumen estimado.
+  const cap = input.capacityM3 === undefined ? existing?.capacityM3 ?? null : input.capacityM3;
+  if (cap !== null && !(cap > 0)) throw badRequest('Si indicas la capacidad nominal, debe ser mayor que cero.');
+  return store.put('vehicleTypes', { id: existing?.id || newId('vt'), name: input.name.trim(), capacityM3: cap, provisional: input.provisional ?? existing?.provisional ?? false });
 }
 
 const qrSuffix = customAlphabet(CODE_ALPHABET, 6);
@@ -181,7 +251,8 @@ export function updateTransitions(rules: TransitionRule[]): AppConfig {
   for (const r of rules) {
     if (!['origin', 'trip', 'batch'].includes(r.object) || !r.action || !Array.isArray(r.from) || !r.to || !Array.isArray(r.roles)) throw badRequest('Regla de transición inválida.');
   }
-  return updateConfig({ transitions: rules });
+  // Compuertas fijas (addendum, parte 3): se restauran siempre; no se pueden quitar de la tabla.
+  return updateConfig({ transitions: withFixedGates(rules, DEFAULT_TRANSITIONS) });
 }
 
 export function deleteDocument(col: CollectionName, id: string): void {

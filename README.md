@@ -35,9 +35,34 @@ Con `DB_DRIVER=memory` (valor por defecto) todo el estado vive en memoria y se v
 | Evaluador técnico | `evaluador` |
 | Supervisor ambiental | `supervisor` |
 | Destino final (obras) | `obras` |
-| Administrador | `admin` |
+| Administrador de entidad (Ente Ejecutor) | `admin-ejecutor` |
+| Administrador principal Kindra (Jesús) | `admin` |
 
-En modo demo, el selector de la cabecera cambia de rol con un toque (19.3). Código de pre-registro de ejemplo para personas sin teléfono: `PR-DEMO01`.
+En modo demo, el selector de la cabecera cambia de rol con un toque (19.3). Código de pre-registro de ejemplo para personas sin teléfono: `PR-DEMO01` (el pre-registro está oculto en esta fase; se enciende en Administración → Funciones).
+
+El administrador principal entra con verificación en dos pasos. En modo demostración, y solo para usuarios de prueba, la pantalla del código muestra el código vigente. El secreto de prueba es `KINDRADEMOJESUS2FA234567` si se quiere cargar en una aplicación de autenticación.
+
+## Addendum del módulo de escombros (4 nov 2026)
+
+| Función | Dónde |
+|---|---|
+| Tarjeta Kindra con QR personal e intransferible | `/tarjeta`; verificación pública en `/publico/tarjeta/:código` |
+| Logros en dos capas (personales y del sector) | Perfil |
+| Referidos: puntos solo con el primer reporte validado del invitado | Perfil; registro con `?ref=INV-…` |
+| Avisos comunitarios por sector | Automáticos al validar puntos (uno por sector y día); manuales en Coordinación → Avisos al sector |
+| Compuertas fijas 7.2, 7.3, 7.4 y 4.1 | Se exigen en el código; Administración → Estados las muestra con candado |
+| Niveles de administración | Administrador principal (único, dos pasos, cada acción es un evento) y administrador de entidad en `/panel/entidad` |
+| Evaluadores propuestos por la entidad y activados por Kindra | Panel de entidad → Proponer; Administración → Usuarios → Propuestas de rol |
+| Espacios por convenio | Administración → Espacios; se asignan en Entidades, Usuarios y Sectores |
+| Funciones activables y ocultas | Administración → Funciones |
+| Bitácora de administración con verificación de integridad | Administración → Bitácora de administración |
+| Capacidad de camión opcional | Administración → Vehículos; el volumen siempre se marca como estimado |
+
+Si el administrador pierde el teléfono de la verificación en dos pasos, en el servidor:
+
+```bash
+npm run reset-2fa -w server -- admin
+```
 
 QR de vehículos de prueba: `KV-DEMO01` … `KV-DEMO05` (también descargables desde Administración → Vehículos).
 

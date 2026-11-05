@@ -31,4 +31,4 @@ export function hasRole(role: Role): boolean {
   return !!u && u.roles.includes(role);
 }
 
-export const INSTITUTIONAL: Role[] = ['coordinator', 'removal', 'center', 'evaluator', 'supervisor', 'destination', 'admin'];
+export const INSTITUTIONAL: Role[] = ['coordinator', 'removal', 'center', 'evaluator', 'supervisor', 'destination', 'entity_admin', 'admin'];

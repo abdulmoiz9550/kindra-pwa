@@ -9,6 +9,8 @@ export interface AuthInfo {
   user: User;
   role: Role;
   actor: Actor;
+  /** La sesión completó la verificación en dos pasos. */
+  mfa: boolean;
 }
 
 declare module 'express-serve-static-core' {
@@ -32,7 +34,7 @@ export function authenticate(req: Request, _res: Response, next: NextFunction): 
       const user = db().get('users', payload.userId);
       if (user && user.active) {
         const role = user.roles.includes(payload.activeRole) ? payload.activeRole : user.roles[0];
-        req.auth = { user, role, actor: { id: user.id, role, entityId: user.entityId ?? null } };
+        req.auth = { user, role, actor: { id: user.id, role, entityId: user.entityId ?? null }, mfa: !!payload.mfa && !!user.twoFactor?.enabled };
       }
     }
   }
@@ -49,13 +51,26 @@ export function requireRole(...roles: Role[]): RequestHandler {
   return (req, _res, next) => {
     if (!req.auth) return next(unauthorized());
     if (!roles.includes(req.auth.role)) return next(forbidden(`Esta acción requiere el rol: ${roles.join(' o ')}.`));
-    const institutional: Role[] = ['coordinator', 'removal', 'center', 'evaluator', 'supervisor', 'destination', 'admin', 'monitor'];
+    const institutional: Role[] = ['coordinator', 'removal', 'center', 'evaluator', 'supervisor', 'destination', 'entity_admin', 'admin', 'monitor'];
     if (institutional.includes(req.auth.role) && req.auth.user.verificationStatus !== 'verified') {
       return next(forbidden('Debes completar la verificación de identidad para usar este rol.'));
     }
     next();
   };
 }
+
+/**
+ * Administrador principal de Kindra (addendum, parte 3): rol admin, identidad verificada
+ * y sesión con verificación en dos pasos completada.
+ */
+export const requireMainAdmin: RequestHandler[] = [
+  requireRole('admin'),
+  (req, _res, next) => {
+    if (!req.auth!.user.twoFactor?.enabled) return next(new HttpError(403, 'Activa la verificación en dos pasos para usar la administración principal.', 'mfa_setup_required'));
+    if (!req.auth!.mfa) return next(new HttpError(403, 'Confirma el código de tu aplicación de verificación para continuar.', 'mfa_required'));
+    next();
+  },
+];
 
 /** Actor ciudadano (con cuenta o anónimo) para rutas abiertas. */
 export function citizenActor(req: Request): Actor {

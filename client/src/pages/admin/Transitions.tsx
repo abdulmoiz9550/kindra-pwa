@@ -1,13 +1,25 @@
 import { useEffect, useState } from 'react';
 import type { TransitionRule } from '@kindra/shared';
-import { Card, Button, Spinner, Alert, Modal, Field, Input, Select, Textarea } from '../../components/ui';
+import { Lock } from 'lucide-react';
+import { Card, Button, Spinner, Alert, Modal, Field, Input, Select, Textarea, Badge } from '../../components/ui';
 import { Section, useAdminGet, useAdminAction } from './shared';
 
 const OBJECT_LABEL = { origin: 'Origen', trip: 'Viaje', batch: 'Lote' } as const;
 
+interface FixedGate {
+  object: TransitionRule['object'];
+  action: string;
+  conditions: string[];
+  rule: string;
+}
+
 /** 3.3: tabla de transiciones. El servidor valida cada cambio de estado contra esta tabla. */
 export default function Transitions() {
   const q = useAdminGet<TransitionRule[]>('transitions');
+  const fixedQ = useAdminGet<FixedGate[]>('transitions/fixed');
+  const fixed = fixedQ.data || [];
+  const gateOf = (r: Pick<TransitionRule, 'object' | 'action'>) => fixed.find((g) => g.object === r.object && g.action === r.action);
+  const fixedCount = (r: TransitionRule) => rules?.filter((x) => x.object === r.object && x.action === r.action).length ?? 0;
   const { put, busy } = useAdminAction();
   const [rules, setRules] = useState<TransitionRule[] | null>(null);
   const [editing, setEditing] = useState<{ index: number; rule: TransitionRule } | null>(null);
@@ -21,6 +33,9 @@ export default function Transitions() {
   };
   const commit = () => {
     if (!editing) return;
+    // Las condiciones fijas no se pueden quitar: se reponen al aplicar.
+    const gate = gateOf(editing.rule);
+    if (gate) editing.rule.conditions = [...new Set([...editing.rule.conditions, ...gate.conditions])];
     const next = [...rules];
     if (editing.index >= 0) next[editing.index] = editing.rule;
     else next.push(editing.rule);
@@ -43,6 +58,9 @@ export default function Transitions() {
         </div>
       }
     >
+      <Alert tone="warn" className="mb-3" title="Compuertas fijas">
+        Las reglas 7.2, 7.3, 7.4 y "nadie valida ni recibe lo que reportó" (4.1) están en el código y no se pueden quitar de esta tabla, ni siquiera por el administrador principal. Aparecen con candado; si se borran o se quitan sus condiciones, el servidor las repone al guardar.
+      </Alert>
       <Alert tone="info" className="mb-3">
         Condiciones disponibles: zoneAuthorized (7.2), notOwnReport (4.1), isReporter, notAnonymous, allHazardDecided (7.3), qualityApproved (7.4), sameCenter, hasEvidence, notHeld. Destinos especiales: "previous" (vuelve al estado anterior) y "a|b" (el servicio decide entre dos).
       </Alert>
@@ -71,12 +89,37 @@ export default function Transitions() {
                       <td className="text-xs">{r.from.join(', ')}</td>
                       <td className="text-xs font-semibold">{r.to}</td>
                       <td className="text-xs">{r.roles.join(', ')}</td>
-                      <td className="text-xs">{r.conditions.join(', ') || '—'}</td>
+                      <td className="text-xs">
+                        {r.conditions.length === 0 && '—'}
+                        {r.conditions.map((c) => {
+                          const locked = gateOf(r)?.conditions.includes(c);
+                          return (
+                            <span key={c} className="inline-flex items-center gap-0.5 mr-1">
+                              {locked && <Lock size={11} aria-label="condición fija" />}
+                              {c}
+                            </span>
+                          );
+                        })}
+                        {gateOf(r) && (
+                          <span className="block mt-1">
+                            <Badge tone="warn" icon={false}>
+                              Compuerta fija {gateOf(r)!.rule}
+                            </Badge>
+                          </span>
+                        )}
+                      </td>
                       <td className="text-right whitespace-nowrap">
                         <Button variant="ghost" size="sm" onClick={() => setEditing({ index: i, rule: structuredClone(r) })}>
                           Editar
                         </Button>
-                        <Button variant="ghost" size="sm" onClick={() => setRules(rules.filter((_, j) => j !== i))} aria-label={`Quitar regla ${r.action}`}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={!!gateOf(r) && fixedCount(r) <= 1}
+                          title={gateOf(r) && fixedCount(r) <= 1 ? 'Regla con compuerta fija: no se puede quitar' : undefined}
+                          onClick={() => setRules(rules.filter((_, j) => j !== i))}
+                          aria-label={`Quitar regla ${r.action}`}
+                        >
                           Quitar
                         </Button>
                       </td>
@@ -111,7 +154,7 @@ export default function Transitions() {
               <Field label="Roles (separados por coma)" required>
                 <Input value={editing.rule.roles.join(', ')} onChange={(e) => setEditing({ ...editing, rule: { ...editing.rule, roles: list(e.target.value) as TransitionRule['roles'] } })} placeholder="coordinator, system" />
               </Field>
-              <Field label="Condiciones (separadas por coma)">
+              <Field label="Condiciones (separadas por coma)" hint={gateOf(editing.rule) ? `Fijas, se reponen siempre: ${gateOf(editing.rule)!.conditions.join(', ')}` : undefined}>
                 <Input value={editing.rule.conditions.join(', ')} onChange={(e) => setEditing({ ...editing, rule: { ...editing.rule, conditions: list(e.target.value) } })} />
               </Field>
             </div>

@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import type { Sector } from '@kindra/shared';
-import { Card, Button, Field, Input, Badge, Modal, Spinner, Provisional } from '../../components/ui';
+import type { Sector, Space } from '@kindra/shared';
+import { Card, Button, Field, Input, Badge, Modal, Spinner, Provisional, Select } from '../../components/ui';
 import { MapView } from '../../components/MapView';
 import { Section, useAdminList, useAdminAction } from './shared';
 
@@ -11,12 +11,14 @@ interface Draft {
   polygon: [number, number][];
   authorized: boolean;
   provisional: boolean;
+  spaceId: string | null;
 }
 
-const EMPTY: Draft = { name: '', parish: '', polygon: [], authorized: true, provisional: false };
+const EMPTY: Draft = { name: '', parish: '', polygon: [], authorized: true, provisional: false, spaceId: null };
 
 export default function Sectors() {
   const q = useAdminList<Sector>('sectors');
+  const spaces = useAdminList<Space>('spaces');
   const { post, busy } = useAdminAction();
   const [editing, setEditing] = useState<Draft | null>(null);
   const save = async () => {
@@ -44,7 +46,7 @@ export default function Sectors() {
               }
               subtitle={s.parish}
               actions={
-                <Button variant="ghost" size="sm" onClick={() => setEditing({ id: s.id, name: s.name, parish: s.parish, polygon: s.polygon, authorized: s.authorized, provisional: !!s.provisional })}>
+                <Button variant="ghost" size="sm" onClick={() => setEditing({ id: s.id, name: s.name, parish: s.parish, polygon: s.polygon, authorized: s.authorized, provisional: !!s.provisional, spaceId: s.spaceId ?? null })}>
                   Editar
                 </Button>
               }
@@ -66,6 +68,16 @@ export default function Sectors() {
               </Field>
               <Field label="Parroquia">
                 <Input value={editing.parish} onChange={(e) => setEditing({ ...editing, parish: e.target.value })} />
+              </Field>
+              <Field label="Espacio (convenio)" hint="Los reportes de este sector quedan vinculados a este espacio.">
+                <Select value={editing.spaceId || ''} onChange={(e) => setEditing({ ...editing, spaceId: e.target.value || null })}>
+                  <option value="">Espacio principal</option>
+                  {(spaces.data || []).map((sp) => (
+                    <option key={sp.id} value={sp.id}>
+                      {sp.name}
+                    </option>
+                  ))}
+                </Select>
               </Field>
             </div>
             <div className="flex flex-wrap gap-4 mb-3 text-sm">

@@ -18,8 +18,9 @@ export function findVehicle(ref: { vehicleId?: string | null; vehicleQr?: string
 
 /** 7.8: capacidad nominal × 1 (lleno o sin dato) o × 0.5 (medio). Siempre "estimado". */
 export function estimatedVolume(vehicle: Vehicle, fillLevel?: FillLevel | null): number | null {
+  // Sin capacidad registrada no hay estimado: el viaje se registra igual en ambos extremos (addendum, parte 2).
   const type = db().get('vehicleTypes', vehicle.typeId);
-  if (!type) return null;
+  if (!type || type.capacityM3 == null) return null;
   return Math.round(type.capacityM3 * (fillLevel === 'half' ? 0.5 : 1) * 100) / 100;
 }
 

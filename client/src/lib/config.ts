@@ -27,8 +27,16 @@ export interface PublicConfig {
     roles: Record<string, string>;
   };
   provisionalFlags: Record<string, boolean>;
+  /** Estado efectivo de las funciones activables del módulo (addendum). */
+  features?: Record<string, boolean>;
 }
 
 export function usePublicConfig() {
   return useQuery({ queryKey: ['public', 'config'], queryFn: () => api.get<PublicConfig>('/public/config'), staleTime: 60_000 });
+}
+
+/** true si la función está encendida. Mientras carga la configuración, se trata como apagada. */
+export function useFeature(key: string): boolean {
+  const { data } = usePublicConfig();
+  return !!data?.features?.[key];
 }

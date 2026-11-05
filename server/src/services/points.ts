@@ -17,6 +17,9 @@ export interface PointsSummary {
   confirmedRemovals: number;
   lessonsCompleted: number;
   onSiteVerifications: number;
+  validatedReferrals: number;
+  /** Momento en que se sumó cada hecho, por contador (para fechar los logros). */
+  milestones: Record<'closedReports' | 'validatedReports' | 'confirmedRemovals' | 'lessonsCompleted' | 'onSiteVerifications' | 'validatedReferrals', string[]>;
 }
 
 /**
@@ -31,7 +34,15 @@ export function computePoints(userId: string): PointsSummary {
   let points = 0;
   let consecutive = 0;
   let suspendedUntil: string | null = null;
-  const counters = { closedReports: 0, validatedReports: 0, confirmedRemovals: 0, lessonsCompleted: 0, onSiteVerifications: 0 };
+  const counters = { closedReports: 0, validatedReports: 0, confirmedRemovals: 0, lessonsCompleted: 0, onSiteVerifications: 0, validatedReferrals: 0 };
+  const milestones: PointsSummary['milestones'] = { closedReports: [], validatedReports: [], confirmedRemovals: [], lessonsCompleted: [], onSiteVerifications: [], validatedReferrals: [] };
+  const bump = (k: keyof typeof counters, at: string) => {
+    counters[k]++;
+    milestones[k].push(at);
+  };
+  // Referidos: solo cuenta el primer reporte validado de cada persona invitada (nunca el registro).
+  const invited = new Set(store.filter('users', (u) => u.referredBy === userId).map((u) => u.id));
+  const firstValidatedSeen = new Set<string>();
 
   const add = (at: string, delta: number, reason: string) => {
     const suspended = !!suspendedUntil && at < suspendedUntil && delta > 0;
@@ -47,8 +58,15 @@ export function computePoints(userId: string): PointsSummary {
         const o = store.get('origins', e.objectId);
         if (o?.reporterId === userId && !o.anonymous) {
           consecutive = 0;
-          counters.validatedReports++;
+          bump('validatedReports', e.serverTime);
           add(e.serverTime, p.reportValidated, 'Reporte validado por el coordinador');
+        }
+        if (o?.reporterId && !o.anonymous && !firstValidatedSeen.has(o.reporterId)) {
+          firstValidatedSeen.add(o.reporterId);
+          if (invited.has(o.reporterId)) {
+            bump('validatedReferrals', e.serverTime);
+            add(e.serverTime, p.referralValidated, 'Primer reporte validado de una persona que invitaste');
+          }
         }
         break;
       }
@@ -71,7 +89,7 @@ export function computePoints(userId: string): PointsSummary {
         const c = store.get('closures', d.closureId);
         const o = c ? store.get('origins', c.originId) : undefined;
         if (o?.reporterId === userId && !o.anonymous) {
-          counters.confirmedRemovals++;
+          bump('confirmedRemovals', e.serverTime);
           add(e.serverTime, p.removalConfirmed, 'Retiro confirmado por el ciudadano');
         }
         break;
@@ -79,21 +97,21 @@ export function computePoints(userId: string): PointsSummary {
       case 'final_closure_sent': {
         const o = store.get('origins', e.objectId);
         if (o?.reporterId === userId && !o.anonymous) {
-          counters.closedReports++;
+          bump('closedReports', e.serverTime);
           add(e.serverTime, p.finalClosure, 'Cierre final de un reporte propio');
         }
         break;
       }
       case 'lesson_completed': {
         if (e.objectType === 'user' && e.objectId === userId) {
-          counters.lessonsCompleted++;
+          bump('lessonsCompleted', e.serverTime);
           add(e.serverTime, p.lessonCompleted, 'Lección completada');
         }
         break;
       }
       case 'origin_verified_on_site': {
         if (e.actorId === userId) {
-          counters.onSiteVerifications++;
+          bump('onSiteVerifications', e.serverTime);
           add(e.serverTime, p.onSiteVerification, 'Verificación en sitio como contralor comunitario');
         }
         break;
@@ -110,6 +128,7 @@ export function computePoints(userId: string): PointsSummary {
     suspendedUntil: suspendedUntil && suspendedUntil > now ? suspendedUntil : null,
     history,
     ...counters,
+    milestones,
   };
 }
 

@@ -1,4 +1,5 @@
 import type { AppConfig } from '@kindra/shared';
+import { DEFAULT_FEATURES } from '@kindra/shared';
 import { DEFAULT_TRANSITIONS } from './transitions';
 
 export const DEFAULT_CONFIG: AppConfig = {
@@ -30,6 +31,7 @@ export const DEFAULT_CONFIG: AppConfig = {
     reportValidated: 10,
     removalConfirmed: 10,
     lessonCompleted: 5,
+    referralValidated: 10,
     rejectionPenalty: 10,
     suspensionAfterRejections: 3,
     suspensionDays: 7,
@@ -65,4 +67,5 @@ export const DEFAULT_CONFIG: AppConfig = {
     points: true,
     branding: true,
   },
+  features: { ...DEFAULT_FEATURES },
 };

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Role, User, Entity, Center, Sector, Photo, VerificationStatus } from '@kindra/shared';
+import type { Role, User, Entity, Center, Sector, Photo, VerificationStatus, Space } from '@kindra/shared';
 import { ROLES, ROLE_LABELS, INSTITUTIONAL_ROLES } from '@kindra/shared';
 import { Card, Button, Field, Input, Select, Badge, Modal, Spinner, Tabs } from '../../components/ui';
 import { Section, useAdminList, useAdminAction } from './shared';
@@ -18,9 +18,13 @@ interface Draft {
   password: string;
   active: boolean;
   verificationStatus: VerificationStatus;
+  spaceId: string;
+  appointmentDocumentRef: string;
+  /** El usuario ya era administrador de entidad al abrir el formulario. */
+  wasEntityAdmin: boolean;
 }
 
-const EMPTY: Draft = { alias: '', name: '', phone: '', roles: ['citizen'], entityId: '', centerId: '', sectorId: '', password: '', active: true, verificationStatus: 'not_required' };
+const EMPTY: Draft = { alias: '', name: '', phone: '', roles: ['citizen'], entityId: '', centerId: '', sectorId: '', password: '', active: true, verificationStatus: 'not_required', spaceId: '', appointmentDocumentRef: '', wasEntityAdmin: false };
 
 const VERIF_LABEL: Record<VerificationStatus, string> = { not_required: 'no requerida', pending: 'pendiente', verified: 'verificado', rejected: 'rechazada' };
 
@@ -30,19 +34,25 @@ export default function Users() {
   const centers = useAdminList<Center>('centers');
   const sectors = useAdminList<Sector>('sectors');
   const photos = useAdminList<Photo>('photos?moderation=all');
+  const spaces = useAdminList<Space>('spaces');
   const { post, busy } = useAdminAction();
-  const [tab, setTab] = useState<'all' | 'pending'>('all');
+  const [tab, setTab] = useState<'all' | 'pending' | 'proposals'>('all');
   const [editing, setEditing] = useState<Draft | null>(null);
 
-  const list = (users.data || []).filter((u) => tab === 'all' || u.verificationStatus === 'pending');
+  const list = (users.data || []).filter((u) => tab === 'all' || (tab === 'pending' ? u.verificationStatus === 'pending' : (u.proposedRoles || []).length > 0));
   const selfieOf = (u: UserRow) => (u.selfiePhotoId ? photos.data?.find((p) => p.id === u.selfiePhotoId) : photos.data?.find((p) => p.kind === 'selfie' && p.uploadedBy === u.id));
 
   const edit = (u?: UserRow) =>
-    setEditing(u ? { id: u.id, alias: u.alias, name: u.name || '', phone: u.phone || '', roles: u.roles, entityId: u.entityId || '', centerId: u.centerId || '', sectorId: u.sectorId || '', password: '', active: u.active, verificationStatus: u.verificationStatus } : { ...EMPTY });
+    setEditing(
+      u
+        ? { id: u.id, alias: u.alias, name: u.name || '', phone: u.phone || '', roles: u.roles, entityId: u.entityId || '', centerId: u.centerId || '', sectorId: u.sectorId || '', password: '', active: u.active, verificationStatus: u.verificationStatus, spaceId: u.spaceId || '', appointmentDocumentRef: u.appointment?.documentRef || '', wasEntityAdmin: u.roles.includes('entity_admin') }
+        : { ...EMPTY },
+    );
 
   const save = async () => {
     if (!editing) return;
-    const body = { ...editing, entityId: editing.entityId || null, centerId: editing.centerId || null, sectorId: editing.sectorId || null, password: editing.password || undefined, name: editing.name || undefined, phone: editing.phone || undefined };
+    const { wasEntityAdmin: _w, ...rest } = editing;
+    const body = { ...rest, entityId: editing.entityId || null, centerId: editing.centerId || null, sectorId: editing.sectorId || null, spaceId: editing.spaceId || null, password: editing.password || undefined, name: editing.name || undefined, phone: editing.phone || undefined, appointmentDocumentRef: editing.appointmentDocumentRef || null };
     const r = await post('users', body, 'Usuario guardado.');
     if (r) setEditing(null);
   };
@@ -51,8 +61,20 @@ export default function Users() {
   const institutional = editing?.roles.some((r) => INSTITUTIONAL_ROLES.includes(r));
 
   return (
-    <Section title="Usuarios y activación de roles" subtitle="Una persona, una cuenta, varios roles. Los roles institucionales y el de contralor requieren verificación por selfie. El evaluador nunca se autoasigna: lo activa el administrador tras la designación de la entidad." actions={<Button onClick={() => edit()}>Nuevo usuario</Button>}>
-      <Tabs value={tab} onChange={setTab} items={[{ value: 'all', label: 'Todos', count: users.data?.length }, { value: 'pending', label: 'Verificación pendiente', count: users.data?.filter((u) => u.verificationStatus === 'pending').length }]} />
+    <Section
+      title="Usuarios y activación de roles"
+      subtitle="Una persona, una cuenta, varios roles. Los roles institucionales y el de contralor requieren verificación por selfie. Solo Kindra activa administradores de entidad (con designación por escrito) y evaluadores (propuestos por su entidad)."
+      actions={<Button onClick={() => edit()}>Nuevo usuario</Button>}
+    >
+      <Tabs
+        value={tab}
+        onChange={setTab}
+        items={[
+          { value: 'all', label: 'Todos', count: users.data?.length },
+          { value: 'pending', label: 'Verificación pendiente', count: users.data?.filter((u) => u.verificationStatus === 'pending').length },
+          { value: 'proposals', label: 'Propuestas de rol', count: users.data?.filter((u) => (u.proposedRoles || []).length > 0).length },
+        ]}
+      />
       {users.isLoading && <Spinner />}
       <ul className="grid md:grid-cols-2 gap-3 mt-2">
         {list.map((u) => {
@@ -79,8 +101,26 @@ export default function Users() {
                     </Badge>
                   ))}
                   <Badge tone={u.verificationStatus === 'verified' ? 'ok' : u.verificationStatus === 'pending' ? 'warn' : 'neutral'}>Verificación: {VERIF_LABEL[u.verificationStatus]}</Badge>
+                  {u.twoFactor?.enabled && <Badge tone="ok">dos pasos</Badge>}
                   {!u.active && <Badge tone="bad">inactivo</Badge>}
                 </div>
+                {u.appointment && <p className="text-xs text-muted mb-1">Designación: {u.appointment.documentRef}</p>}
+                {(u.proposedRoles || []).map((p) => (
+                  <div key={p.role} className="mt-2 rounded-lg border border-line p-2 text-sm">
+                    <p>
+                      Propuesto como <strong>{ROLE_LABELS[p.role]}</strong> por {entities.data?.find((e) => e.id === p.entityId)?.name || p.entityId}
+                      {p.note ? `: ${p.note}` : ''}
+                    </p>
+                    <div className="mt-2 flex gap-2">
+                      <Button size="sm" disabled={busy} onClick={() => post(`users/${u.id}/proposals/${p.role}/activate`, {}, 'Rol activado por Kindra.')}>
+                        Activar
+                      </Button>
+                      <Button size="sm" variant="ghost" disabled={busy} onClick={() => post(`users/${u.id}/proposals/${p.role}/reject`, {}, 'Propuesta rechazada.')}>
+                        Rechazar
+                      </Button>
+                    </div>
+                  </div>
+                ))}
                 <p className="text-xs text-muted">
                   {u.entityId ? `Entidad: ${entities.data?.find((e) => e.id === u.entityId)?.name || u.entityId}` : 'Sin entidad'}
                   {u.centerId ? ` · Centro: ${centers.data?.find((c) => c.id === u.centerId)?.name || u.centerId}` : ''}
@@ -160,7 +200,22 @@ export default function Users() {
                 </Select>
               </Field>
             </div>
-            <div className="grid sm:grid-cols-2 sm:gap-3">
+            {editing.roles.includes('entity_admin') && (
+              <Field label="Documento de designación por escrito" required={!editing.wasEntityAdmin} hint="Oficio o carta en que la institución o empresa designa a esta persona. Kindra lo activa al guardar.">
+                <Input value={editing.appointmentDocumentRef} disabled={editing.wasEntityAdmin} onChange={(e) => setEditing({ ...editing, appointmentDocumentRef: e.target.value })} placeholder="Ej.: Oficio EE-2026-014" />
+              </Field>
+            )}
+            <div className="grid sm:grid-cols-3 sm:gap-3">
+              <Field label="Espacio (convenio)">
+                <Select value={editing.spaceId} onChange={(e) => setEditing({ ...editing, spaceId: e.target.value })}>
+                  <option value="">El de su entidad o el principal</option>
+                  {(spaces.data || []).map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
               <Field label="Estado de verificación">
                 <Select value={editing.verificationStatus} onChange={(e) => setEditing({ ...editing, verificationStatus: e.target.value as VerificationStatus })}>
                   {(Object.keys(VERIF_LABEL) as VerificationStatus[]).map((v) => (

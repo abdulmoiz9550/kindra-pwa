@@ -15,6 +15,7 @@ import { destRouter } from './routes/destination';
 import { supervisorRouter } from './routes/supervisor';
 import { adminRouter } from './routes/admin';
 import { eventsRouter } from './routes/events';
+import { entityAdminRouter } from './routes/entityAdmin';
 
 export function createApp() {
   const app = express();
@@ -34,6 +35,7 @@ export function createApp() {
   app.use('/api/dest', destRouter);
   app.use('/api/supervisor', supervisorRouter);
   app.use('/api/admin', adminRouter);
+  app.use('/api/entity-admin', entityAdminRouter);
   app.use('/api/events', eventsRouter);
   app.use('/api', citizenRouter);
 

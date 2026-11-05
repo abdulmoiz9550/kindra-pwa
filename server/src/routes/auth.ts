@@ -3,7 +3,8 @@ import { z } from 'zod';
 import { ROLES } from '@kindra/shared';
 import type { Role } from '@kindra/shared';
 import { wrap, requireAuth } from '../middleware/auth';
-import { login, registerCitizen, loginWithPreregCode, demoSwitch, switchActiveRole, submitSelfie, toPublicUser } from '../services/auth';
+import { login, registerCitizen, loginWithPreregCode, demoSwitch, switchActiveRole, submitSelfie, toPublicUser, completeTwoFactor, sessionAfterEnable } from '../services/auth';
+import { twoFactorStatus, beginSetup, enableTwoFactor } from '../services/twoFactor';
 
 export const authRouter = Router();
 
@@ -18,7 +19,7 @@ authRouter.post(
 authRouter.post(
   '/register',
   wrap((req, res) => {
-    const body = z.object({ alias: z.string().min(3), password: z.string().min(6), phone: z.string().optional(), name: z.string().optional(), sectorId: z.string().nullable().optional() }).parse(req.body);
+    const body = z.object({ alias: z.string().min(3), password: z.string().min(6), phone: z.string().optional(), name: z.string().optional(), sectorId: z.string().nullable().optional(), referralCode: z.string().max(20).nullable().optional() }).parse(req.body);
     res.json(registerCitizen(body));
   }),
 );
@@ -40,7 +41,7 @@ authRouter.post(
 );
 
 authRouter.get('/me', requireAuth, (req, res) => {
-  res.json({ user: toPublicUser(req.auth!.user, req.auth!.role) });
+  res.json({ user: toPublicUser(req.auth!.user, req.auth!.role, req.auth!.mfa) });
 });
 
 authRouter.post(
@@ -48,7 +49,41 @@ authRouter.post(
   requireAuth,
   wrap((req, res) => {
     const body = z.object({ role: z.enum(ROLES as [Role, ...Role[]]) }).parse(req.body);
-    res.json(switchActiveRole(req.auth!.user, body.role));
+    res.json(switchActiveRole(req.auth!.user, body.role, req.auth!.mfa));
+  }),
+);
+
+// ---------------------------------------------------------------- verificación en dos pasos (addendum, parte 3)
+const codeBody = z.object({ code: z.string().min(6).max(10) });
+
+authRouter.get('/2fa/status', requireAuth, (req, res) => {
+  res.json(twoFactorStatus(req.auth!.user, req.auth!.mfa));
+});
+
+authRouter.post(
+  '/2fa/setup',
+  requireAuth,
+  wrap(async (req, res) => {
+    res.json(await beginSetup(req.auth!.user));
+  }),
+);
+
+authRouter.post(
+  '/2fa/enable',
+  requireAuth,
+  wrap((req, res) => {
+    const { code } = codeBody.parse(req.body);
+    const user = enableTwoFactor(req.auth!.user, code);
+    res.json(sessionAfterEnable(user, req.auth!.role));
+  }),
+);
+
+authRouter.post(
+  '/2fa/verify',
+  requireAuth,
+  wrap((req, res) => {
+    const { code } = codeBody.parse(req.body);
+    res.json(completeTwoFactor(req.auth!.user, req.auth!.role, code));
   }),
 );
 

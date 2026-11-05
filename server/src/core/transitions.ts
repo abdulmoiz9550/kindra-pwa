@@ -72,6 +72,45 @@ function evalCondition(name: string, ctx: TransitionContext): boolean {
 }
 
 /**
+ * Compuertas fijas (addendum, parte 3; 7.2, 7.3, 7.4, 21.4): viven en el código y se exigen siempre,
+ * aunque alguien las quite de la tabla de estados. Ni el administrador principal puede eliminarlas.
+ *  - 7.2  no sale un viaje de una zona no autorizada
+ *  - 7.3  un lote con material sospechoso sin decisión no se procesa ni se libera
+ *  - 7.4  no se despacha a una obra sin verificación de calidad aprobada
+ *  - 4.1  nadie valida, retira ni recibe lo que reportó
+ */
+export const FIXED_GATES: { object: TransitionRule['object']; action: string; conditions: string[]; rule: string }[] = [
+  { object: 'origin', action: 'trip_departure', conditions: ['zoneAuthorized', 'notOwnReport'], rule: '7.2 y 4.1' },
+  { object: 'origin', action: 'origin_validated', conditions: ['notOwnReport'], rule: '4.1' },
+  { object: 'origin', action: 'origin_rejected', conditions: ['notOwnReport'], rule: '4.1' },
+  { object: 'origin', action: 'origin_marked_duplicate', conditions: ['notOwnReport'], rule: '4.1' },
+  { object: 'origin', action: 'origin_removed', conditions: ['notOwnReport'], rule: '4.1' },
+  { object: 'trip', action: 'trip_arrival', conditions: ['notOwnReport'], rule: '4.1' },
+  { object: 'batch', action: 'outputs_recorded', conditions: ['notHeld', 'allHazardDecided'], rule: '7.3' },
+  { object: 'batch', action: 'batch_released', conditions: ['allHazardDecided'], rule: '7.3' },
+  { object: 'batch', action: 'dispatch_created', conditions: ['qualityApproved'], rule: '7.4' },
+];
+
+export function fixedConditionsFor(object: TransitionRule['object'], action: string): string[] {
+  return FIXED_GATES.find((g) => g.object === object && g.action === action)?.conditions ?? [];
+}
+
+/**
+ * Devuelve la tabla con las compuertas fijas restauradas: si se borró la regla de una acción con
+ * compuerta se repone la regla original; si se quitó una condición fija, se vuelve a añadir.
+ */
+export function withFixedGates(rules: TransitionRule[], defaults: TransitionRule[]): TransitionRule[] {
+  const out = rules.map((r) => ({ ...r, conditions: [...new Set([...(r.conditions || []), ...fixedConditionsFor(r.object, r.action)])] }));
+  for (const g of FIXED_GATES) {
+    if (!out.some((r) => r.object === g.object && r.action === g.action)) {
+      const original = defaults.filter((r) => r.object === g.object && r.action === g.action);
+      out.push(...original.map((r) => ({ ...r, conditions: [...new Set([...r.conditions, ...g.conditions])] })));
+    }
+  }
+  return out;
+}
+
+/**
  * Valida una transición contra la tabla configurable (3.3) y devuelve el estado destino.
  * Lanza 403 si el rol no puede, 409 si el estado de partida o una condición no lo permite.
  */
@@ -86,7 +125,9 @@ export function assertTransition(object: TransitionRule['object'], action: strin
   const byRole = applicable.filter((r) => r.roles.includes(role as never));
   if (!byRole.length) throw forbidden(`El rol "${role}" no puede ejecutar "${action}" sobre ${object}.`);
   const rule = byRole[0];
-  for (const c of rule.conditions) {
+  // Las compuertas fijas se evalúan siempre, estén o no en la tabla guardada.
+  const conditions = [...new Set([...rule.conditions, ...fixedConditionsFor(object, action)])];
+  for (const c of conditions) {
     if (!evalCondition(c, ctx)) throw conflict(CONDITION_MESSAGES[c] || `Condición no cumplida: ${c}`, c);
   }
   if (rule.to === 'previous') return ctx.batch?.previousState || ctx.resolvedTo || currentState;

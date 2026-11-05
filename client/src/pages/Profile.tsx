@@ -10,10 +10,11 @@ import { usePublicConfig } from '../lib/config';
 import { toast } from '../lib/toast';
 import { fmtDate, fmtDateTime } from '../lib/format';
 import { Alert, Button, Card, KeyValue, PageTitle, ProgressBar, Spinner } from '../components/ui';
+import { CardLink, Achievements, Referrals } from '../components/Loyalty';
 
 interface ProfileData {
   user: PublicUser;
-  points: { points: number; level: LevelInfo; consecutiveRejections: number; suspendedUntil: string | null; history: { at: string; delta: number; reason: string; applied: boolean }[]; closedReports: number; validatedReports: number; confirmedRemovals: number; lessonsCompleted: number; onSiteVerifications: number };
+  points: { points: number; level: LevelInfo; consecutiveRejections: number; suspendedUntil: string | null; history: { at: string; delta: number; reason: string; applied: boolean }[]; closedReports: number; validatedReports: number; confirmedRemovals: number; lessonsCompleted: number; onSiteVerifications: number; validatedReferrals?: number };
   certificate: { code: string; alias: string; levelName: string; closedReports: number; issuedAt: string; verifyUrl: string } | null;
   monitorRequestPending: boolean;
   canRequestMonitor: boolean;
@@ -113,6 +114,7 @@ export default function Profile() {
               { k: 'Retiros confirmados', v: p.points.confirmedRemovals },
               { k: 'Reportes cerrados', v: p.points.closedReports },
               { k: 'Lecciones completadas', v: p.points.lessonsCompleted },
+              ...(p.points.validatedReferrals ? [{ k: 'Invitados con reporte validado', v: p.points.validatedReferrals }] : []),
             ]}
           />
         </div>
@@ -137,6 +139,10 @@ export default function Profile() {
           </ul>
         )}
       </Card>
+
+      <CardLink />
+      <Achievements />
+      <Referrals />
 
       {p.certificate && (
         <Card className="mb-3" title="Certificado de participación" subtitle="Muestra sin firma institucional.">

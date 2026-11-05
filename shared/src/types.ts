@@ -11,6 +11,7 @@ export type Role =
   | 'evaluator'
   | 'supervisor'
   | 'destination'
+  | 'entity_admin'
   | 'admin';
 
 export type EntityType = 'coordinating' | 'removal' | 'center' | 'technical' | 'supervisor' | 'destination';
@@ -27,6 +28,9 @@ export interface PublicationPolicy {
   observations: PublicationRule;
 }
 
+/** Persona jurídica que participa en un convenio (addendum, parte 1: registro de persona natural y jurídica). */
+export type LegalType = 'public_institution' | 'company';
+
 export interface Entity {
   id: string;
   name: string;
@@ -35,6 +39,45 @@ export interface Entity {
   logoUrl?: string | null;
   publicationPolicy: PublicationPolicy;
   active: boolean;
+  /** Tipo de persona jurídica (institución pública o empresa). */
+  legalType?: LegalType | null;
+  /** RIF u otro identificador fiscal. */
+  taxId?: string | null;
+  /** Espacio (convenio) al que pertenece (27.1). */
+  spaceId?: string | null;
+}
+
+/** Espacio por convenio (27.1): agrupa entidades, usuarios y registros para sumar convenios sin rehacer nada. */
+export interface Space {
+  id: string;
+  name: string;
+  description: string;
+  agreementRef?: string | null;
+  active: boolean;
+  createdAt: string;
+}
+
+/** Designación por escrito de un administrador de entidad, activada por Kindra (addendum, parte 3). */
+export interface Appointment {
+  documentRef: string;
+  documentPhotoId?: string | null;
+  appointedAt: string;
+  activatedBy: string;
+  activatedAt: string;
+}
+
+/** Propuesta de rol hecha por una entidad que Kindra debe activar (evaluadores). */
+export interface RoleProposal {
+  role: Role;
+  proposedBy: string;
+  entityId: string;
+  proposedAt: string;
+  note?: string | null;
+}
+
+export interface TwoFactorState {
+  enabled: boolean;
+  enabledAt?: string | null;
 }
 
 export type VerificationStatus = 'not_required' | 'pending' | 'verified' | 'rejected';
@@ -55,10 +98,26 @@ export interface User {
   active: boolean;
   createdAt: string;
   isDemo?: boolean;
+  /** Espacio (convenio) al que pertenece (27.1). */
+  spaceId?: string | null;
+  /** Código de la tarjeta Kindra: QR personal e intransferible. */
+  cardCode?: string | null;
+  /** Código para invitar a otras personas (referidos). */
+  referralCode?: string | null;
+  /** Usuario que lo invitó. Solo da puntos cuando su primer reporte se valida. */
+  referredBy?: string | null;
+  /** Designación por escrito (administrador de entidad). */
+  appointment?: Appointment | null;
+  /** Roles propuestos por la entidad pendientes de activación por Kindra. */
+  proposedRoles?: RoleProposal[];
+  /** Verificación en dos pasos (obligatoria para el administrador principal). */
+  twoFactor?: TwoFactorState | null;
 }
 
 /** Usuario tal como lo ve el cliente (sin hash). */
 export interface PublicUser extends Omit<User, 'passwordHash'> {
+  /** La sesión actual completó la verificación en dos pasos. */
+  mfa?: boolean;
   activeRole: Role;
   points: number;
   level: LevelInfo;
@@ -81,6 +140,7 @@ export interface Sector {
   polygon: [number, number][]; // [lat, lng]
   authorized: boolean;
   provisional?: boolean;
+  spaceId?: string | null;
 }
 
 export type OriginType = 'institutional' | 'citizen';
@@ -158,12 +218,15 @@ export interface Origin {
   batchIds: string[];
   workIds: string[];
   source: 'pwa' | 'aura' | 'institutional' | 'seed';
+  /** Espacio (convenio) del registro (27.1). Si falta, se toma el del sector. */
+  spaceId?: string | null;
 }
 
 export interface VehicleType {
   id: string;
   name: string;
-  capacityM3: number;
+  /** Opcional: los viajes se registran en ambos extremos sin capacidad obligatoria (addendum, parte 2). */
+  capacityM3: number | null;
   provisional: boolean;
 }
 
@@ -508,6 +571,8 @@ export interface PointsConfig {
   reportValidated: number;
   removalConfirmed: number;
   lessonCompleted: number;
+  /** Referido: solo cuando el primer reporte de la persona invitada se valida. Nunca al registrarse. */
+  referralValidated: number;
   rejectionPenalty: number;
   suspensionAfterRejections: number;
   suspensionDays: number;
@@ -544,6 +609,46 @@ export interface AppConfig {
   qualityChecklist: { key: string; label: string; provisional: boolean }[];
   transitions: TransitionRule[];
   provisionalFlags: Record<string, boolean>;
+  /** Funciones activables por el administrador principal (addendum, partes 1 y 4). */
+  features: Record<string, boolean>;
+}
+
+// ---------------------------------------------------------------------------
+// Tarjeta Kindra, logros y referidos (addendum, partes 1 y 2)
+// ---------------------------------------------------------------------------
+
+export type AchievementLayer = 'personal' | 'community';
+
+export interface Achievement {
+  key: string;
+  layer: AchievementLayer;
+  name: string;
+  description: string;
+  earned: boolean;
+  earnedAt?: string | null;
+  progress?: { current: number; target: number } | null;
+}
+
+export interface KindraCard {
+  cardCode: string;
+  alias: string;
+  levelName: string;
+  points: number;
+  memberSince: string;
+  verified: boolean;
+  roles: Role[];
+  entityName: string | null;
+  spaceName: string | null;
+  verifyUrl: string;
+  qrSvg: string;
+}
+
+export interface ReferralSummary {
+  referralCode: string;
+  shareUrl: string;
+  invited: number;
+  validated: number;
+  pointsEarned: number;
 }
 
 // ---------------------------------------------------------------------------

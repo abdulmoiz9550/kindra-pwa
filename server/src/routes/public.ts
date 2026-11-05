@@ -16,6 +16,10 @@ import { listNotifications } from '../services/notifications';
 import { notFound } from '../core/errors';
 import { env } from '../config/env';
 
+import { FEATURES, featureOn } from '@kindra/shared';
+import { publicCard } from '../services/card';
+import { assertFeature } from '../services/features';
+
 export const publicRouter = Router();
 
 publicRouter.get('/config', (_req, res) => {
@@ -37,8 +41,19 @@ publicRouter.get('/config', (_req, res) => {
     qualityChecklist: cfg.qualityChecklist,
     labels: { useTypes: USE_TYPE_LABELS, sizes: SIZE_LABELS, urgencies: URGENCY_LABELS, subcategories: SUBCATEGORY_LABELS, rejectionReasons: REJECTION_REASON_LABELS, structureTypes: STRUCTURE_TYPE_LABELS, causes: CAUSE_LABELS, roles: ROLE_LABELS },
     provisionalFlags: cfg.provisionalFlags,
+    // Solo el estado efectivo (encendida o no); nunca la lista de funciones ocultas.
+    features: Object.fromEntries(FEATURES.filter((f) => f.group === 'debris').map((f) => [f.key, featureOn(cfg.features, f.key)])),
   });
 });
+
+/** Página pública del QR personal de la tarjeta Kindra (sin datos sensibles). */
+publicRouter.get(
+  '/tarjeta/:code',
+  wrap((req, res) => {
+    assertFeature('kindra_card');
+    res.json(publicCard(String(req.params.code)));
+  }),
+);
 
 publicRouter.get('/dashboard', (req, res) => {
   const sector = typeof req.query.sector === 'string' && req.query.sector ? req.query.sector : null;
