@@ -89,7 +89,7 @@ export default function Sectors() {
               </label>
             </div>
             <p className="text-xs text-muted mb-2">Toca el mapa para añadir vértices del polígono (mínimo tres), o edita las coordenadas en la tabla.</p>
-            <MapView sectors={editing.polygon.length >= 3 ? [{ id: 'draft', name: editing.name || 'Nuevo sector', polygon: editing.polygon, color: 'var(--accent)' }] : []} points={editing.polygon.map((p, i) => ({ id: `v${i}`, lat: p[0], lng: p[1], radius: 5, color: 'var(--accent)', label: `Vértice ${i + 1}` }))} onClick={(p) => setEditing({ ...editing, polygon: [...editing.polygon, [p.lat, p.lng]] })} height={240} fitSectors={editing.polygon.length >= 3} />
+            <MapView sectors={editing.polygon.length >= 3 ? [{ id: 'draft', name: editing.name || 'Nuevo sector', polygon: editing.polygon, color: 'var(--accent)' }] : []} points={editing.polygon.map((p, i) => ({ id: `v${i}`, lat: p[0], lng: p[1], radius: 5, color: 'var(--accent)', label: `Vértice ${i + 1}` }))} onClick={(p) => setEditing({ ...editing, polygon: [...editing.polygon, [p.lat, p.lng]] })} height={240} fitSectors={editing.polygon.length >= 3} pilotArea={false} />
             <table className="table-plain mt-3">
               <thead>
                 <tr>

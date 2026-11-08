@@ -274,6 +274,8 @@ export interface Center {
   sectorId: string;
   entityId: string;
   location?: GeoPoint | null;
+  /** Otras entidades operadoras que registran viajes hacia este centro (un sitio puede tener varios operadores). */
+  operatorEntityIds?: string[];
 }
 
 export interface Reception {
@@ -412,6 +414,11 @@ export interface DailySummary {
   date: string;
   tripsReceived: number;
   officialTonnes?: number | null;
+  /** Volumen oficial reportado (m³). Las toneladas oficiales no se pesan: equivalen a m³ × 1,1. */
+  officialM3?: number | null;
+  /** Historial de partida cargado desde el reporte oficial (datos simulados basados en cifras oficiales). */
+  baseline?: boolean;
+  note?: string | null;
   createdAt: string;
 }
 

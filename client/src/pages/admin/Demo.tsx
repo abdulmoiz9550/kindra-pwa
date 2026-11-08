@@ -97,7 +97,7 @@ export default function Demo() {
         </Card>
 
         <Card title="Usuarios de prueba (19.3)">
-          <p className="text-sm text-ink-2">Un usuario por rol, contraseña <span className="font-mono">demo1234</span>: ciudadano, contralora, vecina, coordinador, retiro, centro (Norte), centro-sur, evaluador, supervisor, obras, admin. El selector de la cabecera cambia de rol en un toque mientras el modo demostración esté activo.</p>
+          <p className="text-sm text-ink-2">Un usuario por rol, contraseña <span className="font-mono">demo1234</span>: ciudadano, contralora, vecina, coordinador, retiro, centro (Caraballeda), centro-sur (Playa Escondida), evaluador, supervisor, obras, admin. El selector de la cabecera cambia de rol en un toque mientras el modo demostración esté activo.</p>
         </Card>
       </div>
     </Section>

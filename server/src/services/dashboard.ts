@@ -94,7 +94,7 @@ export function buildDashboard(sectorId: string | null): DashboardData {
     return {
       centerId: c.id,
       centerName: c.name,
-      official: fig(summaries.length ? official : null, entityName, latest(summaries.map((s) => s.createdAt)), 'Toneladas que la entidad del centro reportó en sus resúmenes diarios.', 'Toneladas oficiales'),
+      official: fig(summaries.length ? official : null, entityName, latest(summaries.map((s) => s.createdAt)), 'Toneladas que la entidad del centro reportó en sus resúmenes diarios. No se pesan: se estiman a partir del volumen (m³ × 1,1).', 'Toneladas oficiales (estimadas a partir del volumen)'),
       estimatedM3: fig(received.length ? Math.round(est * 10) / 10 : null, `${PLATFORM} de viajes (estimado)`, latest(received.map((t) => t.arrival?.serverTime)), 'Volumen estimado: capacidad nominal del vehículo × nivel de llenado, sumado por viaje recibido. No es una medición.', 'Volumen estimado (m³)'),
     };
   });

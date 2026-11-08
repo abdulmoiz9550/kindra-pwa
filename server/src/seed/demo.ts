@@ -84,9 +84,10 @@ export async function seedDemo(): Promise<SeedSummary> {
     store.put('entities', { id, name, type, description, logoUrl: null, active: true, legalType, taxId: null, spaceId: DEFAULT_SPACE_ID, publicationPolicy: { officialFigures: { mode: 'public' }, discrepancies: { mode: 'public' }, photos: { mode: 'public' }, observations: { mode: 'public' } } });
   const eCoord = ent('en_coord', 'Ente Coordinador', 'coordinating', 'Coordina el registro, la validación y la priorización del retiro de escombros.');
   const eEjec = ent('en_ejec', 'Ente Ejecutor', 'removal', 'Ejecuta el retiro de escombros con camiones y los lleva a los centros de disposición.', 'company');
-  const eNorte = ent('en_cnorte', 'Centro de Disposición Norte', 'center', 'Centro de disposición temporal: recibe, clasifica y tritura el escombro.');
-  const eSur = ent('en_csur', 'Centro de Disposición Sur', 'center', 'Centro de disposición temporal: recibe, clasifica y tritura el escombro.');
-  const eFinal = ent('en_cfinal', 'Centro de Disposición Final', 'center', 'Recibe el material que no puede aprovecharse.');
+  // Operadores de los centros: nombres genéricos (datos de referencia del piloto v0.1; no se usan nombres reales).
+  const eNorte = ent('en_cnorte', 'Operador Contratista', 'center', 'Opera centros de disposición temporal: recibe, clasifica y tritura el escombro.', 'company');
+  const eSur = ent('en_csur', 'Operador Público', 'center', 'Operador público que también registra material en centros de disposición.');
+  const eFinal = ent('en_cfinal', 'Operador por confirmar', 'center', 'Operador de centro pendiente de confirmación.');
   const eTec = ent('en_tec', 'Centro Técnico', 'technical', 'Decide sobre material peligroso y verifica la calidad del agregado.');
   const eSup = ent('en_sup', 'Supervisor Ambiental', 'supervisor', 'Supervisa toda la cadena y registra observaciones y alertas.');
   const eObras = ent('en_obras', 'Ente de Obras', 'destination', 'Usa el agregado reciclado en obras públicas y registra su uso.');
@@ -104,10 +105,14 @@ export async function seedDemo(): Promise<SeedSummary> {
   const cD: GeoPoint = { lat: 10.5945, lng: -66.949 };
 
   // ---- Centros ----
-  const cen = (id: string, name: string, shortCode: string, type: Center['type'], sectorId: string, entityId: string, location: GeoPoint): Center => store.put('centers', { id, name, shortCode, type, sectorId, entityId, location });
-  const cNorte = cen('ce_norte', 'Centro Norte', 'NORTE', 'CDT', sA.id, eNorte.id, { lat: 10.6065, lng: -66.9585 });
-  const cSur = cen('ce_sur', 'Centro Sur', 'SUR', 'CDT', sC.id, eSur.id, { lat: 10.5915, lng: -66.9675 });
-  cen('ce_final', 'Centro de Disposición Final', 'FINAL', 'CDF', sD.id, eFinal.id, { lat: 10.5912, lng: -66.9435 });
+  const cen = (id: string, name: string, shortCode: string, type: Center['type'], sectorId: string, entityId: string, location: GeoPoint | null): Center => store.put('centers', { id, name, shortCode, type, sectorId, entityId, location, operatorEntityIds: [] });
+  // Centros operativos según el último reporte oficial (30 de octubre de 2026). Coordenadas pendientes = sin ubicación.
+  const cNorte = cen('ce_norte', 'Caraballeda', 'CARAB', 'CDT', sA.id, eNorte.id, null);
+  const cSur = cen('ce_sur', 'Playa Escondida', 'PESC', 'CDT', sC.id, eNorte.id, null);
+  const cFinal = cen('ce_final', 'Santa Eduvigis', 'SEDUV', 'CDF', sD.id, eFinal.id, { lat: 10.58703, lng: -67.00575 });
+  const cGrande = cen('ce_playa_grande', 'Playa Grande, Calle 6', 'PGC6', 'CDT', sB.id, eFinal.id, null);
+  // Un sitio puede recibir viajes registrados por más de una entidad operadora.
+  store.update('centers', cNorte.id, { operatorEntityIds: [eSur.id] });
 
   // ---- Vehículos (capacidades provisionales, sección 25) ----
   const vt = (id: string, name: string, cap: number): VehicleType => store.put('vehicleTypes', { id, name, capacityM3: cap, provisional: true });
@@ -131,8 +136,8 @@ export async function seedDemo(): Promise<SeedSummary> {
   const uContra = usr('us_contralor', 'contralora', 'Ana Demo', ['citizen', 'monitor'], { sectorId: sA.id, phone: '04140000003', verificationStatus: 'verified' });
   const uCoord = usr('us_coordinador', 'coordinador', 'Luis Coordinación', ['coordinator'], { entityId: eCoord.id });
   const uRetiro = usr('us_retiro', 'retiro', 'Pedro Retiro', ['removal'], { entityId: eEjec.id });
-  const uCNorte = usr('us_centro_norte', 'centro', 'Rosa Centro Norte', ['center'], { entityId: eNorte.id, centerId: cNorte.id });
-  const uCSur = usr('us_centro_sur', 'centro-sur', 'Jorge Centro Sur', ['center'], { entityId: eSur.id, centerId: cSur.id });
+  const uCNorte = usr('us_centro_norte', 'centro', 'Rosa Caraballeda', ['center'], { entityId: eNorte.id, centerId: cNorte.id });
+  const uCSur = usr('us_centro_sur', 'centro-sur', 'Jorge Playa Escondida', ['center'], { entityId: eNorte.id, centerId: cSur.id });
   const uEval = usr('us_evaluador', 'evaluador', 'Ing. Elena Técnica', ['evaluator'], { entityId: eTec.id });
   const uSup = usr('us_supervisor', 'supervisor', 'Sofía Supervisión', ['supervisor'], { entityId: eSup.id });
   const uObras = usr('us_obras', 'obras', 'Miguel Obras', ['destination'], { entityId: eObras.id });
@@ -351,12 +356,36 @@ export async function seedDemo(): Promise<SeedSummary> {
     if (tripsN) enterDailySummary(aNorte, { centerId: cNorte.id, date: day, tripsReceived: tripsN, officialTonnes: Math.round(tripsN * 9.5 * 10) / 10 });
     if (tripsS) enterDailySummary(aSur, { centerId: cSur.id, date: day, tripsReceived: tripsS, officialTonnes: Math.round(tripsS * 8.8 * 10) / 10 });
   }
+  // ---- historial de partida: cifras oficiales al 30 de octubre de 2026 (datos simulados basados en cifras oficiales) ----
+  // Toneladas oficiales = m³ × 1,1 (no se pesan). Se guarda el acumulado previo y el día del reporte.
+  const REF: { center: Center; m3Today: number; m3Cum: number; tToday: number; tCum: number }[] = [
+    { center: cFinal, m3Today: 575.05, m3Cum: 109856.64, tToday: 632.56, tCum: 120842.3 },
+    { center: cNorte, m3Today: 4473.49, m3Cum: 175010.52, tToday: 4920.84, tCum: 192511.57 },
+    { center: cSur, m3Today: 3045.58, m3Cum: 146491.36, tToday: 3350.14, tCum: 161140.5 },
+    { center: cGrande, m3Today: 1203.0, m3Cum: 27421.09, tToday: 1323.3, tCum: 30163.2 },
+  ];
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+  for (const ref of REF) {
+    const refActor: Actor = { id: null, role: 'system', entityId: ref.center.entityId };
+    const put = (id: string, date: string, m3: number, t: number, note: string) =>
+      appendEvent({
+        type: 'daily_summary_entered',
+        objectType: 'center',
+        objectId: ref.center.id,
+        actor: refActor,
+        serverTimeOverride: `${date === 'baseline' ? '2026-10-29' : date}T20:00:00.000Z`,
+        data: { summary: { id, entityId: ref.center.entityId, centerId: ref.center.id, date: date === 'baseline' ? '2026-10-29' : date, tripsReceived: 0, officialTonnes: t, officialM3: m3, baseline: true, note, createdAt: `${date === 'baseline' ? '2026-10-29' : date}T20:00:00.000Z` } },
+      });
+    put(`ds_${ref.center.id}_baseline`, 'baseline', round2(ref.m3Cum - ref.m3Today), round2(ref.tCum - ref.tToday), 'Acumulado hasta el 29 de octubre de 2026 (simulado a partir de cifras oficiales)');
+    put(`ds_${ref.center.id}_2026-10-30`, '2026-10-30', ref.m3Today, ref.tToday, 'Reporte oficial del 30 de octubre de 2026 (simulado a partir de cifras oficiales)');
+  }
+
   clockAt(base, 15, 10);
   recordJobs(aNorte, { centerId: cNorte.id, positions: 14, type: 'direct', date: nowIso().slice(0, 10) });
   recordJobs(aNorte, { centerId: cNorte.id, positions: 6, type: 'indirect', date: nowIso().slice(0, 10) });
   recordJobs(aSur, { centerId: cSur.id, positions: 11, type: 'direct', date: nowIso().slice(0, 10) });
   clockAt(base, 6, 7);
-  addObservation(aSup, { objectType: 'batch', objectId: getBatchOrThrow(r8.batchId).id, text: 'Se observaron láminas apiladas sin cubrir en el patio del Centro Sur; se recomienda cubrirlas hasta la decisión del evaluador.', isAlert: true });
+  addObservation(aSup, { objectType: 'batch', objectId: getBatchOrThrow(r8.batchId).id, text: 'Se observaron láminas apiladas sin cubrir en el patio de Playa Escondida; se recomienda cubrirlas hasta la decisión del evaluador.', isAlert: true });
   clockAt(base, 3, 7);
   addObservation(aSup, { objectType: 'origin', objectId: o13.id, text: 'Visita de campo: el punto coincide con la foto del reporte.', isAlert: false });
   addObservation(aSup, { objectType: 'work', objectId: w1.id, text: 'El material en obra presenta buena compactación.', isAlert: false });

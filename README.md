@@ -31,7 +31,7 @@ Con `DB_DRIVER=memory` (valor por defecto) todo el estado vive en memoria y se v
 | Contralor comunitario | `contralora` |
 | Ente coordinador | `coordinador` |
 | Ente de retiro | `retiro` |
-| Centro de disposición | `centro` (Centro Norte), `centro-sur` (Centro Sur) |
+| Centro de disposición | `centro` (Caraballeda), `centro-sur` (Playa Escondida) |
 | Evaluador técnico | `evaluador` |
 | Supervisor ambiental | `supervisor` |
 | Destino final (obras) | `obras` |
