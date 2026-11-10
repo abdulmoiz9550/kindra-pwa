@@ -153,7 +153,7 @@ adminRouter.get('/centers', (_req, res) => res.json(db().list('centers')));
 adminRouter.post(
   '/centers',
   wrap((req, res) => {
-    const body = z.object({ id: z.string().optional(), name: z.string().min(2), shortCode: z.string().optional(), type: z.enum(['CDT', 'CDF']), sectorId: z.string(), entityId: z.string(), location: z.object({ lat: z.number(), lng: z.number() }).nullable().optional(), operatorEntityIds: z.array(z.string()).optional() }).parse(req.body);
+    const body = z.object({ id: z.string().optional(), name: z.string().min(2), shortCode: z.string().optional(), type: z.enum(['CDT', 'CDF']), sectorId: z.string(), entityId: z.string(), location: z.object({ lat: z.number(), lng: z.number() }).nullable().optional(), operatorEntityIds: z.array(z.string()).optional(), unloadingPoint: z.object({ lat: z.number(), lng: z.number() }).nullable().optional() }).parse(req.body);
     res.json(upsertCenter(body));
   }),
 );

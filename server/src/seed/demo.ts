@@ -8,7 +8,7 @@ import { hashPassword } from '../services/auth';
 import { ensureDefaults, updateConfig } from '../services/config';
 import { registerPhoto } from '../services/photos';
 import { appendEvent, SYSTEM_ACTOR, type Actor } from '../core/events';
-import { createCitizenReport, createInstitutionalOrigin, validateOrigin, rejectOrigin, markDuplicate, markRemoved, respondRemovalClosure, resolveDispute, answerSatisfaction, setPriority } from '../services/origins';
+import { createCitizenReport, createInstitutionalOrigin, validateOrigin, rejectOrigin, markDuplicate, markRemoved, respondRemovalClosure, resolveDispute, answerSatisfaction, setPriority, setOriginZone } from '../services/origins';
 import { registerDeparture, confirmArrival } from '../services/trips';
 import { classifyReception, closeBatch, recordOutputs, verifyQuality, createDispatch, enterDailySummary, recordJobs, getBatchOrThrow } from '../services/batches';
 import { registerWork, receiveDispatch, recordUse } from '../services/works';
@@ -94,23 +94,28 @@ export async function seedDemo(): Promise<SeedSummary> {
 
   // ---- Sectores provisionales (19.2) alrededor del litoral de La Guaira ----
   const sec = (id: string, name: string, poly: [number, number][]): Sector => store.put('sectors', { id, name, parish: 'Parroquia piloto (provisional)', polygon: poly, authorized: true, provisional: true, spaceId: DEFAULT_SPACE_ID });
-  const sA = sec('sc_a', 'Sector A (provisional)', [[10.6080, -66.9700], [10.6080, -66.9560], [10.5990, -66.9560], [10.5990, -66.9700]]);
-  const sB = sec('sc_b', 'Sector B (provisional)', [[10.6080, -66.9560], [10.6080, -66.9420], [10.5990, -66.9420], [10.5990, -66.9560]]);
-  const sC = sec('sc_c', 'Sector C (provisional)', [[10.5990, -66.9700], [10.5990, -66.9560], [10.5900, -66.9560], [10.5900, -66.9700]]);
-  const sD = sec('sc_d', 'Sector D (provisional)', [[10.5990, -66.9560], [10.5990, -66.9420], [10.5900, -66.9420], [10.5900, -66.9560]]);
-  store.update('sectors', sD.id, { authorized: false }); // zona pendiente de autorización
-  const cA: GeoPoint = { lat: 10.6035, lng: -66.963 };
-  const cB: GeoPoint = { lat: 10.6035, lng: -66.949 };
-  const cC: GeoPoint = { lat: 10.5945, lng: -66.963 };
-  const cD: GeoPoint = { lat: 10.5945, lng: -66.949 };
+  // Datos de referencia del piloto v0.3: dos zonas provisionales hasta recibir los límites reales.
+  const zEste = sec('sc_este', 'Zona Este, Caraballeda (provisional)', [[10.6300, -66.8750], [10.6300, -66.8200], [10.5950, -66.8200], [10.5950, -66.8750]]);
+  const zOeste = sec('sc_oeste', 'Zona Oeste, Catia La Mar (provisional)', [[10.6250, -67.0350], [10.6250, -66.9900], [10.5750, -66.9900], [10.5750, -67.0350]]);
+  const sA = zEste;
+  const sB = zEste;
+  const sC = zOeste;
+  const sD = zOeste;
+  const cA: GeoPoint = { lat: 10.61, lng: -66.86 };
+  const cB: GeoPoint = { lat: 10.61, lng: -66.84 };
+  const cC: GeoPoint = { lat: 10.60, lng: -67.015 };
+  const cD: GeoPoint = { lat: 10.60, lng: -67.0 };
 
   // ---- Centros ----
   const cen = (id: string, name: string, shortCode: string, type: Center['type'], sectorId: string, entityId: string, location: GeoPoint | null): Center => store.put('centers', { id, name, shortCode, type, sectorId, entityId, location, operatorEntityIds: [] });
   // Centros operativos según el último reporte oficial (30 de octubre de 2026). Coordenadas pendientes = sin ubicación.
   const cNorte = cen('ce_norte', 'Caraballeda', 'CARAB', 'CDT', sA.id, eNorte.id, null);
+  // Zona de Playa Escondida por confirmar: se deja en la zona oeste de forma provisional.
   const cSur = cen('ce_sur', 'Playa Escondida', 'PESC', 'CDT', sC.id, eNorte.id, null);
-  const cFinal = cen('ce_final', 'Santa Eduvigis', 'SEDUV', 'CDF', sD.id, eFinal.id, { lat: 10.58703, lng: -67.00575 });
-  const cGrande = cen('ce_playa_grande', 'Playa Grande, Calle 6', 'PGC6', 'CDT', sB.id, eFinal.id, null);
+  // Santa Eduvigis: ubicación = Parque Tecnológico Ambiental; punto de descarga = terraza donde se confirman las llegadas.
+  const cFinal = cen('ce_final', 'Santa Eduvigis (Parque Tecnológico Ambiental)', 'SEDUV', 'CDF', sD.id, eFinal.id, { lat: 10.58962, lng: -67.0022 });
+  store.update('centers', cFinal.id, { unloadingPoint: { lat: 10.58703, lng: -67.00575 } });
+  const cGrande = cen('ce_playa_grande', 'Playa Grande, Calle 6', 'PGC6', 'CDT', sC.id, eFinal.id, { lat: 10.61039, lng: -67.01919 });
   // Un sitio puede recibir viajes registrados por más de una entidad operadora.
   store.update('centers', cNorte.id, { operatorEntityIds: [eSur.id] });
 
@@ -307,6 +312,9 @@ export async function seedDemo(): Promise<SeedSummary> {
   const o15 = report(anon, jitter(cB, -0.0030, 0.0030), 'small', 'can_wait', { anonymous: true });
   const o16 = report(aVecina, jitter(cD, 0.0010, 0.0010), 'large', 'blocks_access', { street: 'Zona del derrumbe' }); // pendiente de autorización
   const o17 = report(aCiud, jitter(cD, -0.0010, -0.0010), 'large', 'risk'); // pendiente de autorización
+  // Con dos zonas autorizadas, la autorización pendiente se marca por punto (6.1).
+  setOriginZone(o16.id, aCoord, false);
+  setOriginZone(o17.id, aCoord, false);
   clockAt(base, 3, 2);
   validateOrigin(o13.id, aCoord, 'high');
   validateOrigin(o16.id, aCoord, 'high'); // validado pero en zona pendiente: bloquea el viaje (7.2)

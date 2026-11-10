@@ -85,13 +85,13 @@ test('Referidos: nada al registrarse; puntos solo con el primer reporte validado
   assert.equal(store.get('users', invited.id)!.referredBy, inviter.id);
   assert.equal(computePoints(inviter.id).points, before, 'el registro no debe dar puntos');
 
-  const r1 = createCitizenReport({ photoIds: [photo().id], location: { lat: 10.6040, lng: -66.9500 }, size: 'small', source: 'pwa' }, actor(invited.id, 'citizen', null));
+  const r1 = createCitizenReport({ photoIds: [photo().id], location: { lat: 10.598, lng: -66.873 }, size: 'small', source: 'pwa' }, actor(invited.id, 'citizen', null));
   validateOrigin(r1.origin.id, coordActor());
   const p = getConfig().points.referralValidated;
   assert.equal(computePoints(inviter.id).points, before + p);
   assert.equal(computePoints(inviter.id).validatedReferrals, 1);
 
-  const r2 = createCitizenReport({ photoIds: [photo().id], location: { lat: 10.6020, lng: -66.9450 }, size: 'small', source: 'pwa' }, actor(invited.id, 'citizen', null));
+  const r2 = createCitizenReport({ photoIds: [photo().id], location: { lat: 10.598, lng: -66.871 }, size: 'small', source: 'pwa' }, actor(invited.id, 'citizen', null));
   validateOrigin(r2.origin.id, coordActor());
   assert.equal(computePoints(inviter.id).points, before + p, 'solo cuenta el primer reporte validado');
 });
@@ -175,16 +175,16 @@ test('Funciones ocultas no se pueden encender; el pre-registro está oculto en e
 
 test('Aviso comunitario: los vecinos del sector reciben un aviso al asignarse un punto para retiro (uno por día)', () => {
   const store = db();
-  const sector = store.get('sectors', 'sc_c')!;
+  const sector = store.get('sectors', 'sc_oeste')!;
   const { user: resident } = registerCitizen({ alias: 'vecino-sector-c', password: 'secreto1', sectorId: sector.id });
   const reporter = registerCitizen({ alias: 'reporta-sector-c', password: 'secreto1' }).user;
   const count = () => store.filter('notifications', (n) => n.recipientKey === `user:${resident.id}` && n.kind === 'sector_assigned').length;
   // Puede haber un aviso del día ya enviado por la semilla: se borra para probar desde cero.
   for (const n of store.filter('notifications', (x) => x.recipientKey === `sector:${sector.id}`)) store.remove('notifications', n.id);
-  const r = createCitizenReport({ photoIds: [photo().id], location: { lat: 10.5945, lng: -66.9630 }, size: 'medium', source: 'pwa' }, actor(reporter.id, 'citizen', null));
+  const r = createCitizenReport({ photoIds: [photo().id], location: { lat: 10.577, lng: -67.033 }, size: 'medium', source: 'pwa' }, actor(reporter.id, 'citizen', null));
   validateOrigin(r.origin.id, coordActor());
   assert.equal(count(), 1);
-  const r2 = createCitizenReport({ photoIds: [photo().id], location: { lat: 10.5950, lng: -66.9620 }, size: 'medium', source: 'pwa' }, actor(reporter.id, 'citizen', null));
+  const r2 = createCitizenReport({ photoIds: [photo().id], location: { lat: 10.577, lng: -67.031 }, size: 'medium', source: 'pwa' }, actor(reporter.id, 'citizen', null));
   validateOrigin(r2.origin.id, coordActor());
   assert.equal(count(), 1, 'no se repite el mismo día');
 });
@@ -195,7 +195,7 @@ test('Espacios: los registros nuevos quedan vinculados al espacio de su sector',
   const store = db();
   assert.ok(store.get('spaces', DEFAULT_SPACE_ID));
   const reporter = registerCitizen({ alias: 'reporta-espacio', password: 'secreto1' }).user;
-  const r = createCitizenReport({ photoIds: [photo().id], location: { lat: 10.6035, lng: -66.9630 }, size: 'small', source: 'pwa' }, actor(reporter.id, 'citizen', null));
+  const r = createCitizenReport({ photoIds: [photo().id], location: { lat: 10.624, lng: -66.993 }, size: 'small', source: 'pwa' }, actor(reporter.id, 'citizen', null));
   assert.equal(r.origin.spaceId, DEFAULT_SPACE_ID);
 });
 

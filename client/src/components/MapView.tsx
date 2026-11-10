@@ -23,12 +23,12 @@ export interface MapPoint {
   onClick?: () => void;
 }
 
-const DEFAULT_CENTER: [number, number] = [10.599, -66.956];
+const DEFAULT_CENTER: [number, number] = [10.605, -66.926];
 
-/** Área del piloto: de Santa Eduvigis (oeste) a Caraballeda (este), unos 19 km (datos de referencia v0.1). */
+/** Área del piloto: de Playa Grande (oeste) a Tanaguarena (este), unos 21 km (datos de referencia v0.3). */
 export const PILOT_BOUNDS: [[number, number], [number, number]] = [
-  [10.578, -67.015],
-  [10.628, -66.825],
+  [10.578, -67.03],
+  [10.632, -66.825],
 ];
 
 function FitPilot({ sectors }: { sectors: MapSector[] }) {

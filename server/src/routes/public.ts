@@ -30,7 +30,7 @@ publicRouter.get('/config', (_req, res) => {
     demoMode: cfg.demoMode,
     simulatedLabel: cfg.demoMode ? cfg.simulatedDataLabel : null,
     sectors: store.list('sectors').map((s) => ({ id: s.id, name: s.name, parish: s.parish, polygon: s.polygon, authorized: s.authorized, provisional: !!s.provisional })),
-    centers: store.list('centers').map((c) => ({ id: c.id, name: c.name, type: c.type, sectorId: c.sectorId, location: c.location ?? null })),
+    centers: store.list('centers').map((c) => ({ id: c.id, name: c.name, type: c.type, sectorId: c.sectorId, location: c.location ?? null, unloadingPoint: c.unloadingPoint ?? null })),
     demoRoles: listDemoRoles(),
     publicBaseUrl: env.publicBaseUrl,
     complaintChannelUrl: cfg.complaintChannelUrl,

@@ -83,12 +83,12 @@ test('4.1 / 21.4: nadie valida ni recibe lo que reportó', () => {
   const store = db();
   const coord = store.list('users').find((u) => u.roles.includes('coordinator'))!;
   const photo = registerPhoto({ id: 'ph_test_2', url: '/uploads/x.svg', kind: 'origin', moderation: 'approved', uploadedAt: new Date().toISOString() });
-  const r = createCitizenReport({ photoIds: [photo.id], location: { lat: 10.6035, lng: -66.963 }, size: 'small', source: 'pwa', reporterName: 'Coordinador reportando' }, actor(coord.id, 'citizen', null));
+  const r = createCitizenReport({ photoIds: [photo.id], location: { lat: 10.615, lng: -66.866 }, size: 'small', source: 'pwa', reporterName: 'Coordinador reportando' }, actor(coord.id, 'citizen', null));
   assert.throws(() => validateOrigin(r.origin.id, actor(coord.id, 'coordinator', coord.entityId!)), (err: { code?: string }) => err.code === 'notOwnReport');
   // recepción: el usuario de centro que reportó un origen no puede confirmar su llegada
   const centerUser = store.list('users').find((u) => u.centerId === 'ce_norte')!;
   const otherCoord = actor(coord.id, 'coordinator', coord.entityId!);
-  const r2 = createCitizenReport({ photoIds: [photo.id], location: { lat: 10.6036, lng: -66.9645 }, size: 'small', source: 'pwa' }, actor(centerUser.id, 'citizen', null));
+  const r2 = createCitizenReport({ photoIds: [photo.id], location: { lat: 10.617, lng: -66.868 }, size: 'small', source: 'pwa' }, actor(centerUser.id, 'citizen', null));
   validateOrigin(r2.origin.id, otherCoord);
   const removal = store.list('users').find((u) => u.roles.includes('removal'))!;
   const trip = registerDeparture(actor(removal.id, 'removal', removal.entityId!), { vehicleQr: 'KV-DEMO02', originIds: [r2.origin.id], centerId: 'ce_norte', photoId: photo.id });
@@ -101,8 +101,8 @@ test('7.5: balance de masas reparte en partes iguales un viaje con orígenes de 
   const coord = store.list('users').find((u) => u.roles.includes('coordinator'))!;
   const centerUser = store.list('users').find((u) => u.centerId === 'ce_sur')!;
   const photo = registerPhoto({ id: 'ph_test_3', url: '/uploads/x.svg', kind: 'origin', moderation: 'approved', uploadedAt: new Date().toISOString() });
-  const a = createCitizenReport({ photoIds: [photo.id], location: { lat: 10.6005, lng: -66.9680 }, size: 'large', source: 'pwa' }, { id: null, role: 'citizen', entityId: null }).origin; // sector A
-  const b = createCitizenReport({ photoIds: [photo.id], location: { lat: 10.6005, lng: -66.9440 }, size: 'large', source: 'pwa' }, { id: null, role: 'citizen', entityId: null }).origin; // sector B
+  const a = createCitizenReport({ photoIds: [photo.id], location: { lat: 10.62, lng: -66.83 }, size: 'large', source: 'pwa' }, { id: null, role: 'citizen', entityId: null }).origin; // zona este
+  const b = createCitizenReport({ photoIds: [photo.id], location: { lat: 10.58, lng: -67.03 }, size: 'large', source: 'pwa' }, { id: null, role: 'citizen', entityId: null }).origin; // zona oeste
   validateOrigin(a.id, actor(coord.id, 'coordinator', coord.entityId!));
   validateOrigin(b.id, actor(coord.id, 'coordinator', coord.entityId!));
   const trip = registerDeparture(actor(removal.id, 'removal', removal.entityId!), { vehicleQr: 'KV-DEMO05', originIds: [a.id, b.id], centerId: 'ce_sur', photoId: photo.id, fillLevel: 'full' });
@@ -110,7 +110,8 @@ test('7.5: balance de masas reparte en partes iguales un viaje con orígenes de 
   // el lote abierto del Sur está retenido (previousState open): la recepción entra ahí
   const { reception } = confirmArrival(trip.id, actor(centerUser.id, 'center', centerUser.entityId!), { photoId: photo.id });
   classifyReception(reception.id, actor(centerUser.id, 'center', centerUser.entityId!), { subcategory: 'concrete_brick' });
-  const comp = batchComposition(getBatchOrThrow(reception.batchId));
+  // Composición del viaje de prueba: un viaje con orígenes de dos zonas se reparte en partes iguales.
+  const comp = batchComposition({ ...getBatchOrThrow(reception.batchId), receptionIds: [reception.id] });
   const shareA = comp.find((c) => c.sectorId === a.sectorId)!;
   const shareB = comp.find((c) => c.sectorId === b.sectorId)!;
   assert.ok(shareA && shareB);

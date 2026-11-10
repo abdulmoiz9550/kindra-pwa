@@ -276,6 +276,8 @@ export interface Center {
   location?: GeoPoint | null;
   /** Otras entidades operadoras que registran viajes hacia este centro (un sitio puede tener varios operadores). */
   operatorEntityIds?: string[];
+  /** Punto de descarga donde los camiones dejan el material y se confirman las llegadas (si difiere de la ubicación del centro). */
+  unloadingPoint?: GeoPoint | null;
 }
 
 export interface Reception {

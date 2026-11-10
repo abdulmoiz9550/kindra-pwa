@@ -174,7 +174,7 @@ export function upsertCenter(input: Partial<Center> & { name: string; type: Cent
   const shortCode = (input.shortCode || existing?.shortCode || input.name.replace(/[^A-Za-z]/g, '').slice(0, 5)).toUpperCase();
   const operatorEntityIds = (input.operatorEntityIds ?? existing?.operatorEntityIds ?? []).filter((id) => id !== input.entityId);
   for (const id of operatorEntityIds) if (!store.get('entities', id)) throw badRequest('Una de las entidades operadoras no existe.');
-  return store.put('centers', { id: existing?.id || newId('ce'), name: input.name.trim(), shortCode, type: input.type, sectorId: input.sectorId, entityId: input.entityId, location: input.location ?? existing?.location ?? null, operatorEntityIds });
+  return store.put('centers', { id: existing?.id || newId('ce'), name: input.name.trim(), shortCode, type: input.type, sectorId: input.sectorId, entityId: input.entityId, location: input.location ?? existing?.location ?? null, operatorEntityIds, unloadingPoint: input.unloadingPoint !== undefined ? input.unloadingPoint : existing?.unloadingPoint ?? null });
 }
 
 export function upsertVehicleType(input: Partial<VehicleType> & { name: string; capacityM3?: number | null }): VehicleType {
