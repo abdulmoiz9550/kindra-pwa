@@ -122,7 +122,7 @@ function assertDestinationActor(actor: Actor, m: Movement): void {
   }
 }
 
-export function confirmMovementArrival(actor: Actor, key: string, input: { photoId?: string | null; vehicleQr?: string | null; location?: GeoPoint | null; deviceTime?: string | null; offlineQueuedAt?: string | null }): Movement {
+export function confirmMovementArrival(actor: Actor, key: string, input: { photoId?: string | null; vehicleQr?: string | null; location?: GeoPoint | null; deviceTime?: string | null; offlineQueuedAt?: string | null; viaGate?: boolean }): Movement {
   const store = db();
   const m = store.get('movements', key) || store.find('movements', (x) => x.code === key);
   if (!m) throw notFound('El movimiento no existe.');
@@ -131,13 +131,14 @@ export function confirmMovementArrival(actor: Actor, key: string, input: { photo
     const v = store.get('vehicles', m.vehicleId);
     if (!v || v.qrCode !== input.vehicleQr.trim()) throw conflict('El QR escaneado no corresponde al vehículo de este movimiento.', 'vehicle_mismatch');
   }
-  if (!input.photoId) throw badRequest('La foto de llegada es obligatoria.');
-  assertDestinationActor(actor, m);
+  if (!input.photoId && !input.viaGate) throw badRequest('La foto de llegada es obligatoria.');
+  // Por la puerta (escolta dentro del perímetro del destino) no hace falta personal; si no, lo confirma el destino.
+  if (!input.viaGate) assertDestinationActor(actor, m);
   const ref = tripRef(m.id)!;
   const arrivalCheck = geofenceCheck(input.location, ref.to);
   const serverTime = nowIso();
   if (input.location) ingestPoints(m.id, [{ ...input.location, at: serverTime, label: 'Llegada' }], 'checkpoint', { delayed: !!input.offlineQueuedAt });
-  const arrival: TripLeg = { userId: actor.id!, entityId: actor.entityId!, deviceTime: input.deviceTime || serverTime, serverTime, photoId: input.photoId, location: input.location ?? null };
+  const arrival: TripLeg & { via?: string } = { userId: actor.id!, entityId: actor.entityId!, deviceTime: input.deviceTime || serverTime, serverTime, photoId: input.photoId ?? null, location: input.location ?? null, ...(input.viaGate ? { via: 'gate_qr' } : {}) };
   const seal = traceHash(m.id);
   appendEvent({ type: 'movement_arrival', objectType: 'trip', objectId: m.id, actor, data: { arrival, arrivalCheck, traceHash: seal.hash, traceCount: seal.count, late: m.state === 'no_arrival' }, deviceTime: input.deviceTime, offlineQueuedAt: input.offlineQueuedAt });
   if (arrivalCheck === 'outside') raiseTrackingAlert(`al_arrfence_${m.id}`, 'gate_alert', m.id, `La llegada del movimiento ${m.code} se escaneó fuera del perímetro del destino: no cuenta como llegada verificada.`);

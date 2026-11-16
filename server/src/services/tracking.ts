@@ -509,5 +509,8 @@ export function recordGatePresence(actor: Actor, input: { gateCode: string; trip
   const fromGate = ref.kind === 'movement' && gate.kind === 'center' && store.get('movements', ref.key)?.fromCenterId === gate.id;
   if (!expected && !fromGate) raiseTrackingAlert(`al_wronggate_${ref.key}_${gate.id}`, 'gate_alert', ref.key, `El viaje ${ref.code} registró presencia en ${gate.name}, distinto del destino declarado (${ref.toLabel}).`);
   if (check === 'outside') raiseTrackingAlert(`al_gatefence_${ref.key}_${gate.id}`, 'gate_alert', ref.key, `Escaneo de puerta fuera de perímetro en ${gate.name} (viaje ${ref.code}): no cuenta como presencia.`);
-  return { tripKey: ref.key, gate: gate.name, geofence: check, counts: check === 'inside' || check === 'no_reference' };
+  // El escolta cierra la llegada escaneando el QR de la puerta del destino, solo si está dentro del perímetro.
+  const isEscort = ref.departureUserId === actor.id || ref.departureEntityId === actor.entityId;
+  const closes = expected && check === 'inside' && isEscort && (ref.state === 'in_transit' || ref.state === 'no_arrival');
+  return { tripKey: ref.key, kind: ref.kind, gate: gate.name, geofence: check, counts: check === 'inside' || check === 'no_reference', closes };
 }

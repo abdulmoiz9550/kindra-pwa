@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { RequireRole } from './components/RequireRole';
 import { Spinner } from './components/ui';
+import './lib/offlineActions';
 
 const Entry = lazy(() => import('./pages/Entry'));
 const Report = lazy(() => import('./pages/Report'));

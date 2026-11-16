@@ -7,6 +7,7 @@ import { api, errorMessage } from '../../lib/api';
 import { toast } from '../../lib/toast';
 import { fmtTime } from '../../lib/format';
 import { bufferPoint, flushPoints, keepAwake, navLinks, pendingPoints, type ActiveTrip, type TrackView } from '../../lib/tracking';
+import { sendOrQueue } from '../../lib/offlineActions';
 import { MapView, type MapLine } from '../../components/MapView';
 import { PhotoCapture, type CapturedPhoto } from '../../components/PhotoCapture';
 import { QrScanner } from '../../components/panels/QrScanner';
@@ -153,8 +154,8 @@ function StopModal({ open, onClose, tripKey, lastPos }: { open: boolean; onClose
     setBusy(true);
     try {
       const location = lastPos || (await currentPosition());
-      await api.post(`/tracking/trips/${tripKey}/stops`, { reason, note: note || null, photoId: photos[0]?.id ?? null, location });
-      toast.success('Parada declarada.');
+      const r = await sendOrQueue(`/tracking/trips/${tripKey}/stops`, { reason, note: note || null, location }, 'Parada declarada', photos[0] ? { dataUrl: photos[0].preview, kind: 'evidence', location: photos[0].location } : null);
+      if (r) toast.success('Parada declarada.');
       setNote('');
       setPhotos([]);
       onClose();
@@ -172,7 +173,7 @@ function StopModal({ open, onClose, tripKey, lastPos }: { open: boolean; onClose
         </Select>
       </Field>
       <Field label="Nota (opcional)"><Textarea value={note} onChange={(e) => setNote(e.target.value)} /></Field>
-      <PhotoCapture kind="evidence" label="Foto (opcional)" photos={photos} onChange={setPhotos} max={1} />
+      <PhotoCapture kind="evidence" label="Foto (opcional)" photos={photos} onChange={setPhotos} max={1} deferUpload />
       <div className="flex justify-end gap-2 mt-3">
         <Button variant="ghost" onClick={onClose}>Cancelar</Button>
         <Button onClick={save} disabled={busy}>Guardar</Button>
@@ -186,9 +187,10 @@ function GateModal({ open, onClose, tripKey }: { open: boolean; onClose: () => v
     const code = value.includes('/puerta/') ? value.split('/puerta/')[1].split(/[?#]/)[0] : value;
     try {
       const location = await currentPosition();
-      const r = await api.post<{ gate: string; counts: boolean }>('/tracking/gate-scan', { gateCode: code, tripKey, location });
-      if (r.counts) toast.success(`Presencia registrada en ${r.gate}.`);
-      else toast.error(`Escaneo fuera del perímetro de ${r.gate}: no cuenta como presencia.`);
+      const r = await sendOrQueue<{ gate: string; counts: boolean; closed: boolean }>('/tracking/gate-scan', { gateCode: code, tripKey, location }, `Escaneo de la puerta ${code}`);
+      if (r?.closed) toast.success(`Llegada a ${r.gate} cerrada: estabas dentro del perímetro. El seguimiento se detiene.`);
+      else if (r?.counts) toast.success(`Presencia registrada en ${r.gate}.`);
+      else if (r) toast.error(`Escaneo fuera del perímetro de ${r.gate}: no cuenta como presencia.`);
       onClose();
     } catch (err) {
       toast.error(errorMessage(err));
@@ -196,7 +198,7 @@ function GateModal({ open, onClose, tripKey }: { open: boolean; onClose: () => v
   };
   return (
     <Modal open={open} onClose={onClose} title="QR de la puerta">
-      <p className="text-sm mb-2">Escanéalo si no hay personal en la puerta. Solo cuenta si estás dentro del perímetro.</p>
+      <p className="text-sm mb-2">Al llegar al destino, escanea el QR de su puerta: si estás dentro del perímetro, la llegada queda cerrada. Si no, solo se registra la presencia.</p>
       {open && <QrScanner onResult={onResult} label="Escanear QR de la puerta" />}
     </Modal>
   );

@@ -9,6 +9,7 @@ import type { ActiveTrip } from '../../lib/tracking';
 import { PhotoCapture, type CapturedPhoto } from '../../components/PhotoCapture';
 import { QrScanner } from '../../components/panels/QrScanner';
 import { useAuth } from '../../lib/auth';
+import { sendOrQueue } from '../../lib/offlineActions';
 import { Alert, Badge, Button, Card, EmptyState, Field, Input, PageTitle, Select, Spinner, Tabs } from '../../components/ui';
 
 type Leg = 'cdt_cdf' | 'cdt_work' | 'cdt_state';
@@ -60,8 +61,14 @@ function Arrivals({ d }: { d: Data }) {
   const [photos, setPhotos] = useState<CapturedPhoto[]>([]);
   const [busy, setBusy] = useState(false);
   const onQr = async (qr: string) => {
+    const code = qr.trim();
+    if (!navigator.onLine) {
+      // Sin señal: se confirma solo con el QR; el servidor resuelve el viaje abierto al subir.
+      setScan({ vehicle: { id: '', plate: code }, open: { key: '', kind: 'trip', code: 'pendiente', toLabel: 'se verifica al volver la señal' }, qr: code });
+      return;
+    }
     try {
-      setScan({ ...(await api.get<OpenScan>(`/tracking/vehicles/${encodeURIComponent(qr.trim())}/open`)), qr: qr.trim() });
+      setScan({ ...(await api.get<OpenScan>(`/tracking/vehicles/${encodeURIComponent(code)}/open`)), qr: code });
     } catch (err) {
       toast.error(errorMessage(err));
     }
@@ -71,12 +78,9 @@ function Arrivals({ d }: { d: Data }) {
     setBusy(true);
     try {
       const location = await currentPosition();
-      const body = { photoId: photos[0].id, vehicleQr: scan.qr, location };
-      if (scan.open.kind === 'trip') {
-        if (role !== 'center') throw new Error('Los viajes desde un origen los confirma el centro de destino.');
-        await api.post(`/center/trips/${scan.open.key}/arrive`, body);
-      } else await api.post(`/tracking/movements/${scan.open.key}/arrive`, body);
-      toast.success(`Llegada de ${scan.open.code} confirmada.`);
+      if (scan.open.kind === 'trip' && scan.open.key && role !== 'center') throw new Error('Los viajes desde un origen los confirma el centro de destino.');
+      const r = await sendOrQueue('/tracking/arrive-by-qr', { vehicleQr: scan.qr, location }, `Llegada del vehículo ${scan.qr}`, { dataUrl: photos[0].preview, kind: 'trip_arrival', location: photos[0].location });
+      if (r) toast.success(`Llegada de ${scan.open.code} confirmada.`);
       setScan(null);
       setPhotos([]);
       qc.invalidateQueries({ queryKey: ['tracking'] });
@@ -96,7 +100,7 @@ function Arrivals({ d }: { d: Data }) {
           scan.open ? (
             <div className="mt-2">
               <p className="text-sm mb-2"><strong>{scan.vehicle.plate}</strong> · viaje {scan.open.code} hacia {scan.open.toLabel}</p>
-              <PhotoCapture kind="trip_arrival" label="Foto de llegada" photos={photos} onChange={setPhotos} max={1} />
+              <PhotoCapture kind="trip_arrival" label="Foto de llegada" photos={photos} onChange={setPhotos} max={1} deferUpload />
               <Button className="mt-2" onClick={confirm} disabled={busy || !photos[0]}>Confirmar llegada</Button>
             </div>
           ) : (
@@ -140,8 +144,8 @@ function Departure({ d, onDone }: { d: Data; onDone: () => void }) {
     setBusy(true);
     try {
       const location = await currentPosition();
-      await api.post('/tracking/movements', { leg, batchId, quantity: Number(quantity), vehicleQr: qr, photoId: photos[0]?.id, destCenterId: leg === 'cdt_cdf' ? dest : null, workId: leg === 'cdt_work' ? dest : null, location });
-      toast.success('Salida registrada. El destino confirma la llegada escaneando el mismo QR.');
+      const r = await sendOrQueue('/tracking/movements', { leg, batchId, quantity: Number(quantity), vehicleQr: qr, destCenterId: leg === 'cdt_cdf' ? dest : null, workId: leg === 'cdt_work' ? dest : null, location }, `Salida del vehículo ${qr}`, { dataUrl: photos[0].preview, kind: 'trip_departure', location: photos[0].location });
+      if (r) toast.success('Salida registrada. El destino confirma la llegada escaneando el mismo QR.');
       qc.invalidateQueries({ queryKey: ['tracking'] });
       onDone();
     } catch (err) {
@@ -179,7 +183,7 @@ function Departure({ d, onDone }: { d: Data; onDone: () => void }) {
       )}
       <QrScanner onResult={(v) => setQr(v.trim())} label="Escanear QR del vehículo" />
       <Field label="QR del vehículo"><Input value={qr} onChange={(e) => setQr(e.target.value)} placeholder="KV-XXXXXX" /></Field>
-      <PhotoCapture kind="trip_departure" label="Foto del camión cargado (placa visible)" photos={photos} onChange={setPhotos} max={1} />
+      <PhotoCapture kind="trip_departure" label="Foto del camión cargado (placa visible)" photos={photos} onChange={setPhotos} max={1} deferUpload />
       <Button className="mt-3" onClick={save} disabled={busy || !qr || !photos[0] || !(Number(quantity) > 0) || (leg !== 'cdt_state' && !dest)}>Registrar salida</Button>
     </Card>
   );

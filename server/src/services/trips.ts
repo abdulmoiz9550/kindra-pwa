@@ -98,6 +98,8 @@ export interface ArrivalInput {
   deviceTime?: string | null;
   offlineQueuedAt?: string | null;
   location?: GeoPoint | null;
+  /** Cierre por el escolta escaneando el QR de la puerta del centro, verificado dentro del perímetro (addendum v1.3). */
+  viaGate?: boolean;
 }
 
 export function confirmArrival(tripId: string, actor: Actor, input: ArrivalInput): { trip: Trip; reception: Reception } {
@@ -109,17 +111,23 @@ export function confirmArrival(tripId: string, actor: Actor, input: ArrivalInput
     const v = store.get('vehicles', trip.vehicleId);
     if (!v || v.qrCode !== input.vehicleQr.trim()) throw conflict('El QR escaneado no corresponde al vehículo de este viaje.', 'vehicle_mismatch');
   }
-  if (!input.photoId) throw badRequest('La foto de llegada es obligatoria.');
-  // Addendum v1.3: llegada a un centro distinto del declarado → alerta al coordinador y al supervisor.
-  const scanner = store.get('users', actor.id);
-  if (actor.role === 'center' && scanner?.centerId && scanner.centerId !== trip.centerId) {
-    raiseTrackingAlert(`al_wrongcenter_${trip.id}_${scanner.centerId}`, 'gate_alert', trip.id, `El viaje ${trip.code} llegó a ${store.get('centers', scanner.centerId)?.name ?? 'otro centro'}, distinto del declarado (${store.get('centers', trip.centerId)?.name ?? ''}).`);
+  if (!input.photoId && !input.viaGate) throw badRequest('La foto de llegada es obligatoria.');
+  if (input.viaGate) {
+    // La puerta ya verificó destino y perímetro; se mantienen estado y "nadie recibe lo que reportó" (4.1).
+    if (!['in_transit', 'no_arrival'].includes(trip.state)) throw conflict('Este viaje ya tiene la llegada confirmada.', 'bad_state');
+    if (trip.originIds.some((id) => store.get('origins', id)?.reporterId === actor.id)) throw conflict('Nadie puede validar, retirar o recibir algo que reportó él mismo (regla 4.1).', 'notOwnReport');
+  } else {
+    // Addendum v1.3: llegada a un centro distinto del declarado → alerta al coordinador y al supervisor.
+    const scanner = store.get('users', actor.id);
+    if (actor.role === 'center' && scanner?.centerId && scanner.centerId !== trip.centerId) {
+      raiseTrackingAlert(`al_wrongcenter_${trip.id}_${scanner.centerId}`, 'gate_alert', trip.id, `El viaje ${trip.code} llegó a ${store.get('centers', scanner.centerId)?.name ?? 'otro centro'}, distinto del declarado (${store.get('centers', trip.centerId)?.name ?? ''}).`);
+    }
+    // sameCenter + notOwnReport (4.1: nadie recibe lo que reportó)
+    assertTransition('trip', 'trip_arrival', trip.state, { actor, trip });
   }
-  // sameCenter + notOwnReport (4.1: nadie recibe lo que reportó)
-  assertTransition('trip', 'trip_arrival', trip.state, { actor, trip });
   const serverTime = nowIso();
   const batch = ensureOpenBatch(trip.centerId, serverTime);
-  const arrival: TripLeg = { userId: actor.id, entityId: actor.entityId, deviceTime: input.deviceTime || serverTime, serverTime, photoId: input.photoId, location: input.location ?? null };
+  const arrival: TripLeg & { via?: string } = { userId: actor.id, entityId: actor.entityId, deviceTime: input.deviceTime || serverTime, serverTime, photoId: input.photoId ?? null, location: input.location ?? null, ...(input.viaGate ? { via: 'gate_qr' } : {}) };
   const reception: Reception = {
     id: newId('rc'),
     tripId: trip.id,

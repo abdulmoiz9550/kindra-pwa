@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
 import { MapPin } from 'lucide-react';
-import { api, errorMessage } from '../lib/api';
+import { errorMessage } from '../lib/api';
+import { sendOrQueue } from '../lib/offlineActions';
 import { useAuth } from '../lib/auth';
 import { Alert, Button, Card, PageTitle } from '../components/ui';
 
@@ -18,8 +19,9 @@ export default function GatePage() {
       const location = await new Promise<{ lat: number; lng: number } | null>((resolve) =>
         navigator.geolocation ? navigator.geolocation.getCurrentPosition((p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }), () => resolve(null), { enableHighAccuracy: true, timeout: 15_000 }) : resolve(null),
       );
-      const r = await api.post<{ gate: string; counts: boolean }>('/tracking/gate-scan', { gateCode: code, location });
-      setResult({ ok: r.counts, text: r.counts ? `Presencia registrada en ${r.gate}.` : `Estás fuera del perímetro de ${r.gate}: el escaneo no cuenta como presencia. Se avisó al coordinador.` });
+      const r = await sendOrQueue<{ gate: string; counts: boolean; closed: boolean }>('/tracking/gate-scan', { gateCode: code, location }, `Escaneo de la puerta ${code}`);
+      if (!r) setResult({ ok: true, text: 'Sin señal: el escaneo quedó guardado con su hora y ubicación y se enviará al volver la conexión.' });
+      else setResult({ ok: r.counts, text: r.closed ? `Llegada a ${r.gate} cerrada.` : r.counts ? `Presencia registrada en ${r.gate}.` : `Estás fuera del perímetro de ${r.gate}: el escaneo no cuenta como presencia. Se avisó al coordinador.` });
     } catch (err) {
       setResult({ ok: false, text: errorMessage(err) });
     } finally {

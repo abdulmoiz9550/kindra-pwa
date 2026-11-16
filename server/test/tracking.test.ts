@@ -158,3 +158,22 @@ test('Traccar: posiciones del dispositivo por IMEI solo durante el viaje; corte 
   assert.equal(tripRef(trip.id)!.kind, 'trip');
   setClockOffset(0);
 });
+
+test('Escolta: el QR de la puerta del destino cierra la llegada solo dentro del perímetro', () => {
+  const store = db();
+  const batch = store.list('batches').find((b) => !!b.outputs && (b.outputs.rejects || 0) > 0.3)!;
+  const cu = store.list('users').find((u) => u.centerId === batch.centerId && u.roles.includes('center'))!;
+  const escort = actor(cu.id, 'center', cu.entityId!);
+  const cdf = store.get('centers', 'ce_final')!;
+  const m = registerMovementDeparture(escort, { leg: 'cdt_cdf', vehicleId: freeVehicle().id, batchId: batch.id, quantity: 0.1, destCenterId: cdf.id, photoId: photo() });
+  const gate = gateCodeOfCenter(cdf);
+  // Fuera del perímetro: solo presencia, no cierra
+  const far = recordGatePresence(escort, { gateCode: gate, tripKey: m.id, location: { lat: 10.62, lng: -66.9 } });
+  assert.equal(far.closes, false);
+  // Dentro del perímetro del punto de descarga: cierra
+  const near = recordGatePresence(escort, { gateCode: gate, tripKey: m.id, location: { lat: 10.58705, lng: -67.00573 } });
+  assert.equal(near.closes, true);
+  const closed = confirmMovementArrival(escort, m.id, { location: { lat: 10.58705, lng: -67.00573 }, viaGate: true });
+  assert.equal(closed.state, 'received');
+  assert.equal(closed.arrivalCheck, 'inside');
+});

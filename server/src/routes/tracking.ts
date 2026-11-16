@@ -9,7 +9,7 @@ import { activeTrips, assertCanView, assertEscort, etaOf, ingestPoints, openTrip
 import { registerMovementDeparture, confirmMovementArrival, movementView } from '../services/movements';
 import { handleTraccarForward, traccarEnv } from '../services/traccar';
 import { getOriginByCode } from '../services/origins';
-import { tripView } from '../services/trips';
+import { tripView, confirmArrival } from '../services/trips';
 import { getConfig } from '../services/config';
 
 /** Puntos de control QR en cada tramo y seguimiento de rutas (addendum v1.3). Nunca público. */
@@ -87,8 +87,16 @@ trackingRouter.post(
 trackingRouter.post(
   '/gate-scan',
   wrap((req, res) => {
-    const body = z.object({ gateCode: z.string().min(3), tripKey: z.string().nullable().optional(), location: geo }).parse(req.body);
-    res.json(recordGatePresence(req.auth!.actor, { ...body, deviceTime: req.deviceTime, offlineQueuedAt: req.offlineQueuedAt }));
+    const body = z.object({ gateCode: z.string().min(3), tripKey: z.string().nullable().optional(), location: geo, photoId: z.string().nullable().optional() }).parse(req.body);
+    const r = recordGatePresence(req.auth!.actor, { ...body, deviceTime: req.deviceTime, offlineQueuedAt: req.offlineQueuedAt });
+    let closed = false;
+    if (r.closes) {
+      const opts = { photoId: body.photoId ?? null, location: body.location ?? null, deviceTime: req.deviceTime, offlineQueuedAt: req.offlineQueuedAt, viaGate: true };
+      if (r.kind === 'trip') confirmArrival(r.tripKey, req.auth!.actor, opts);
+      else confirmMovementArrival(req.auth!.actor, r.tripKey, opts);
+      closed = true;
+    }
+    res.json({ ...r, closed });
   }),
 );
 
@@ -106,6 +114,22 @@ trackingRouter.get(
     }
     const store = db();
     res.json({ vehicle: { id: v.id, plate: v.plate }, open: { key: open.key, kind: open.kind, code: open.code, toLabel: open.toLabel, destCenterId: open.destCenterId, destWorkId: open.destWorkId, detail: open.kind === 'trip' ? tripView(store.get('trips', open.key)!) : movementView(store.get('movements', open.key)!) } });
+  }),
+);
+
+/** Llegada escaneando solo el QR del vehículo (sirve para escaneos guardados sin señal). */
+trackingRouter.post(
+  '/arrive-by-qr',
+  requireRole('center', 'destination', 'coordinator'),
+  wrap((req, res) => {
+    const body = z.object({ vehicleQr: z.string().min(3), photoId: z.string(), location: geo }).parse(req.body);
+    const v = db().find('vehicles', (x) => x.qrCode === body.vehicleQr.trim());
+    if (!v) throw notFound('No se encontró el vehículo de ese QR.');
+    const open = openTripOfVehicle(v.id);
+    if (!open) throw notFound(`${v.plate} no tiene un viaje abierto.`);
+    const opts = { ...body, deviceTime: req.deviceTime, offlineQueuedAt: req.offlineQueuedAt };
+    if (open.kind === 'trip') res.json({ kind: 'trip', code: open.code, trip: tripView(confirmArrival(open.key, req.auth!.actor, opts).trip) });
+    else res.json({ kind: 'movement', code: open.code, movement: movementView(confirmMovementArrival(req.auth!.actor, open.key, opts)) });
   }),
 );
 

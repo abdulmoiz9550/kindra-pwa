@@ -1,0 +1,18 @@
+# Traccar on a small VPS (Docker). Needed for hardware GPS trackers, which send raw TCP/UDP on their own ports.
+# Also receives phones running Traccar Client on port 5055. Forwards everything to Kindra.
+#   1. Copy this folder to the VPS.
+#   2. Edit traccar.xml: replace __FORWARD_URL__ with https://<kindra-host>/api/tracking/traccar/forward?secret=<TRACCAR_FORWARD_SECRET>
+#   3. docker compose up -d
+#   4. Open http://<vps-ip>:8082, create the admin user, and create a read-only API token for Kindra (optional polling).
+services:
+  traccar:
+    image: traccar/traccar:latest
+    restart: unless-stopped
+    ports:
+      - "8082:8082"            # web UI and API
+      - "5000-5150:5000-5150"  # device protocols (TCP)
+      - "5000-5150:5000-5150/udp"
+    volumes:
+      - ./traccar.xml:/opt/traccar/conf/traccar.xml:ro
+      - ./data:/opt/traccar/data
+      - ./logs:/opt/traccar/logs

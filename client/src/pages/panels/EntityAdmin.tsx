@@ -278,7 +278,7 @@ function EntityUsers({ centers }: { centers: Overview['centers'] }) {
 function EntityVehicles() {
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ['entity-admin', 'vehicles'], queryFn: () => api.get<{ vehicles: (Vehicle & { typeName: string | null })[]; types: VehicleType[] }>('/entity-admin/vehicles') });
-  const [editing, setEditing] = useState<{ id?: string; plate: string; typeId: string; active: boolean } | null>(null);
+  const [editing, setEditing] = useState<{ id?: string; plate: string; typeId: string; active: boolean; imei?: string | null; trackerType?: 'gps' | 'traccar_client' | null } | null>(null);
   const [busy, setBusy] = useState(false);
   const save = async () => {
     if (!editing) return;
@@ -309,7 +309,7 @@ function EntityVehicles() {
         <ul className="grid md:grid-cols-3 gap-3">
           {q.data.vehicles.map((v) => (
             <li key={v.id}>
-              <Card title={v.plate} subtitle={v.typeName || ''} actions={<Button variant="ghost" size="sm" onClick={() => setEditing({ id: v.id, plate: v.plate, typeId: v.typeId, active: v.active })}>Editar</Button>}>
+              <Card title={v.plate} subtitle={v.typeName || ''} actions={<Button variant="ghost" size="sm" onClick={() => setEditing({ id: v.id, plate: v.plate, typeId: v.typeId, active: v.active, imei: v.imei ?? '', trackerType: v.trackerType ?? null })}>Editar</Button>}>
                 <p className="font-mono text-sm">{v.qrCode}</p>
                 {!v.active && <Badge tone="bad">inactivo</Badge>}
               </Card>
@@ -330,6 +330,16 @@ function EntityVehicles() {
                     {t.name}
                   </option>
                 ))}
+              </Select>
+            </Field>
+            <Field label="IMEI del dispositivo de rastreo" hint="GPS instalado o teléfono con Traccar Client.">
+              <Input value={editing.imei || ''} inputMode="numeric" onChange={(e) => setEditing({ ...editing, imei: e.target.value })} />
+            </Field>
+            <Field label="Fuente">
+              <Select value={editing.trackerType || ''} onChange={(e) => setEditing({ ...editing, trackerType: (e.target.value || null) as 'gps' | 'traccar_client' | null })}>
+                <option value="">Sin dispositivo</option>
+                <option value="gps">GPS instalado en el camión</option>
+                <option value="traccar_client">Teléfono con Traccar Client</option>
               </Select>
             </Field>
             <label className="flex items-center gap-2 text-sm mb-4">
