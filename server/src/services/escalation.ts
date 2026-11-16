@@ -6,6 +6,8 @@ import { getConfig } from './config';
 import { markNoArrival } from './trips';
 import { notifyOrigin, notifyRole, pickText } from './notifications';
 import { sectorName } from './origins';
+import { markMovementsNoArrival } from './movements';
+import { checkOpenTripsOvertime } from './tracking';
 
 export interface JobsReport {
   ranAt: string;
@@ -81,6 +83,10 @@ export function runEscalations(now: Date = new Date()): JobsReport {
     notifyRole('coordinator', 'dispatch_unconfirmed', pickText('notif_coord_dispatch_unconfirmed', { código: d.code, número: Math.floor(elapsed) }), { link: '/panel/coordinador' });
     report.dispatchesUnconfirmed++;
   }
+
+  // Addendum v1.3: movimientos CDT→CDF/obra/Estado sin llegada y viajes que superan el tiempo esperado.
+  report.tripsNoArrival += markMovementsNoArrival(cfg.escalation.tripNoArrivalHours);
+  checkOpenTripsOvertime();
 
   // Lotes retenidos recién creados: el reductor ya crea la alerta "al_held_*" (sin plazo) para el panel.
   // Lotes y despachos resueltos: los reductores cierran sus alertas.

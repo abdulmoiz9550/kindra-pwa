@@ -165,13 +165,13 @@ export default function Profile() {
           <p className="text-sm">Tu solicitud está en revisión por el equipo de coordinación.</p>
         ) : p.canRequestMonitor ? (
           <>
-            <p className="text-sm mb-2">Alcanzaste el nivel Contralor comunitario. Puedes pedir el rol: hace falta la verificación por selfie y la aprobación del coordinador.</p>
+            <p className="text-sm mb-2">Alcanzaste el nivel {lvl.name}. Puedes pedir el rol de contralor comunitario: hace falta la verificación por selfie y la aprobación del coordinador.</p>
             <Button onClick={requestMonitor} disabled={busy}>
               <ShieldCheck size={18} /> Solicitar el rol
             </Button>
           </>
         ) : (
-          <p className="text-sm text-muted">Se habilita al llegar al nivel Contralor comunitario (300 puntos).</p>
+          <p className="text-sm text-muted">Se habilita al llegar al nivel {cfg?.levels?.[cfg.levels.length - 1]?.name ?? 'más alto'} ({cfg?.levels?.[cfg.levels.length - 1]?.threshold ?? 0} puntos).</p>
         )}
       </Card>
 

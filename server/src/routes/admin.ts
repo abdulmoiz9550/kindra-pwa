@@ -13,6 +13,9 @@ import { listFeatures, setFeatures, assertFeature } from '../services/features';
 import { listSpaces, upsertSpace, spaceUsage } from '../services/spaces';
 import { notify, pickText } from '../services/notifications';
 import { EVENT_LABELS } from '@kindra/shared';
+import { gateCodeOfCenter, gateCodeOfWork, centerPoint } from '../services/tracking';
+import { traccarStatus } from '../services/traccar';
+import { env } from '../config/env';
 import { moderatePhoto } from '../services/photos';
 import { runEscalations } from '../services/escalation';
 import { resetDemo } from '../seed/demo';
@@ -172,7 +175,7 @@ adminRouter.get('/vehicles', (_req, res) => {
 adminRouter.post(
   '/vehicles',
   wrap((req, res) => {
-    const body = z.object({ id: z.string().optional(), plate: z.string().min(3), typeId: z.string(), entityId: z.string(), active: z.boolean().optional() }).parse(req.body);
+    const body = z.object({ id: z.string().optional(), plate: z.string().min(3), typeId: z.string(), entityId: z.string(), active: z.boolean().optional(), imei: z.string().max(40).nullable().optional(), trackerType: z.enum(['gps', 'traccar_client']).nullable().optional() }).parse(req.body);
     res.json(upsertVehicle(body));
   }),
 );
@@ -206,6 +209,20 @@ adminRouter.put(
 );
 adminRouter.get('/transitions', (_req, res) => res.json(getConfig().transitions));
 adminRouter.get('/transitions/fixed', (_req, res) => res.json(FIXED_GATES));
+
+// ---------------------------------------------------------------- puertas (QR fijo) y seguimiento (addendum v1.3)
+adminRouter.get(
+  '/gates',
+  wrap(async (_req, res) => {
+    const store = db();
+    const items = [
+      ...store.list('centers').map((c) => ({ kind: 'center' as const, id: c.id, name: c.name, code: gateCodeOfCenter(c), hasPoint: !!centerPoint(c) })),
+      ...store.list('works').map((w) => ({ kind: 'work' as const, id: w.id, name: `${w.code} · ${w.name}`, code: gateCodeOfWork(w), hasPoint: !!w.location })),
+    ];
+    res.json(await Promise.all(items.map(async (g) => ({ ...g, qrSvg: await QRCode.toString(`${env.publicBaseUrl}/puerta/${g.code}`, { type: 'svg', margin: 1, width: 360 }) }))));
+  }),
+);
+adminRouter.get('/tracking/status', (_req, res) => res.json({ traccar: traccarStatus(), routing: process.env.OSRM_URL === 'off' ? 'off' : process.env.OSRM_URL || 'https://router.project-osrm.org', forwardUrl: `${env.publicBaseUrl}/api/tracking/traccar/forward?secret=…` }));
 
 // ---------------------------------------------------------------- funciones activables (addendum, partes 1 y 4)
 adminRouter.get('/features', (_req, res) => res.json(listFeatures()));

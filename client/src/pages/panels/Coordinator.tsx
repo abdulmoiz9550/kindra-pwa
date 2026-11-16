@@ -327,7 +327,7 @@ function DisputeResolver({ o, onDone }: { o: OriginView; onDone: () => void }) {
 function MonitorRequests({ requests, onDone }: { requests: CoordOverview['monitorRequests']; onDone: () => void }) {
   const { busy, error, run } = useSubmit();
   return (
-    <Card title="Solicitudes de contralor comunitario" subtitle="Requieren nivel Contralor comunitario y verificación por selfie antes de aprobar.">
+    <Card title="Solicitudes de contralor comunitario" subtitle="Requieren el nivel más alto de Kindra (Embajador) y verificación por selfie antes de aprobar.">
       {error && <Alert tone="bad" className="mb-2">{error}</Alert>}
       {requests.length === 0 ? (
         <EmptyState title="No hay solicitudes pendientes" />

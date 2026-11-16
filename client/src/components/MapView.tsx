@@ -1,4 +1,4 @@
-import { MapContainer, TileLayer, Polygon, CircleMarker, Tooltip, useMapEvents, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Polygon, Polyline, CircleMarker, Tooltip, useMapEvents, useMap } from 'react-leaflet';
 import { useEffect } from 'react';
 import type { LatLngExpression } from 'leaflet';
 import { polygonCentroid } from '@kindra/shared';
@@ -11,6 +11,16 @@ export interface MapSector {
   fillOpacity?: number;
   label?: string;
   authorized?: boolean;
+}
+
+/** Línea (ruta planificada o trazado real). */
+export interface MapLine {
+  id: string;
+  positions: [number, number][];
+  color?: string;
+  dashed?: boolean;
+  weight?: number;
+  label?: string;
 }
 
 export interface MapPoint {
@@ -64,7 +74,7 @@ function Recenter({ center, zoom }: { center?: [number, number] | null; zoom?: n
 }
 
 /** Mapa base con sectores (polígonos) y puntos. Para páginas públicas no se pasan puntos individuales (12.3, 12.5). */
-export function MapView({ sectors = [], points = [], center, zoom = 14, height = 280, onClick, className = '', fitSectors = true, pilotArea = true }: { sectors?: MapSector[]; points?: MapPoint[]; center?: [number, number] | null; zoom?: number; height?: number; onClick?: (p: { lat: number; lng: number }) => void; className?: string; fitSectors?: boolean; pilotArea?: boolean }) {
+export function MapView({ sectors = [], points = [], lines = [], center, zoom = 14, height = 280, onClick, className = '', fitSectors = true, pilotArea = true }: { sectors?: MapSector[]; points?: MapPoint[]; lines?: MapLine[]; center?: [number, number] | null; zoom?: number; height?: number; onClick?: (p: { lat: number; lng: number }) => void; className?: string; fitSectors?: boolean; pilotArea?: boolean }) {
   const c: [number, number] = center || (sectors.length && fitSectors ? ((): [number, number] => {
     const all = sectors.flatMap((s) => s.polygon);
     const cc = polygonCentroid(all);
@@ -81,6 +91,11 @@ export function MapView({ sectors = [], points = [], center, zoom = 14, height =
           <Polygon key={s.id} positions={s.polygon as LatLngExpression[]} pathOptions={{ color: s.color || 'var(--primary)', weight: 2, fillOpacity: s.fillOpacity ?? 0.12, dashArray: s.authorized === false ? '6 6' : undefined }}>
             <Tooltip sticky>{s.label || s.name}</Tooltip>
           </Polygon>
+        ))}
+        {lines.map((l) => (
+          <Polyline key={l.id} positions={l.positions as LatLngExpression[]} pathOptions={{ color: l.color || 'var(--primary)', weight: l.weight ?? 4, dashArray: l.dashed ? '8 8' : undefined, opacity: 0.85 }}>
+            {l.label && <Tooltip sticky>{l.label}</Tooltip>}
+          </Polyline>
         ))}
         {points.map((p) => (
           <CircleMarker key={p.id} center={[p.lat, p.lng]} radius={p.radius ?? 8} pathOptions={{ color: '#fff', weight: 2, fillColor: p.color || 'var(--primary)', fillOpacity: 0.95 }} eventHandlers={p.onClick ? { click: p.onClick } : undefined}>

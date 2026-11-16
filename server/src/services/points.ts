@@ -152,8 +152,10 @@ export function refreshRecognition(userId: string): void {
 
 export function ensureCertificate(user: User, summary: PointsSummary): Certificate | null {
   const store = db();
-  const certLevels = ['vigilante', 'contralor'];
-  if (!certLevels.includes(summary.level.key)) return null;
+  // Certificado al llegar a los dos niveles superiores de Kindra.
+  const levels = getConfig().levels;
+  const certLevels = levels.slice(-2).map((l) => l.key);
+  if (levels.length < 2 || !certLevels.includes(summary.level.key)) return null;
   const existing = store.find('certificates', (c) => c.userId === user.id && c.levelKey === summary.level.key);
   if (existing) return existing;
   const cert: Certificate = {

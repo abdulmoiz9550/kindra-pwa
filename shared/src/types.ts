@@ -237,6 +237,10 @@ export interface Vehicle {
   entityId: string;
   qrCode: string;
   active: boolean;
+  /** Identificador del dispositivo de rastreo (IMEI o identificador de Traccar Client). */
+  imei?: string | null;
+  /** Fuente de posición registrada para este vehículo. */
+  trackerType?: 'gps' | 'traccar_client' | null;
 }
 
 export type TripState = 'in_transit' | 'received' | 'no_arrival';
@@ -264,6 +268,80 @@ export interface Trip {
   noArrivalAt?: string | null;
   discrepancyResolvedAt?: string | null;
   receptionId?: string | null;
+  /** Control de perímetro del escaneo de salida y de llegada (addendum v1.3). */
+  departureCheck?: GeofenceStatus | null;
+  arrivalCheck?: GeofenceStatus | null;
+  /** Hash del recorrido completo sellado al llegar (integridad del trazado). */
+  traceHash?: string | null;
+  traceCount?: number | null;
+}
+
+/** Resultado del control de perímetro de un escaneo. */
+export type GeofenceStatus = 'inside' | 'outside' | 'no_reference' | 'no_location';
+
+/** Tramos del ciclo distintos de origen→CDT (addendum v1.3: puntos de control QR en cada tramo). */
+export type MovementLeg = 'cdt_cdf' | 'cdt_work' | 'cdt_state';
+export type MovementOutput = 'aggregate' | 'rejects' | 'metal';
+
+export interface Movement {
+  id: string;
+  code: string;
+  leg: MovementLeg;
+  vehicleId: string;
+  fromCenterId: string;
+  batchId: string;
+  outputType: MovementOutput;
+  quantity: number;
+  unit: OutputUnit;
+  destination: { kind: 'center' | 'work' | 'state'; id: string | null; name: string };
+  departure: TripLeg;
+  arrival?: TripLeg | null;
+  state: TripState;
+  departureCheck?: GeofenceStatus | null;
+  arrivalCheck?: GeofenceStatus | null;
+  traceHash?: string | null;
+  traceCount?: number | null;
+  noArrivalAt?: string | null;
+}
+
+export type TrackSource = 'gps' | 'traccar_client' | 'pwa' | 'checkpoint';
+
+/** Posición cruda de un viaje activo. Solo se anexa; nunca se edita. */
+export interface TrackPoint {
+  id: string;
+  tripKey: string;
+  vehicleId: string;
+  source: TrackSource;
+  lat: number;
+  lng: number;
+  at: string;
+  receivedAt: string;
+  accuracy?: number | null;
+  speedKmh?: number | null;
+  delayed?: boolean;
+  label?: string | null;
+}
+
+export type StopReason = 'traffic' | 'fuel' | 'breakdown' | 'checkpoint' | 'other';
+
+export interface DeclaredStop {
+  id: string;
+  tripKey: string;
+  reason: StopReason;
+  note?: string | null;
+  photoId?: string | null;
+  location?: GeoPoint | null;
+  at: string;
+  userId: string;
+}
+
+export interface TripRoute {
+  id: string; // tripKey
+  planned: [number, number][] | null;
+  expectedSeconds: number | null;
+  distanceM: number | null;
+  source: 'osrm' | 'straight' | 'none';
+  createdAt: string;
 }
 
 export interface Center {
@@ -278,6 +356,8 @@ export interface Center {
   operatorEntityIds?: string[];
   /** Punto de descarga donde los camiones dejan el material y se confirman las llegadas (si difiere de la ubicación del centro). */
   unloadingPoint?: GeoPoint | null;
+  /** Código del QR fijo impreso en la puerta del centro. */
+  gateCode?: string | null;
 }
 
 export interface Reception {
@@ -375,6 +455,9 @@ export interface Work {
   useRecordedAt?: string | null;
   dispatchIds: string[];
   createdAt: string;
+  /** Código del QR fijo impreso en la entrada de la obra. */
+  gateCode?: string | null;
+  location?: GeoPoint | null;
 }
 
 export type DispatchState = 'pending' | 'received' | 'discrepancy';
@@ -479,7 +562,7 @@ export interface MonitorRequest {
 
 export interface Alert {
   id: string;
-  kind: 'origin_no_trip' | 'trip_no_arrival' | 'batch_held' | 'dispatch_unconfirmed' | 'observation' | 'dispute' | 'manual_review';
+  kind: 'origin_no_trip' | 'trip_no_arrival' | 'batch_held' | 'dispatch_unconfirmed' | 'observation' | 'dispute' | 'manual_review' | 'route_alert' | 'device_alert' | 'gate_alert';
   objectType: ObservedObjectType;
   objectId: string;
   text: string;
@@ -620,6 +703,23 @@ export interface AppConfig {
   provisionalFlags: Record<string, boolean>;
   /** Funciones activables por el administrador principal (addendum, partes 1 y 4). */
   features: Record<string, boolean>;
+  /** Seguimiento de rutas y puntos de control (addendum v1.3). Umbrales configurables. */
+  tracking: TrackingConfig;
+}
+
+export interface TrackingConfig {
+  /** Cada cuántos segundos envía posición el teléfono del escolta (30 a 60). */
+  intervalSeconds: number;
+  /** Perímetro alrededor de cada origen y centro (m). */
+  geofenceM: number;
+  /** Parada no declarada fuera de perímetro que genera alerta (minutos). */
+  stopAlertMinutes: number;
+  /** Desvío de la ruta planificada que genera alerta (m). */
+  deviationM: number;
+  /** Viaje que dura más de este factor por el tiempo esperado genera alerta. */
+  durationFactor: number;
+  /** Velocidad media para estimar tiempos cuando no hay ruta calculada (km/h). */
+  averageSpeedKmh: number;
 }
 
 // ---------------------------------------------------------------------------

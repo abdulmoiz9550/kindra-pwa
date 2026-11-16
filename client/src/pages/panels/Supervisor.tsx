@@ -7,6 +7,7 @@ import { api, errorMessage } from '../../lib/api';
 import { toast } from '../../lib/toast';
 import { fmtDateTime, fmtRelative, fmtNum, fmtDate, unitLabel } from '../../lib/format';
 import { Card, Button, Field, Select, Textarea, Alert, EmptyState, Modal, PageTitle, Tabs, Spinner, Badge, OriginStateBadge, TripStateBadge, BatchStateBadge } from '../../components/ui';
+import { TrackingIndicators } from '../../components/panels/TrackingWidgets';
 import { EventHistory } from '../../components/EventHistory';
 import { CompositionBars, useSubmit } from '../../components/panels/shared';
 import type { SupervisorOverview } from '../../components/panels/types';
@@ -38,6 +39,7 @@ export default function Supervisor() {
           </Select>
         }
       />
+      <TrackingIndicators />
       <Tabs
         value={tab}
         onChange={setTab}

@@ -165,7 +165,7 @@ citizenRouter.get('/me/profile', requireAuth, (req, res) => {
     points: pts,
     certificate: cert ? { ...cert, verifyUrl: `${env.publicBaseUrl}/publico/certificado/${cert.code}` } : null,
     monitorRequestPending: !!monitorRequest,
-    canRequestMonitor: pts.level.key === 'contralor' && !u.roles.includes('monitor') && !monitorRequest,
+    canRequestMonitor: !pts.level.next && !u.roles.includes('monitor') && !monitorRequest,
     sectorName: u.sectorId ? db().get('sectors', u.sectorId)?.name ?? null : null,
   });
 });

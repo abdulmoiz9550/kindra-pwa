@@ -25,6 +25,7 @@ export function setFeatures(patch: Record<string, boolean>) {
     const def = FEATURES.find((f) => f.key === key);
     if (!def) throw badRequest(`La función "${key}" no existe.`);
     if (value && !def.available) throw badRequest(`"${def.label}" no está disponible en el módulo de escombros.`, 'feature_unavailable');
+    if (def.locked && value !== featureOn(getConfig().features, key)) throw badRequest(`"${def.label}" no se puede cambiar en esta fase.`, 'feature_locked');
     next[key] = !!value;
   }
   updateConfig({ features: next });

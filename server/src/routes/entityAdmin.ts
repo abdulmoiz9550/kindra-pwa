@@ -52,7 +52,7 @@ entityAdminRouter.get('/vehicles', (req, res) => {
 entityAdminRouter.post(
   '/vehicles',
   wrap((req, res) => {
-    const body = z.object({ id: z.string().optional(), plate: z.string().min(3), typeId: z.string(), active: z.boolean().optional() }).parse(req.body);
+    const body = z.object({ id: z.string().optional(), plate: z.string().min(3), typeId: z.string(), active: z.boolean().optional(), imei: z.string().max(40).nullable().optional(), trackerType: z.enum(['gps', 'traccar_client']).nullable().optional() }).parse(req.body);
     res.json(upsertEntityVehicle(req.auth!.actor, body));
   }),
 );

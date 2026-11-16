@@ -270,12 +270,17 @@ export function valorizationRate(batches: Batch[]): { rate: number | null; aggre
 
 export function batchView(b: Batch) {
   const store = db();
+  const moved = (['aggregate', 'rejects', 'metal'] as const).map((outputType) => {
+    const ms = store.filter('movements', (m) => m.batchId === b.id && m.outputType === outputType);
+    return { outputType, inTransit: ms.filter((m) => m.state !== 'received').reduce((s, m) => s + m.quantity, 0), verified: ms.filter((m) => m.state === 'received' && m.arrivalCheck !== 'outside').reduce((s, m) => s + m.quantity, 0) };
+  });
   const center = store.get('centers', b.centerId);
   const receptions = b.receptionIds.map((id) => store.get('receptions', id)).filter(Boolean) as Reception[];
   return {
     ...b,
     centerName: center?.name ?? null,
     composition: batchComposition(b),
+    movements: moved,
     receptions: receptions.map((r) => {
       const t = store.get('trips', r.tripId);
       return { ...r, tripCode: t?.code ?? null, originCodes: (t?.originIds || []).map((id) => store.get('origins', id)?.code).filter(Boolean), sectorNames: [...new Set((t?.originIds || []).map((id) => store.get('sectors', store.get('origins', id)?.sectorId || '')?.name).filter(Boolean))], photoUrl: r.photoId ? store.get('photos', r.photoId)?.url ?? null : null };

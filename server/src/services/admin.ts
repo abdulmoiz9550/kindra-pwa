@@ -196,7 +196,9 @@ export function upsertVehicle(input: Partial<Vehicle> & { plate: string; typeId:
   const plate = input.plate.trim().toUpperCase();
   const clash = store.find('vehicles', (v) => v.plate === plate && v.id !== existing?.id);
   if (clash) throw conflict('Ya existe un vehículo con esa placa.');
-  return store.put('vehicles', { id: existing?.id || newId('vh'), plate, typeId: input.typeId, entityId: input.entityId, qrCode: existing?.qrCode || `KV-${qrSuffix()}`, active: input.active ?? existing?.active ?? true });
+  const imei = input.imei !== undefined ? input.imei?.trim() || null : existing?.imei ?? null;
+  if (imei && store.find('vehicles', (v) => v.imei === imei && v.id !== existing?.id)) throw conflict('Ese IMEI ya está vinculado a otro vehículo.');
+  return store.put('vehicles', { id: existing?.id || newId('vh'), plate, typeId: input.typeId, entityId: input.entityId, qrCode: existing?.qrCode || `KV-${qrSuffix()}`, active: input.active ?? existing?.active ?? true, imei, trackerType: input.trackerType !== undefined ? input.trackerType : existing?.trackerType ?? (imei ? 'gps' : null) });
 }
 
 // ---------------------------------------------------------------- textos y lecciones

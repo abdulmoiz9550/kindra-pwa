@@ -2,6 +2,7 @@ import type {
   Entity, User, Sector, Origin, VehicleType, Vehicle, Trip, Center, Reception, Batch, HazardDecision,
   QualityVerification, Work, Dispatch, Closure, DailySummary, JobsRecord, Observation, Lesson, LessonCompletion,
   MonitorRequest, Alert, Photo, Notification, AuraTextEntry, PreregistrationCode, KEvent, AppConfig, Space,
+  Movement, DeclaredStop, TrackPoint, TripRoute,
 } from '@kindra/shared';
 import type { Persistence } from '../persistence/types';
 
@@ -54,6 +55,10 @@ export interface Collections {
   spaces: Space;
   /** Secretos de verificación en dos pasos (nunca salen del servidor). */
   twoFactorSecrets: TwoFactorSecret;
+  /** Posiciones crudas de viajes activos (solo se anexan). */
+  trackPoints: TrackPoint;
+  /** Ruta planificada de cada viaje. */
+  tripRoutes: TripRoute;
   // Proyecciones derivadas de eventos
   origins: Origin;
   trips: Trip;
@@ -70,6 +75,8 @@ export interface Collections {
   lessonCompletions: LessonCompletion;
   monitorRequests: MonitorRequest;
   alerts: Alert;
+  movements: Movement;
+  declaredStops: DeclaredStop;
 }
 
 export type CollectionName = keyof Collections;
@@ -78,11 +85,12 @@ export type CollectionName = keyof Collections;
 export const PROJECTION_COLLECTIONS: CollectionName[] = [
   'origins', 'trips', 'receptions', 'batches', 'hazardDecisions', 'qualityVerifications', 'works', 'dispatches',
   'closures', 'dailySummaries', 'jobs', 'observations', 'lessonCompletions', 'monitorRequests', 'alerts',
+  'movements', 'declaredStops',
 ];
 
 const ALL_COLLECTIONS: CollectionName[] = [
   'entities', 'users', 'sectors', 'centers', 'vehicleTypes', 'vehicles', 'lessons', 'auraTexts', 'config', 'photos',
-  'preregistrationCodes', 'notifications', 'auraSessions', 'certificates', 'spaces', 'twoFactorSecrets', ...PROJECTION_COLLECTIONS,
+  'preregistrationCodes', 'notifications', 'auraSessions', 'certificates', 'spaces', 'twoFactorSecrets', 'trackPoints', 'tripRoutes', ...PROJECTION_COLLECTIONS,
 ];
 
 /**

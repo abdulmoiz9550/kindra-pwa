@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { CitizenTripStatus } from '../components/panels/TrackingWidgets';
 import { CheckCircle2, Circle, Download, QrCode } from 'lucide-react';
 import type { TraceabilityRecord, SatisfactionAnswer } from '@kindra/shared';
 import { effectiveOriginState, SATISFACTION_LABELS, BATCH_STATE_LABELS, TRIP_STATE_LABELS, USE_TYPE_LABELS } from '@kindra/shared';
@@ -72,6 +73,7 @@ export default function RecordPage() {
   return (
     <div className="max-w-2xl mx-auto">
       <PageTitle title={`Ficha ${o.code}`} subtitle={`${r.sectorName} · reportado ${fmtDateTime(o.createdAt)}`} actions={<OriginStateBadge state={state} />} />
+      <CitizenTripStatus code={o.code} />
       {r.isPublicVersion && (
         <Alert tone="info" className="mb-3">
           Estás viendo la versión pública de la ficha: sin datos del reportante ni ubicación exacta, solo fotos moderadas.

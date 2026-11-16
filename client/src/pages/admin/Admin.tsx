@@ -15,6 +15,7 @@ import Demo from './Demo';
 import Features from './Features';
 import Spaces from './Spaces';
 import Audit from './Audit';
+import Gates from './Gates';
 import { TwoFactorGate } from './TwoFactorGate';
 import { useFeature } from '../../lib/config';
 
@@ -27,6 +28,7 @@ const NAV = [
   { to: 'sectores', label: 'Sectores' },
   { to: 'centros', label: 'Centros' },
   { to: 'vehiculos', label: 'Vehículos' },
+  { to: 'puertas', label: 'Puertas y rastreo' },
   { to: 'configuracion', label: 'Configuración' },
   { to: 'estados', label: 'Estados' },
   { to: 'textos', label: 'Textos de AURA' },
@@ -68,6 +70,7 @@ export default function Admin() {
             <Route path="sectores" element={<Sectors />} />
             <Route path="centros" element={<Centers />} />
             <Route path="vehiculos" element={<Vehicles />} />
+            <Route path="puertas" element={<Gates />} />
             <Route path="configuracion" element={<Config />} />
             <Route path="estados" element={<Transitions />} />
             <Route path="textos" element={<Texts />} />

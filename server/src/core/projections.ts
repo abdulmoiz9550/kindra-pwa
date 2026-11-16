@@ -1,6 +1,6 @@
 import type {
   KEvent, Origin, OriginState, Trip, Batch, Reception, HazardDecision, QualityVerification, Work, Dispatch, Closure,
-  Observation, DailySummary, JobsRecord, LessonCompletion, MonitorRequest, Alert, TripLeg,
+  Observation, DailySummary, JobsRecord, LessonCompletion, MonitorRequest, Alert, TripLeg, Movement, DeclaredStop,
 } from '@kindra/shared';
 import { stageOf } from '@kindra/shared';
 import { db } from './db';
@@ -152,7 +152,7 @@ export function applyEvent(e: KEvent, _opts: { replay?: boolean } = {}): void {
       const tr = trip();
       if (!tr) break;
       const late = tr.state === 'no_arrival';
-      store.update('trips', tr.id, { state: 'received', arrival: d.arrival as TripLeg, receptionId: d.reception?.id ?? tr.receptionId ?? null, discrepancyResolvedAt: late ? t : tr.discrepancyResolvedAt ?? null });
+      store.update('trips', tr.id, { state: 'received', arrival: d.arrival as TripLeg, receptionId: d.reception?.id ?? tr.receptionId ?? null, discrepancyResolvedAt: late ? t : tr.discrepancyResolvedAt ?? null, arrivalCheck: d.arrivalCheck ?? tr.arrivalCheck ?? null, traceHash: d.traceHash ?? null, traceCount: d.traceCount ?? null });
       if (d.reception) {
         const r = d.reception as Reception;
         store.put('receptions', r);
@@ -299,6 +299,26 @@ export function applyEvent(e: KEvent, _opts: { replay?: boolean } = {}): void {
     }
     case 'escalation_alert': {
       putAlert(d.alert as Alert);
+      break;
+    }
+    // ------------------------------------------------------------- MOVIMIENTOS Y SEGUIMIENTO (addendum v1.3)
+    case 'movement_departure': {
+      store.put('movements', { ...(d.movement as Movement) });
+      break;
+    }
+    case 'movement_arrival': {
+      const m = store.get('movements', e.objectId);
+      if (m) store.update('movements', m.id, { state: 'received', arrival: d.arrival as TripLeg, arrivalCheck: d.arrivalCheck ?? null, traceHash: d.traceHash ?? null, traceCount: d.traceCount ?? null });
+      resolveAlert(`al_noarrival_${e.objectId}`, t);
+      break;
+    }
+    case 'movement_no_arrival': {
+      const m = store.get('movements', e.objectId);
+      if (m && m.state === 'in_transit') store.update('movements', m.id, { state: 'no_arrival', noArrivalAt: t });
+      break;
+    }
+    case 'stop_declared': {
+      store.put('declaredStops', { ...(d.stop as DeclaredStop) });
       break;
     }
     case 'alert_resolved': {

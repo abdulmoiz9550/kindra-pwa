@@ -2,6 +2,7 @@ import { env } from './config/env';
 import { createApp } from './app';
 import { initPlatform } from './bootstrap';
 import { startScheduler, stopScheduler } from './services/escalation';
+import { startTraccarPoller } from './services/traccar';
 import { db } from './core/db';
 
 async function main() {
@@ -11,6 +12,7 @@ async function main() {
     console.log(`[kindra] servidor escuchando en http://localhost:${env.port}  (modo demo: ${env.demoMode ? 'sí' : 'no'})`);
   });
   startScheduler(env.jobsIntervalSeconds);
+  startTraccarPoller();
 
   const shutdown = async () => {
     stopScheduler();

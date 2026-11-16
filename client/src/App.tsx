@@ -34,6 +34,12 @@ const Admin = lazy(() => import('./pages/admin/Admin'));
 const EntityAdmin = lazy(() => import('./pages/panels/EntityAdmin'));
 const KindraCard = lazy(() => import('./pages/KindraCard'));
 const PublicCard = lazy(() => import('./pages/public/PublicCard'));
+const Rewards = lazy(() => import('./pages/Rewards'));
+const GatePage = lazy(() => import('./pages/GatePage'));
+const TrackingLive = lazy(() => import('./pages/panels/TrackingLive'));
+const TripDetail = lazy(() => import('./pages/panels/TripDetail'));
+const Escort = lazy(() => import('./pages/panels/Escort'));
+const Checkpoint = lazy(() => import('./pages/panels/Checkpoint'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
 export default function App() {
@@ -51,6 +57,12 @@ export default function App() {
           <Route path="/aprende/:id" element={<Lesson />} />
           <Route path="/perfil" element={<Profile />} />
           <Route path="/tarjeta" element={<KindraCard />} />
+          <Route path="/recompensas" element={<Rewards />} />
+          <Route path="/puerta/:code" element={<GatePage />} />
+          <Route path="/panel/seguimiento" element={<RequireRole roles={['admin', 'coordinator', 'supervisor', 'center']}><TrackingLive /></RequireRole>} />
+          <Route path="/panel/viaje/:key" element={<RequireRole roles={['admin', 'coordinator', 'supervisor', 'center', 'removal', 'destination']}><TripDetail /></RequireRole>} />
+          <Route path="/panel/escolta" element={<RequireRole roles={['removal', 'center']}><Escort /></RequireRole>} />
+          <Route path="/panel/control" element={<RequireRole roles={['center', 'destination', 'coordinator']}><Checkpoint /></RequireRole>} />
           <Route path="/notificaciones" element={<Notifications />} />
           <Route path="/ajustes" element={<Settings />} />
           <Route path="/ingresar" element={<Login />} />

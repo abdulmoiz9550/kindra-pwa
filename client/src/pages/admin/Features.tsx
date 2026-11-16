@@ -5,6 +5,7 @@ import { Section, useAdminList, useAdminAction } from './shared';
 type FeatureRow = FeatureDefinition & { enabled: boolean };
 
 const GROUPS: { key: FeatureDefinition['group']; title: string; subtitle: string }[] = [
+  { key: 'module', title: 'Módulos de residuos', subtitle: 'Cada módulo vive en la misma PWA detrás de su interruptor. Un módulo oculto nunca se muestra a medias ni se borra. Activar o desactivar queda registrado como evento.' },
   { key: 'debris', title: 'Funciones del módulo de escombros', subtitle: 'Se pueden encender y apagar. El cambio aplica de inmediato en toda la PWA y queda registrado como evento.' },
   { key: 'later_phase', title: 'Fase posterior', subtitle: 'Previstas en la especificación, fuera de esta entrega.' },
   { key: 'hidden', title: 'Ocultas en el módulo de escombros', subtitle: 'Pertenecen a otros módulos de Kindra. En esta fase no aparecen en ninguna pantalla del módulo de escombros.' },
@@ -31,12 +32,12 @@ export default function Features() {
                 <li key={f.key} className="flex items-start justify-between gap-3 py-3">
                   <div className="min-w-0">
                     <p className="font-semibold text-sm">
-                      {f.label} {!f.available && <Badge tone="neutral" icon={false}>no disponible</Badge>}
+                      {f.label} {!f.available && <Badge tone="neutral" icon={false}>no disponible</Badge>} {f.locked && <Badge tone="info" icon={false}>fijo en la fase 1</Badge>}
                     </p>
                     <p className="text-xs text-muted mt-0.5">{f.description}</p>
                   </div>
                   <label className={`inline-flex items-center gap-2 text-sm shrink-0 ${!f.available ? 'opacity-50' : 'cursor-pointer'}`}>
-                    <input type="checkbox" role="switch" className="h-5 w-5 accent-[var(--primary)]" checked={f.enabled} disabled={!f.available || busy} onChange={() => toggle(f)} aria-label={`${f.label}: ${f.enabled ? 'encendida' : 'apagada'}`} />
+                    <input type="checkbox" role="switch" className="h-5 w-5 accent-[var(--primary)]" checked={f.enabled} disabled={!f.available || f.locked || busy} onChange={() => toggle(f)} aria-label={`${f.label}: ${f.enabled ? 'encendida' : 'apagada'}`} />
                     {f.enabled ? 'Encendida' : 'Apagada'}
                   </label>
                 </li>

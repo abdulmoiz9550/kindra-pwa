@@ -234,6 +234,13 @@ export const EVENT_TYPES = [
   'admin_action',
   'entity_admin_action',
   'sector_announcement',
+  // puntos de control QR y seguimiento de rutas (addendum v1.3)
+  'movement_departure',
+  'movement_arrival',
+  'movement_no_arrival',
+  'gate_presence',
+  'stop_declared',
+  'device_event',
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -287,6 +294,39 @@ export const EVENT_LABELS: Record<EventType, string> = {
   admin_action: 'Acción del administrador principal',
   entity_admin_action: 'Acción del administrador de entidad',
   sector_announcement: 'Aviso comunitario al sector',
+  movement_departure: 'Salida de material desde el centro',
+  movement_arrival: 'Llegada de material confirmada en destino',
+  movement_no_arrival: 'Movimiento sin llegada (plazo vencido)',
+  gate_presence: 'Presencia registrada en la puerta',
+  stop_declared: 'Parada declarada por el escolta',
+  device_event: 'Evento del dispositivo de rastreo',
+};
+
+export const MOVEMENT_LEG_LABELS: Record<'cdt_cdf' | 'cdt_work' | 'cdt_state', string> = {
+  cdt_cdf: 'Centro temporal → disposición final (material no aprovechable)',
+  cdt_work: 'Centro temporal → obra (agregado aprobado)',
+  cdt_state: 'Centro temporal → Estado (metal separado)',
+};
+
+export const MOVEMENT_OUTPUT_LABELS: Record<'aggregate' | 'rejects' | 'metal', string> = {
+  aggregate: 'Agregado',
+  rejects: 'Rechazo',
+  metal: 'Metal',
+};
+
+export const STOP_REASON_LABELS: Record<'traffic' | 'fuel' | 'breakdown' | 'checkpoint' | 'other', string> = {
+  traffic: 'Tráfico',
+  fuel: 'Combustible',
+  breakdown: 'Avería',
+  checkpoint: 'Punto de control',
+  other: 'Otro',
+};
+
+export const GEOFENCE_LABELS: Record<'inside' | 'outside' | 'no_reference' | 'no_location', string> = {
+  inside: 'Dentro del perímetro',
+  outside: 'Fuera del perímetro',
+  no_reference: 'Sin coordenadas de referencia',
+  no_location: 'Sin ubicación del teléfono',
 };
 
 export const LEGAL_TYPE_LABELS: Record<'public_institution' | 'company', string> = {
@@ -298,7 +338,7 @@ export const LEGAL_TYPE_LABELS: Record<'public_institution' | 'company', string>
 // Funciones activables (addendum: partes 1, 2 y 4)
 // ---------------------------------------------------------------------------
 
-export type FeatureGroup = 'debris' | 'later_phase' | 'hidden';
+export type FeatureGroup = 'module' | 'debris' | 'later_phase' | 'hidden';
 
 export interface FeatureDefinition {
   key: string;
@@ -312,9 +352,15 @@ export interface FeatureDefinition {
    * Su interruptor queda bloqueado en apagado.
    */
   available: boolean;
+  /** Interruptor fijo en esta fase (no se puede cambiar). */
+  locked?: boolean;
 }
 
 export const FEATURES: FeatureDefinition[] = [
+  // Módulos de residuos (addendum v1.3): cada módulo vive en la misma PWA detrás de su propio interruptor.
+  { key: 'module_debris', label: 'Módulo 1: escombros', description: 'Activo en la fase 1.', group: 'module', defaultOn: true, available: true, locked: true },
+  { key: 'oil_module', label: 'Módulo 2: aceite de cocina usado', description: 'Se mantiene oculto hasta que el administrador principal lo active al entregarse el módulo.', group: 'module', defaultOn: false, available: false },
+  { key: 'module_other', label: 'Módulos 3, 4 y siguientes (otros residuos)', description: 'Se construyen en la misma PWA y quedan ocultos hasta su activación.', group: 'module', defaultOn: false, available: false },
   // Funciones del módulo de escombros que el administrador principal puede apagar
   { key: 'kindra_card', label: 'Tarjeta Kindra y QR personal', description: 'Tarjeta con QR personal e intransferible. Los puntos de escombros van al mismo saldo.', group: 'debris', defaultOn: true, available: true },
   { key: 'achievements', label: 'Logros (dos capas)', description: 'Logros personales y logros comunitarios del sector.', group: 'debris', defaultOn: true, available: true },
@@ -329,8 +375,7 @@ export const FEATURES: FeatureDefinition[] = [
   { key: 'ad_spaces', label: 'Espacios de publicidad', description: 'No es apropiado en un módulo público posterior a un desastre.', group: 'hidden', defaultOn: false, available: false },
   { key: 'semanas_locas', label: 'Semanas Locas', description: 'Premia volumen, lo que incentivaría reportes falsos.', group: 'hidden', defaultOn: false, available: false },
   { key: 'payments', label: 'Pagos y precios', description: 'Sin incentivo económico en este módulo.', group: 'hidden', defaultOn: false, available: false },
-  { key: 'driver_tracking_map', label: 'Mapa de seguimiento de conductores en tiempo real', description: 'Sin seguimiento público de vehículos para escombros.', group: 'hidden', defaultOn: false, available: false },
-  { key: 'oil_module', label: 'Módulo de aceite de cocina usado', description: 'Se mantiene fuera de esta instalación en la fase 1.', group: 'hidden', defaultOn: false, available: false },
+  { key: 'driver_tracking_map', label: 'Mapa público de vehículos en tiempo real', description: 'Las posiciones de los vehículos nunca son públicas. El seguimiento interno para roles autorizados está en "Seguimiento".', group: 'hidden', defaultOn: false, available: false },
 ];
 
 export const DEFAULT_FEATURES: Record<string, boolean> = Object.fromEntries(FEATURES.map((f) => [f.key, f.defaultOn && f.available]));

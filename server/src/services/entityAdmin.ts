@@ -104,7 +104,7 @@ export function entityVehicles(actor: Actor) {
   return store.filter('vehicles', (v) => v.entityId === entityId).map((v) => ({ ...v, typeName: store.get('vehicleTypes', v.typeId)?.name ?? null }));
 }
 
-export function upsertEntityVehicle(actor: Actor, input: { id?: string; plate: string; typeId: string; active?: boolean }): Vehicle {
+export function upsertEntityVehicle(actor: Actor, input: { id?: string; plate: string; typeId: string; active?: boolean; imei?: string | null; trackerType?: 'gps' | 'traccar_client' | null }): Vehicle {
   const store = db();
   const entityId = entityOf(actor);
   const existing = input.id ? store.get('vehicles', input.id) : undefined;

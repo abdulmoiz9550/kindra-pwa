@@ -1,4 +1,5 @@
 import type { Trip, Reception, FillLevel, GeoPoint, Vehicle, TripLeg } from '@kindra/shared';
+import { assertNoOpenTrip, centerPoint, geofenceCheck, ingestPoints, planRoute, raiseTrackingAlert, traceHash } from './tracking';
 import { db } from '../core/db';
 import { appendEvent, SYSTEM_ACTOR, type Actor } from '../core/events';
 import { assertTransition } from '../core/transitions';
@@ -42,6 +43,8 @@ export function registerDeparture(actor: Actor, input: DepartureInput): Trip {
   if (!input.originIds?.length) throw badRequest('Selecciona al menos un origen.');
   if (!input.photoId) throw badRequest('La foto de salida es obligatoria.');
   const vehicle = findVehicle(input);
+  // Addendum v1.3: el mismo vehículo no puede tener dos viajes abiertos.
+  assertNoOpenTrip(vehicle.id);
   const center = store.get('centers', input.centerId);
   if (!center) throw notFound('El centro de destino no existe.');
   const origins = input.originIds.map((id) => {
@@ -70,8 +73,13 @@ export function registerDeparture(actor: Actor, input: DepartureInput): Trip {
     arrival: null,
     estimatedVolumeM3: estimatedVolume(vehicle, input.fillLevel),
     state: 'in_transit',
+    // Perímetro del escaneo de salida: el teléfono debe estar cerca del origen.
+    departureCheck: input.location ? (origins.some((o) => geofenceCheck(input.location, o.location) === 'inside') ? 'inside' : origins.some((o) => o.location) ? 'outside' : 'no_reference') : 'no_location',
   };
   appendEvent({ type: 'trip_departure', objectType: 'trip', objectId: trip.id, actor, data: { trip }, deviceTime: input.deviceTime, offlineQueuedAt: input.offlineQueuedAt });
+  if (input.location) ingestPoints(trip.id, [{ ...input.location, at: serverTime, label: 'Salida' }], 'checkpoint', { delayed: !!input.offlineQueuedAt });
+  if (trip.departureCheck === 'outside') raiseTrackingAlert(`al_depfence_${trip.id}`, 'gate_alert', trip.id, `La salida del viaje ${trip.code} se escaneó fuera del perímetro del origen.`);
+  planRoute(trip.id);
 
   for (const o of origins) {
     if (o.state === 'validated' || o.state === 'under_removal') {
@@ -102,6 +110,11 @@ export function confirmArrival(tripId: string, actor: Actor, input: ArrivalInput
     if (!v || v.qrCode !== input.vehicleQr.trim()) throw conflict('El QR escaneado no corresponde al vehículo de este viaje.', 'vehicle_mismatch');
   }
   if (!input.photoId) throw badRequest('La foto de llegada es obligatoria.');
+  // Addendum v1.3: llegada a un centro distinto del declarado → alerta al coordinador y al supervisor.
+  const scanner = store.get('users', actor.id);
+  if (actor.role === 'center' && scanner?.centerId && scanner.centerId !== trip.centerId) {
+    raiseTrackingAlert(`al_wrongcenter_${trip.id}_${scanner.centerId}`, 'gate_alert', trip.id, `El viaje ${trip.code} llegó a ${store.get('centers', scanner.centerId)?.name ?? 'otro centro'}, distinto del declarado (${store.get('centers', trip.centerId)?.name ?? ''}).`);
+  }
   // sameCenter + notOwnReport (4.1: nadie recibe lo que reportó)
   assertTransition('trip', 'trip_arrival', trip.state, { actor, trip });
   const serverTime = nowIso();
@@ -121,7 +134,12 @@ export function confirmArrival(tripId: string, actor: Actor, input: ArrivalInput
     hazardDecision: null,
     hazardDecisionId: null,
   };
-  appendEvent({ type: 'trip_arrival', objectType: 'trip', objectId: trip.id, actor, data: { arrival, reception, late: trip.state === 'no_arrival' }, deviceTime: input.deviceTime, offlineQueuedAt: input.offlineQueuedAt });
+  // Perímetro del centro (punto de descarga si existe) y sello del trazado completo en la cadena del viaje.
+  const arrivalCheck = geofenceCheck(input.location, centerPoint(store.get('centers', trip.centerId)));
+  if (input.location) ingestPoints(trip.id, [{ ...input.location, at: serverTime, label: 'Llegada' }], 'checkpoint', { delayed: !!input.offlineQueuedAt });
+  const seal = traceHash(trip.id);
+  appendEvent({ type: 'trip_arrival', objectType: 'trip', objectId: trip.id, actor, data: { arrival, reception, late: trip.state === 'no_arrival', arrivalCheck, traceHash: seal.hash, traceCount: seal.count }, deviceTime: input.deviceTime, offlineQueuedAt: input.offlineQueuedAt });
+  if (arrivalCheck === 'outside') raiseTrackingAlert(`al_arrfence_${trip.id}`, 'gate_alert', trip.id, `La llegada del viaje ${trip.code} se escaneó fuera del perímetro del centro: no cuenta como llegada verificada.`);
   for (const oid of trip.originIds) {
     const o = store.get('origins', oid);
     if (!o || ['rejected', 'duplicate', 'closed', 'in_work'].includes(o.state)) continue;

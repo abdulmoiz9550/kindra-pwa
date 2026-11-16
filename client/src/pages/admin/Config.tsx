@@ -100,6 +100,17 @@ export default function Config() {
           </div>
         </Card>
 
+        <Card title="Seguimiento de rutas y puntos de control (addendum v1.3)">
+          <div className="grid sm:grid-cols-2 sm:gap-3">
+            {num('Envío de posición del teléfono (segundos, 30 a 60)', d.tracking.intervalSeconds, (n) => setD({ ...d, tracking: { ...d.tracking, intervalSeconds: Math.min(60, Math.max(30, n)) } }))}
+            {num('Perímetro de origen y centro (m)', d.tracking.geofenceM, (n) => setD({ ...d, tracking: { ...d.tracking, geofenceM: n } }))}
+            {num('Parada no declarada que alerta (minutos)', d.tracking.stopAlertMinutes, (n) => setD({ ...d, tracking: { ...d.tracking, stopAlertMinutes: n } }))}
+            {num('Desvío de la ruta que alerta (m)', d.tracking.deviationM, (n) => setD({ ...d, tracking: { ...d.tracking, deviationM: n } }))}
+            {num('Duración máxima (veces el tiempo esperado)', d.tracking.durationFactor, (n) => setD({ ...d, tracking: { ...d.tracking, durationFactor: n } }))}
+            {num('Velocidad media para estimar llegadas (km/h)', d.tracking.averageSpeedKmh, (n) => setD({ ...d, tracking: { ...d.tracking, averageSpeedKmh: n } }))}
+          </div>
+        </Card>
+
         <Card title="Escalamientos (7.13)">
           <div className="grid sm:grid-cols-2 sm:gap-3">
             {num('Origen validado sin viaje (días)', d.escalation.originNoTripDays, (n) => setD({ ...d, escalation: { ...d.escalation, originNoTripDays: n } }))}

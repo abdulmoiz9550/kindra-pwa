@@ -7,12 +7,12 @@ import { computePoints, refreshRecognition } from './points';
 import { notify, notifyRole, pickText } from './notifications';
 import { getOriginOrThrow } from './origins';
 
-/** 4. Contralor comunitario: nivel Contralor + solicitud + selfie verificada + aprobación del coordinador. */
+/** 4. Contralor comunitario: nivel más alto de Kindra (Embajador) + solicitud + selfie verificada + aprobación del coordinador. */
 export function requestMonitorRole(user: User, actor: Actor): MonitorRequest {
   const store = db();
   if (user.roles.includes('monitor')) throw conflict('Ya tienes el rol de contralor comunitario.');
   const pts = computePoints(user.id);
-  if (pts.level.key !== 'contralor') throw conflict('Para solicitar el rol de contralor comunitario hace falta alcanzar el nivel Contralor comunitario.', 'level_required');
+  if (pts.level.next) throw conflict(`Para solicitar el rol de contralor comunitario hace falta alcanzar el nivel ${pts.level.name.startsWith('Embajador') ? pts.level.name : 'Embajador Kindra'}.`, 'level_required');
   if (store.find('monitorRequests', (r) => r.userId === user.id && r.status === 'pending')) throw conflict('Ya tienes una solicitud pendiente.');
   const request: MonitorRequest = { id: newId('mr'), userId: user.id, status: 'pending', createdAt: nowIso() };
   appendEvent({ type: 'monitor_requested', objectType: 'user', objectId: user.id, actor, data: { request } });

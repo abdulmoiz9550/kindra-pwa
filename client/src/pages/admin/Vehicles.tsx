@@ -88,7 +88,7 @@ function VehicleList() {
   const types = useAdminList<VehicleType>('vehicle-types');
   const entities = useAdminList<Entity>('entities');
   const { post, busy } = useAdminAction();
-  const [editing, setEditing] = useState<{ id?: string; plate: string; typeId: string; entityId: string; active: boolean } | null>(null);
+  const [editing, setEditing] = useState<{ id?: string; plate: string; typeId: string; entityId: string; active: boolean; imei?: string | null; trackerType?: 'gps' | 'traccar_client' | null } | null>(null);
   const [qr, setQr] = useState<{ v: VehicleRow; svg: string } | null>(null);
   const save = async () => {
     if (!editing) return;
@@ -139,7 +139,7 @@ function VehicleList() {
                 </button>
               </td>
               <td className="text-right">
-                <Button variant="ghost" size="sm" onClick={() => setEditing({ id: v.id, plate: v.plate, typeId: v.typeId, entityId: v.entityId, active: v.active })}>
+                <Button variant="ghost" size="sm" onClick={() => setEditing({ id: v.id, plate: v.plate, typeId: v.typeId, entityId: v.entityId, active: v.active, imei: v.imei ?? '', trackerType: v.trackerType ?? null })}>
                   Editar
                 </Button>
               </td>
@@ -174,6 +174,18 @@ function VehicleList() {
                 ))}
               </Select>
             </Field>
+            <div className="grid sm:grid-cols-2 sm:gap-3">
+              <Field label="IMEI del dispositivo de rastreo" hint="Del GPS instalado o del teléfono con Traccar Client. Al registrarlo, el camión pasa a usar ese dispositivo sin más desarrollo.">
+                <Input value={editing.imei || ''} onChange={(e) => setEditing({ ...editing, imei: e.target.value })} inputMode="numeric" />
+              </Field>
+              <Field label="Fuente">
+                <Select value={editing.trackerType || ''} onChange={(e) => setEditing({ ...editing, trackerType: (e.target.value || null) as 'gps' | 'traccar_client' | null })}>
+                  <option value="">Sin dispositivo</option>
+                  <option value="gps">GPS instalado en el camión</option>
+                  <option value="traccar_client">Teléfono con Traccar Client</option>
+                </Select>
+              </Field>
+            </div>
             <label className="flex items-center gap-2 text-sm mb-4">
               <input type="checkbox" checked={editing.active} onChange={(e) => setEditing({ ...editing, active: e.target.checked })} /> Vehículo activo
             </label>

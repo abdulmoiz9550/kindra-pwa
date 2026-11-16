@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { Home, MessageCircle, FileText, BarChart3, MoreHorizontal, Bell, UserRound, Settings as SettingsIcon, LogOut, BookOpen, ShieldCheck, Wifi, WifiOff } from 'lucide-react';
+import { Home, MessageCircle, FileText, BarChart3, MoreHorizontal, Bell, UserRound, Settings as SettingsIcon, LogOut, BookOpen, ShieldCheck, Wifi, WifiOff, Award, Truck, ScanLine, Navigation } from 'lucide-react';
 import type { Role } from '@kindra/shared';
 import { ROLE_LABELS, ROLE_HOME } from '@kindra/shared';
 import { usePublicConfig } from '../lib/config';
@@ -56,6 +56,13 @@ function Header({ connected }: { connected: boolean }) {
             <span className="hidden md:inline">{connected ? 'en vivo' : 'sin señal'}</span>
           </span>
           {cfg?.demoMode && <RoleSwitcher />}
+          <nav className="hidden md:flex items-center gap-1 mr-1 text-sm" aria-label="Menú principal">
+            <Link to="/aprende" className="header-icon !w-auto px-2">Formación</Link>
+            <Link to={user ? '/recompensas' : '/ingresar?next=/recompensas'} className="header-icon !w-auto px-2">Recompensas</Link>
+            {user && ['center', 'destination', 'coordinator'].includes(user.activeRole) && <Link to="/panel/control" className="header-icon !w-auto px-2">Control</Link>}
+            {user && ['admin', 'coordinator', 'supervisor', 'center'].includes(user.activeRole) && <Link to="/panel/seguimiento" className="header-icon !w-auto px-2">Seguimiento</Link>}
+            {user && ['removal', 'center'].includes(user.activeRole) && <Link to="/panel/escolta" className="header-icon !w-auto px-2">Escolta</Link>}
+          </nav>
           <Link to="/notificaciones" className="header-icon relative" aria-label={`Notificaciones${unread ? `, ${unread} sin leer` : ''}`}>
             <Bell size={20} />
             {unread > 0 && <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full bg-brand-orange text-white text-[11px] font-bold grid place-items-center px-1">{unread}</span>}
@@ -161,7 +168,11 @@ function BottomNav() {
         <div className="fixed inset-0 z-[1250] bg-black/40" onClick={() => setMore(false)}>
           <div role="dialog" aria-label="Más opciones" className="absolute bottom-0 inset-x-0 rounded-t-2xl bg-surface p-4" onClick={(e) => e.stopPropagation()}>
             <ul className="grid grid-cols-2 gap-2 text-sm">
-              <MoreLink to="/aprende" icon={BookOpen} label="Aprende" onClick={() => setMore(false)} />
+              <MoreLink to="/aprende" icon={BookOpen} label="Formación" onClick={() => setMore(false)} />
+              <MoreLink to={user ? '/recompensas' : '/ingresar?next=/recompensas'} icon={Award} label="Recompensas" onClick={() => setMore(false)} />
+              {user && ['center', 'destination', 'coordinator'].includes(user.activeRole) && <MoreLink to="/panel/control" icon={ScanLine} label="Punto de control" onClick={() => setMore(false)} />}
+              {user && ['admin', 'coordinator', 'supervisor', 'center'].includes(user.activeRole) && <MoreLink to="/panel/seguimiento" icon={Truck} label="Seguimiento" onClick={() => setMore(false)} />}
+              {user && ['removal', 'center'].includes(user.activeRole) && <MoreLink to="/panel/escolta" icon={Navigation} label="Escolta del viaje" onClick={() => setMore(false)} />}
               <MoreLink to="/consultar" icon={FileText} label="Consultar mi reporte" onClick={() => setMore(false)} />
               <MoreLink to="/notificaciones" icon={Bell} label="Notificaciones" onClick={() => setMore(false)} />
               <MoreLink to={user ? '/perfil' : '/ingresar'} icon={UserRound} label={user ? 'Mi perfil' : 'Ingresar'} onClick={() => setMore(false)} />

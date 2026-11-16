@@ -36,11 +36,11 @@ export const DEFAULT_CONFIG: AppConfig = {
     suspensionAfterRejections: 3,
     suspensionDays: 7,
   },
+  // Niveles comunes de Kindra para todos los módulos (addendum v1.3, reemplaza 9.3). Umbrales provisionales.
   levels: [
-    { key: 'informado', name: 'Vecino informado', threshold: 0 },
-    { key: 'participante', name: 'Vecino participante', threshold: 50 },
-    { key: 'vigilante', name: 'Vecino vigilante', threshold: 150 },
-    { key: 'contralor', name: 'Contralor comunitario', threshold: 300 },
+    { key: 'activo', name: 'Recolector Activo', threshold: 0 },
+    { key: 'destacado', name: 'Recolector Destacado', threshold: 100 },
+    { key: 'embajador', name: 'Embajador Kindra', threshold: 300 },
   ],
   complaintChannelUrl: '',
   hazardChecklist: [
@@ -68,4 +68,12 @@ export const DEFAULT_CONFIG: AppConfig = {
     branding: true,
   },
   features: { ...DEFAULT_FEATURES },
+  tracking: {
+    intervalSeconds: 30,
+    geofenceM: 150,
+    stopAlertMinutes: 5,
+    deviationM: 500,
+    durationFactor: 1.5,
+    averageSpeedKmh: 25,
+  },
 };
