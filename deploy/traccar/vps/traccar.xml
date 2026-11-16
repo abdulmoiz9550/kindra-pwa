@@ -12,7 +12,7 @@
 
     <!-- Replace __FORWARD_URL__ with https://<kindra-host>/api/tracking/traccar/forward?secret=<TRACCAR_FORWARD_SECRET> -->
     <entry key='forward.enable'>true</entry>
-    <entry key='forward.json'>true</entry>
+    <entry key='forward.type'>json</entry>
     <entry key='forward.url'>__FORWARD_URL__</entry>
     <entry key='event.forward.enable'>true</entry>
     <entry key='event.forward.url'>__FORWARD_URL__</entry>

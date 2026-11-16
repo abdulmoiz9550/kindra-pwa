@@ -8,15 +8,18 @@
     <entry key='database.password'></entry>
 
     <!-- Phones running Traccar Client (OsmAnd protocol) on Render's public port -->
+    <!-- Only the OsmAnd protocol: Traccar 6 otherwise opens ~240 protocol ports, too heavy for a 512 MB instance -->
+    <entry key='protocols.enable'>osmand</entry>
     <entry key='osmand.port'>__PORT__</entry>
     <!-- Web UI only inside the container (Render exposes a single port) -->
     <entry key='web.port'>8082</entry>
+    <entry key='web.address'>127.0.0.1</entry>
     <!-- New phones are created automatically on first report; Kindra links them by their identifier (IMEI field) -->
     <entry key='database.registerUnknown'>true</entry>
 
     <!-- Forward every position and event to Kindra (JSON: { position, device } / { event, position, device }) -->
     <entry key='forward.enable'>true</entry>
-    <entry key='forward.json'>true</entry>
+    <entry key='forward.type'>json</entry>
     <entry key='forward.url'>__FORWARD_URL__</entry>
     <entry key='event.forward.enable'>true</entry>
     <entry key='event.forward.url'>__FORWARD_URL__</entry>

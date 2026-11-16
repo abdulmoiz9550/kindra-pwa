@@ -12,4 +12,4 @@ mkdir -p /opt/traccar/data
 JAVA_BIN=/opt/traccar/jre/bin/java
 [ -x "$JAVA_BIN" ] || JAVA_BIN=$(command -v java || true)
 [ -n "$JAVA_BIN" ] || { echo "Java runtime not found in the Traccar image"; exit 1; }
-exec "$JAVA_BIN" -Xms128m -Xmx384m -Djava.net.preferIPv4Stack=true -jar tracker-server.jar conf/traccar.xml
+exec "$JAVA_BIN" -Xms64m -Xmx256m -Djava.net.preferIPv4Stack=true -jar tracker-server.jar conf/traccar.xml
