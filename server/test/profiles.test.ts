@@ -156,6 +156,9 @@ test('25.1, 25.3 y 30: el módulo de aceite exige definición; luego solicitud c
   await put('/admin/module-definitions/oil_module', admin, { ...def, risks: 'Definidos' });
   assert.equal((await put('/admin/features', admin, { oil_module: true })).status, 200);
 
+  // La interfaz se entera del módulo solo cuando está encendido
+  assert.equal((await get('/public/config')).json.features.oil_module, true);
+
   assert.equal((await post('/requests/service', home, { ...req, unit: 'kg' })).status, 400);
   const h = (await post('/requests/service', home, req)).json;
   const b = (await post('/requests/service', biz, { ...req, estimatedQuantity: 40 })).json;
@@ -190,6 +193,7 @@ test('25.1, 25.3 y 30: el módulo de aceite exige definición; luego solicitud c
   assert.equal((await post(`/requests/${h.id}/cancel`, home, { note: 'Cambio de planes' })).json.status, 'cancelled');
   // Apagar el módulo lo vuelve a ocultar
   await put('/admin/features', admin, { oil_module: false });
+  assert.equal('oil_module' in (await get('/public/config')).json.features, false);
   assert.equal((await post('/requests/service', home, req)).status, 403);
   // El comercio edita su punto pero no el de otros
   const own = db().get('businesses', 'bz_demo')!;
