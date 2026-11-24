@@ -6,6 +6,7 @@ import type { Persistence } from './persistence/types';
 import { ensureDefaults } from './services/config';
 import { replayAll } from './core/events';
 import { seedDemo } from './seed/demo';
+import { ensureReportSnapshots } from './services/reportSnapshots';
 import path from 'node:path';
 
 export interface BootOptions {
@@ -38,5 +39,6 @@ export async function initPlatform(opts: BootOptions = {}): Promise<Db> {
     const summary = await seedDemo();
     log(`[kindra] datos simulados cargados: ${summary.origins} orígenes, ${summary.trips} viajes, ${summary.batches} lotes, ${summary.events} eventos`);
   }
+  ensureReportSnapshots();
   return db;
 }

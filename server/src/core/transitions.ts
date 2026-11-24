@@ -111,6 +111,19 @@ export function withFixedGates(rules: TransitionRule[], defaults: TransitionRule
 }
 
 /**
+ * v4.0, sección 26: el conductor registra la salida y procesamiento cierra el lote y registra salidas,
+ * con las mismas reglas que la tabla fija para retiro y centro. No heredan ninguna otra acción.
+ */
+const ROLE_ALIASES: Record<string, { as: string; actions: string[] }> = {
+  driver: { as: 'removal', actions: ['trip_departure'] },
+  processing: { as: 'center', actions: ['batch_closed', 'outputs_recorded'] },
+};
+export function ruleRole(role: string, action: string): string {
+  const a = ROLE_ALIASES[role];
+  return a && a.actions.includes(action) ? a.as : role;
+}
+
+/**
  * Valida una transición contra la tabla configurable (3.3) y devuelve el estado destino.
  * Lanza 403 si el rol no puede, 409 si el estado de partida o una condición no lo permite.
  */
@@ -121,7 +134,7 @@ export function assertTransition(object: TransitionRule['object'], action: strin
   if (!applicable.length) {
     throw conflict(`Esta acción no está permitida desde el estado actual ("${currentState}").`, 'bad_state', { object, action, currentState });
   }
-  const role = ctx.actor.role || 'system';
+  const role = ruleRole(ctx.actor.role || 'system', action);
   const byRole = applicable.filter((r) => r.roles.includes(role as never));
   if (!byRole.length) throw forbidden(`El rol "${role}" no puede ejecutar "${action}" sobre ${object}.`);
   const rule = byRole[0];

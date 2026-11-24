@@ -385,3 +385,13 @@ export function reporterKeys(o: Origin): string[] {
   keys.push(`origin:${o.code}`);
   return keys;
 }
+
+/** Valores vigentes de los campos corregibles antes de una corrección (v4.0, sección 8: se conserva el valor previo). */
+export function currentValues(objectType: string, objectId: string, keys: string[]): Record<string, unknown> {
+  const col = ({ origin: 'origins', trip: 'trips', batch: 'batches', work: 'works' } as const)[objectType as 'origin' | 'trip' | 'batch' | 'work'];
+  const doc = col ? (db().get(col, objectId) as unknown as Record<string, unknown> | undefined) : undefined;
+  const allowed = CORRECTABLE_FIELDS[objectType] || [];
+  const out: Record<string, unknown> = {};
+  if (doc) for (const k of keys) if (allowed.includes(k)) out[k] = structuredClone(doc[k] ?? null);
+  return out;
+}

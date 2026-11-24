@@ -4,6 +4,7 @@ import type { Role, User, Vehicle, VehicleType } from '@kindra/shared';
 import { ROLE_LABELS, ENTITY_ASSIGNABLE_ROLES, LEGAL_TYPE_LABELS, ENTITY_TYPE_LABELS } from '@kindra/shared';
 import { api, errorMessage } from '../../lib/api';
 import { toast } from '../../lib/toast';
+import { useTab } from '../../lib/useTab';
 import { fmtDateTime } from '../../lib/format';
 import { Alert, Badge, Button, Card, EmptyState, Field, Input, Modal, PageTitle, Select, Spinner, StatTile, Tabs, Textarea } from '../../components/ui';
 
@@ -36,7 +37,7 @@ const VERIF: Record<string, string> = { not_required: 'no requerida', pending: '
  * de su propia entidad. No puede tocar otras entidades, funciones, reglas ni la identidad de la plataforma.
  */
 export default function EntityAdmin() {
-  const [tab, setTab] = useState<'ops' | 'users' | 'vehicles'>('ops');
+  const [tab, setTab] = useTab<'ops' | 'users' | 'vehicles' | 'documents'>('ops');
   const overview = useQuery({ queryKey: ['entity-admin', 'overview'], queryFn: () => api.get<Overview>('/entity-admin/overview') });
   if (overview.isLoading) return <Spinner />;
   if (overview.error || !overview.data) return <Alert tone="bad">{overview.error ? errorMessage(overview.error) : 'No se pudo cargar el panel.'}</Alert>;
@@ -54,14 +55,40 @@ export default function EntityAdmin() {
           { value: 'ops', label: 'Operaciones' },
           { value: 'users', label: 'Usuarios', count: o.counts.users },
           { value: 'vehicles', label: 'Vehículos', count: o.counts.vehicles },
+          { value: 'documents', label: 'Documentos y evidencias' },
         ]}
       />
       <div className="mt-3">
         {tab === 'ops' && <Operations o={o} />}
         {tab === 'users' && <EntityUsers centers={o.centers} />}
         {tab === 'vehicles' && <EntityVehicles />}
+        {tab === 'documents' && <EntityDocuments />}
       </div>
     </div>
+  );
+}
+
+/** Documentos y evidencias que subieron las cuentas de la entidad. */
+function EntityDocuments() {
+  const qc = useQueryClient();
+  const q = useQuery({ queryKey: ['entity-admin', 'documents'], queryFn: () => api.get<{ id: string; url: string; kind: string; uploadedAt: string; by: string }[]>('/entity-admin/documents') });
+  const upload = async (file: File | undefined) => {
+    if (!file) return;
+    try {
+      const dataUrl = await new Promise<string>((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result)); r.onerror = () => no(new Error('No se pudo leer el archivo.')); r.readAsDataURL(file); });
+      await api.post('/photos', { dataUrl, kind: 'document' });
+      toast.success('Documento subido.');
+      qc.invalidateQueries({ queryKey: ['entity-admin', 'documents'] });
+    } catch (err) {
+      toast.error(errorMessage(err));
+    }
+  };
+  if (q.isLoading) return <Spinner />;
+  if (q.error || !q.data) return <Alert tone="bad">{errorMessage(q.error)}</Alert>;
+  return (
+    <Card title="Documentos y evidencias" subtitle="Los abre solo quien tiene permiso; cada enlace vence." actions={<label className="btn-secondary btn-sm cursor-pointer">Subir PDF o imagen<input type="file" accept="application/pdf,image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => upload(e.target.files?.[0])} /></label>}>
+      {q.data.length === 0 ? <p className="text-sm text-muted">Todavía no hay archivos de tu entidad.</p> : <ul className="divide-y divide-line text-sm">{q.data.map((p) => <li key={p.id} className="py-2 flex justify-between gap-2"><span>{fmtDateTime(p.uploadedAt)} · {p.by}</span><a className="text-primary underline" href={p.url} target="_blank" rel="noreferrer">Abrir</a></li>)}</ul>}
+    </Card>
   );
 }
 

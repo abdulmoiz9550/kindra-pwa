@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { SUBCATEGORY_LABELS } from '@kindra/shared';
-import type { Subcategory, OutputUnit } from '@kindra/shared';
+import type { AiSuggestion, Subcategory, OutputUnit } from '@kindra/shared';
 import { api, errorMessage } from '../../lib/api';
 import { toast } from '../../lib/toast';
+import { useFeature } from '../../lib/config';
+import { useTab } from '../../lib/useTab';
 import { fmtNum, fmtDate, unitLabel, fmtDateTime } from '../../lib/format';
 import { Card, Button, Field, Input, Select, Textarea, Alert, EmptyState, Modal, PageTitle, Tabs, Spinner, Badge, DispatchStateBadge, KeyValue } from '../../components/ui';
 import { PhotoCapture, type CapturedPhoto } from '../../components/PhotoCapture';
@@ -16,7 +18,7 @@ type Tab = 'trips' | 'batch' | 'batches' | 'dispatches' | 'daily' | 'jobs';
 export default function Center() {
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ['center', 'overview'], queryFn: () => api.get<CenterOverview>('/center/overview') });
-  const [tab, setTab] = useState<Tab>('trips');
+  const [tab, setTab] = useTab<Tab>('trips');
   const [arrive, setArrive] = useState<TripView | null>(null);
   const [openBatchId, setOpenBatchId] = useState<string | null>(null);
   const d = q.data;
@@ -85,21 +87,21 @@ export default function Center() {
             {d.dispatches.length === 0 ? (
               <EmptyState title="No hay despachos" text="Se despacha desde un lote con verificación de calidad aprobada." />
             ) : (
-              <table className="table-plain">
+              <div className="overflow-x-auto"><table className="table-plain">
                 <thead><tr><th>Despacho</th><th>Lote</th><th>Obra</th><th>Cantidad</th><th>Recibido</th><th>Estado</th></tr></thead>
                 <tbody>
                   {d.dispatches.map((x) => (
                     <tr key={x.id}><td>{x.code}</td><td>{x.batchCode}</td><td>{x.workCode} · {x.workName}</td><td>{fmtNum(x.quantity)} {unitLabel(x.unit)}</td><td>{x.quantityReceived == null ? '—' : `${fmtNum(x.quantityReceived)} ${unitLabel(x.unit)}`}</td><td><DispatchStateBadge state={x.state} /></td></tr>
                   ))}
                 </tbody>
-              </table>
+              </table></div>
             )}
           </Card>
         )}
         {tab === 'daily' && <DailySummary d={d} onDone={refresh} />}
         {tab === 'jobs' && <Jobs d={d} onDone={refresh} />}
       </div>
-      <ArrivalModal t={arrive} onClose={() => setArrive(null)} onDone={() => { setArrive(null); refresh(); }} />
+      <ArrivalModal key={arrive?.id ?? 'none'} t={arrive} operators={d.operators} onClose={() => setArrive(null)} onDone={() => { setArrive(null); refresh(); }} />
       {detail && (
         <Modal open onClose={() => setOpenBatchId(null)} title={`Lote ${detail.code}`} wide>
           <BatchPanel b={detail} works={d.works} onDone={refresh} embedded />
@@ -109,11 +111,13 @@ export default function Center() {
   );
 }
 
-function ArrivalModal({ t, onClose, onDone }: { t: TripView | null; onClose: () => void; onDone: () => void }) {
+function ArrivalModal({ t, operators, onClose, onDone }: { t: TripView | null; operators: { id: string; name: string }[]; onClose: () => void; onDone: () => void }) {
   const { busy, error, run } = useSubmit();
   const [qr, setQr] = useState<string | null>(null);
   const [photos, setPhotos] = useState<CapturedPhoto[]>([]);
+  const [rec, setRec] = useState({ operatorEntityId: operators.length === 1 ? operators[0].id : '', quantity: '', unit: 'm3' as OutputUnit, condition: '', discrepancyNote: '' });
   if (!t) return null;
+  const body = { operatorEntityId: rec.operatorEntityId || null, receivedQuantity: rec.quantity === '' ? null : Number(rec.quantity), receivedUnit: rec.quantity === '' ? null : rec.unit, condition: rec.condition || null, discrepancyNote: rec.discrepancyNote || null };
   return (
     <Modal open onClose={onClose} title={`Confirmar llegada · ${t.code}`}>
       <p className="text-sm text-ink-2 mb-2">Vehículo {t.vehiclePlate} con material de {t.originCodes.join(', ')}.</p>
@@ -121,10 +125,30 @@ function ArrivalModal({ t, onClose, onDone }: { t: TripView | null; onClose: () 
       {qr && <p className="text-sm mt-1"><Badge tone="ok">QR leído: {qr}</Badge></p>}
       <h3 className="label mt-3">Foto de llegada (obligatoria)</h3>
       <PhotoCapture kind="trip_arrival" label="Foto del camión al llegar" photos={photos} onChange={setPhotos} max={1} />
+      <h3 className="label mt-3">Datos de la recepción</h3>
+      <div className="grid sm:grid-cols-2 gap-x-3">
+        {operators.length > 1 && (
+          <Field label="Operador responsable">
+            <Select value={rec.operatorEntityId} onChange={(e) => setRec({ ...rec, operatorEntityId: e.target.value })}>
+              <option value="">Sin indicar</option>
+              {operators.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+            </Select>
+          </Field>
+        )}
+        <Field label="Cantidad recibida" hint={t.estimatedVolumeM3 != null ? `Salida estimada: ${fmtNum(t.estimatedVolumeM3)} m³` : undefined}><Input type="number" min={0} step="0.01" inputMode="decimal" value={rec.quantity} onChange={(e) => setRec({ ...rec, quantity: e.target.value })} /></Field>
+        <Field label="Unidad">
+          <Select value={rec.unit} onChange={(e) => setRec({ ...rec, unit: e.target.value as OutputUnit })}>
+            <option value="m3">Metros cúbicos (m³)</option>
+            <option value="t">Toneladas (t)</option>
+          </Select>
+        </Field>
+        <Field label="Condición del material"><Input value={rec.condition} maxLength={300} onChange={(e) => setRec({ ...rec, condition: e.target.value })} /></Field>
+      </div>
+      <Field label="Discrepancia observada" hint="Si algo no coincide, descríbelo: se avisa a coordinación y supervisión."><Textarea value={rec.discrepancyNote} maxLength={500} onChange={(e) => setRec({ ...rec, discrepancyNote: e.target.value })} /></Field>
       {error && <Alert tone="bad" className="mt-2">{error}</Alert>}
       <div className="mt-3 flex justify-end gap-2">
         <Button variant="ghost" onClick={onClose}>Cancelar</Button>
-        <Button disabled={busy || !photos[0]?.id} onClick={() => run(async () => { const r = await api.post<{ batch: BatchView }>(`/center/trips/${t.id}/arrive`, { photoId: photos[0].id, vehicleQr: qr, location: photos[0].location }); toast.success(`Llegada de ${t.code} confirmada. Entró al lote ${r.batch.code}; clasifica la recepción.`); onDone(); })}>
+        <Button disabled={busy || !photos[0]?.id} onClick={() => run(async () => { const r = await api.post<{ batch: BatchView }>(`/center/trips/${t.id}/arrive`, { photoId: photos[0].id, vehicleQr: qr, location: photos[0].location, ...body }); toast.success(`Llegada de ${t.code} confirmada. Entró al lote ${r.batch.code}; clasifica la recepción.`); onDone(); })}>
           {busy ? 'Confirmando…' : 'Confirmar llegada'}
         </Button>
       </div>
@@ -134,10 +158,10 @@ function ArrivalModal({ t, onClose, onDone }: { t: TripView | null; onClose: () 
 
 function BatchPanel({ b, works, onDone, embedded }: { b: BatchView; works: CenterOverview['works']; onDone: () => void; embedded?: boolean }) {
   const { busy, error, run, setError } = useSubmit();
-  const [outputs, setOutputs] = useState({ unit: 't' as OutputUnit, aggregate: '', metal: '', specialDisposal: '', rejects: '' });
+  const [outputs, setOutputs] = useState({ unit: 't' as OutputUnit, aggregate: '', metal: '', specialDisposal: '', rejects: '', input: '', method: '' });
   const [dispatch, setDispatch] = useState({ workId: works[0]?.id || '', quantity: '' });
-  const canClose = b.state === 'open';
-  const canOutputs = b.state === 'closed';
+  const canClose = b.state === 'open' && !b.separateProcessing;
+  const canOutputs = b.state === 'closed' && !b.separateProcessing;
   const canDispatch = ['approved', 'partially_dispatched'].includes(b.state);
   const available = (b.outputs?.aggregate || 0) - b.dispatchedQuantity;
   const body = (
@@ -159,6 +183,8 @@ function BatchPanel({ b, works, onDone, embedded }: { b: BatchView; works: Cente
         <section>
           <h3 className="label">Salidas registradas</h3>
           <OutputsSummary b={b} />
+          {b.outputs.method && <p className="text-sm mt-1">Método: {b.outputs.method}</p>}
+          {b.materialBalance && <p className="text-sm mt-1">Balance: entrada {fmtNum(b.materialBalance.input)} {unitLabel(b.materialBalance.unit)} · salidas {fmtNum(b.materialBalance.output)} {unitLabel(b.materialBalance.unit)} {b.materialBalance.flagged && <Badge tone="warn">Diferencia {fmtNum(b.materialBalance.difference)} {unitLabel(b.materialBalance.unit)}, por revisar</Badge>}</p>}
           {b.dispatchIds.length > 0 && <p className="text-sm mt-1">Despachado: {fmtNum(b.dispatchedQuantity)} {unitLabel(b.outputs.unit)} · disponible: {fmtNum(available)} {unitLabel(b.outputs.unit)}</p>}
         </section>
       )}
@@ -174,6 +200,7 @@ function BatchPanel({ b, works, onDone, embedded }: { b: BatchView; works: Cente
           <ul className="text-sm space-y-1">{b.hazardDecisions.map((h) => <li key={h.id}>{h.decision === 'release' ? 'Liberado' : 'Desviado a disposición especial'} · {h.receptionIds.length} recepción(es) · {h.justification}</li>)}</ul>
         </section>
       )}
+      {b.separateProcessing && ['open', 'closed'].includes(b.state) && <Alert tone="info">Cerrar el lote y registrar salidas le corresponde al personal de procesamiento de este centro.</Alert>}
       {error && <Alert tone="bad">{error}</Alert>}
       {canClose && (
         <Button variant="secondary" disabled={busy} onClick={() => run(async () => { await api.post(`/center/batches/${b.id}/close`, {}); toast.success(`Lote ${b.code} cerrado. Registra sus salidas.`); onDone(); })}>
@@ -190,12 +217,14 @@ function BatchPanel({ b, works, onDone, embedded }: { b: BatchView; works: Cente
                 <option value="m3">Metros cúbicos (m³)</option>
               </Select>
             </Field>
+            <Field label="Cantidad procesada (entrada)" hint="En la misma unidad. Sirve para el balance de material."><Input type="number" min={0} step="0.1" inputMode="decimal" value={outputs.input} onChange={(e) => setOutputs({ ...outputs, input: e.target.value })} /></Field>
+            <Field label="Método de procesamiento"><Input value={outputs.method} maxLength={200} placeholder="Separación, trituración…" onChange={(e) => setOutputs({ ...outputs, method: e.target.value })} /></Field>
             <Field label="Agregado producido" required><Input type="number" min={0} step="0.1" inputMode="decimal" value={outputs.aggregate} onChange={(e) => setOutputs({ ...outputs, aggregate: e.target.value })} /></Field>
             <Field label="Metal entregado al Estado" required><Input type="number" min={0} step="0.1" inputMode="decimal" value={outputs.metal} onChange={(e) => setOutputs({ ...outputs, metal: e.target.value })} /></Field>
             <Field label="Material a disposición especial" required><Input type="number" min={0} step="0.1" inputMode="decimal" value={outputs.specialDisposal} onChange={(e) => setOutputs({ ...outputs, specialDisposal: e.target.value })} /></Field>
             <Field label="Rechazos al CDF" required><Input type="number" min={0} step="0.1" inputMode="decimal" value={outputs.rejects} onChange={(e) => setOutputs({ ...outputs, rejects: e.target.value })} /></Field>
           </div>
-          <Button disabled={busy || [outputs.aggregate, outputs.metal, outputs.specialDisposal, outputs.rejects].some((v) => v === '')} onClick={() => run(async () => { await api.post(`/center/batches/${b.id}/outputs`, { unit: outputs.unit, aggregate: Number(outputs.aggregate), metal: Number(outputs.metal), specialDisposal: Number(outputs.specialDisposal), rejects: Number(outputs.rejects) }); toast.success(`Salidas de ${b.code} registradas. Pasa a verificación de calidad.`); onDone(); })}>
+          <Button disabled={busy || [outputs.aggregate, outputs.metal, outputs.specialDisposal, outputs.rejects].some((v) => v === '')} onClick={() => run(async () => { await api.post(`/center/batches/${b.id}/outputs`, { unit: outputs.unit, aggregate: Number(outputs.aggregate), metal: Number(outputs.metal), specialDisposal: Number(outputs.specialDisposal), rejects: Number(outputs.rejects), input: outputs.input === '' ? null : Number(outputs.input), method: outputs.method || null }); toast.success(`Salidas de ${b.code} registradas. Pasa a verificación de calidad.`); onDone(); })}>
             {busy ? 'Guardando…' : 'Guardar salidas'}
           </Button>
         </section>
@@ -235,6 +264,22 @@ function ReceptionItem({ r, batch, onDone }: { r: BatchView['receptions'][number
   const [sub, setSub] = useState<Subcategory | ''>(r.subcategory || '');
   const [note, setNote] = useState(r.note || '');
   const [photos, setPhotos] = useState<CapturedPhoto[]>([]);
+  const aiOn = useFeature('ai_photo_detection');
+  const [ai, setAi] = useState<AiSuggestion | null>(null);
+  const [aiBusy, setAiBusy] = useState(false);
+  const photoId = photos[0]?.id || r.photoId || r.arrivalPhotoId || null;
+  const askAi = async () => {
+    setAiBusy(true);
+    try {
+      const s = await api.post<AiSuggestion>('/ai/photo', { photoId });
+      setAi(s);
+      if (s.suggestion.subcategory) setSub(s.suggestion.subcategory);
+    } catch (err) {
+      toast.error(errorMessage(err));
+    } finally {
+      setAiBusy(false);
+    }
+  };
   const locked = ['processed', 'under_verification', 'approved', 'rejected', 'partially_dispatched', 'fully_dispatched'].includes(batch.state);
   return (
     <li className="rounded-lg border border-line p-3 text-sm">
@@ -253,10 +298,17 @@ function ReceptionItem({ r, batch, onDone }: { r: BatchView['receptions'][number
           </Select>
           <Input placeholder="Nota (opcional)" value={note} onChange={(e) => setNote(e.target.value)} className="!w-auto flex-1 min-w-[160px]" aria-label="Nota" />
           <PhotoCapture kind="reception" label="Foto" photos={photos} onChange={setPhotos} max={1} withLocation={false} />
-          <Button size="sm" disabled={busy || !sub} onClick={() => run(async () => { const res = await api.post<{ batch: BatchView }>(`/center/receptions/${r.id}/classify`, { subcategory: sub, note: note || null, photoId: photos[0]?.id || null }); toast.success(sub === 'possible_hazardous' ? `Recepción marcada como posible material peligroso: el lote ${res.batch.code} queda retenido y el evaluador fue avisado.` : 'Recepción clasificada.'); onDone(); })}>
+          {aiOn && photoId && <Button size="sm" variant="secondary" disabled={aiBusy} onClick={askAi}>{aiBusy ? 'Analizando…' : 'Sugerir con IA'}</Button>}
+          <Button size="sm" disabled={busy || !sub} onClick={() => run(async () => { const res = await api.post<{ batch: BatchView }>(`/center/receptions/${r.id}/classify`, { subcategory: sub, note: note || null, photoId: photos[0]?.id || null }); if (ai) await api.post(`/ai/photo/${ai.id}/decision`, { final: sub }).catch(() => undefined); toast.success(sub === 'possible_hazardous' ? `Recepción marcada como posible material peligroso: el lote ${res.batch.code} queda retenido y el evaluador fue avisado.` : 'Recepción clasificada.'); onDone(); })}>
             Guardar
           </Button>
         </div>
+      )}
+      {ai && (
+        <Alert tone="info" className="mt-2" title="Sugerencia de IA: revisa antes de guardar">
+          {ai.suggestion.subcategory ? SUBCATEGORY_LABELS[ai.suggestion.subcategory] : 'Sin clasificación propuesta'} · confianza {({ low: 'baja', medium: 'media', high: 'alta' } as const)[ai.suggestion.confidence]}. {ai.suggestion.note}{ai.suggestion.visibleText ? ` Texto visible: ${ai.suggestion.visibleText}.` : ''}{' '}
+          <button type="button" className="underline" onClick={async () => { await api.post(`/ai/photo/${ai.id}/decision`, { final: null }).catch(() => undefined); setAi(null); setSub(''); }}>Descartar</button>
+        </Alert>
       )}
       {error && <Alert tone="bad" className="mt-2">{error}</Alert>}
     </li>
@@ -279,7 +331,7 @@ function DailySummary({ d, onDone }: { d: CenterOverview; onDone: () => void }) 
       </Card>
       <Card title="Resúmenes anteriores">
         {d.dailySummaries.length === 0 ? <EmptyState title="Sin resúmenes" /> : (
-          <table className="table-plain"><thead><tr><th>Fecha</th><th>Viajes</th><th>Toneladas oficiales</th></tr></thead><tbody>{d.dailySummaries.map((s) => <tr key={s.id}><td>{s.date}</td><td>{s.tripsReceived}</td><td>{s.officialTonnes == null ? '—' : fmtNum(s.officialTonnes)}</td></tr>)}</tbody></table>
+          <div className="overflow-x-auto"><table className="table-plain"><thead><tr><th>Fecha</th><th>Viajes</th><th>Toneladas oficiales</th></tr></thead><tbody>{d.dailySummaries.map((s) => <tr key={s.id}><td>{s.date}</td><td>{s.tripsReceived}</td><td>{s.officialTonnes == null ? '—' : fmtNum(s.officialTonnes)}</td></tr>)}</tbody></table></div>
         )}
       </Card>
     </div>
@@ -302,7 +354,7 @@ function Jobs({ d, onDone }: { d: CenterOverview; onDone: () => void }) {
       </Card>
       <Card title="Registros anteriores">
         {d.jobs.length === 0 ? <EmptyState title="Sin registros" /> : (
-          <table className="table-plain"><thead><tr><th>Fecha</th><th>Puestos</th><th>Tipo</th></tr></thead><tbody>{d.jobs.map((j) => <tr key={j.id}><td>{j.date}</td><td>{j.positions}</td><td>{j.type === 'direct' ? 'Directos' : 'Indirectos'}</td></tr>)}</tbody></table>
+          <div className="overflow-x-auto"><table className="table-plain"><thead><tr><th>Fecha</th><th>Puestos</th><th>Tipo</th></tr></thead><tbody>{d.jobs.map((j) => <tr key={j.id}><td>{j.date}</td><td>{j.positions}</td><td>{j.type === 'direct' ? 'Directos' : 'Indirectos'}</td></tr>)}</tbody></table></div>
         )}
       </Card>
     </div>

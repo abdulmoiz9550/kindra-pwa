@@ -35,7 +35,7 @@ export default function Gates() {
             <Card className="text-center break-inside-avoid">
               <p className="text-xs uppercase tracking-widest text-muted">{g.kind === 'center' ? 'Centro' : 'Obra'}</p>
               <p className="font-bold">{g.name}</p>
-              <div className="mx-auto my-2 w-44" dangerouslySetInnerHTML={{ __html: g.qrSvg }} role="img" aria-label={`QR de la puerta ${g.code}`} />
+              <div className="mx-auto my-2 w-44 [&>svg]:w-full [&>svg]:h-auto" dangerouslySetInnerHTML={{ __html: g.qrSvg }} role="img" aria-label={`QR de la puerta ${g.code}`} />
               <p className="font-mono text-sm">{g.code}</p>
               {!g.hasPoint && <Badge tone="warn" icon={false}>Sin coordenadas: no hay control de perímetro</Badge>}
               <p className="text-[11px] text-muted mt-1">con tecnología Kindra</p>

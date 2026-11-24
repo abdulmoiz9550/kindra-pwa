@@ -33,7 +33,7 @@ evalRouter.post(
 evalRouter.post(
   '/batches/:id/quality',
   wrap((req, res) => {
-    const body = z.object({ checklist: z.record(z.boolean()), result: z.enum(['approved', 'rejected']), justification: z.string().min(5), documentId: z.string().nullable().optional() }).parse(req.body);
+    const body = z.object({ checklist: z.record(z.boolean()), result: z.enum(['approved', 'rejected']), justification: z.string().min(5), documentId: z.string().nullable().optional(), tests: z.array(z.object({ testType: z.string().min(2).max(120), method: z.string().min(1).max(120), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), result: z.string().min(1).max(120), unit: z.string().min(1).max(30), laboratory: z.string().max(120).nullable() })).max(20).optional() }).parse(req.body);
     const r = verifyQuality(String(req.params.id), req.auth!.actor, { ...body, deviceTime: req.deviceTime });
     res.json({ batch: batchView(r.batch), verification: r.verification });
   }),

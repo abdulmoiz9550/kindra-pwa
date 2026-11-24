@@ -3,8 +3,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { SUBCATEGORY_LABELS } from '@kindra/shared';
 import { api, errorMessage } from '../../lib/api';
 import { toast } from '../../lib/toast';
+import { useTab } from '../../lib/useTab';
 import { fmtDate, fmtDateTime, fmtNum, unitLabel } from '../../lib/format';
-import { Card, Button, Field, Textarea, Alert, EmptyState, PageTitle, Tabs, Spinner, Badge, KeyValue } from '../../components/ui';
+import { Card, Button, Field, Input, Textarea, Alert, EmptyState, PageTitle, Tabs, Spinner, Badge, KeyValue } from '../../components/ui';
 import { PhotoCapture, type CapturedPhoto } from '../../components/PhotoCapture';
 import { CompositionBars, BatchHeader, OutputsSummary, Checklist, checklistComplete, useSubmit } from '../../components/panels/shared';
 import type { EvalOverview, BatchView, ChecklistItem } from '../../components/panels/types';
@@ -14,7 +15,7 @@ type Tab = 'held' | 'verification' | 'decided';
 export default function Evaluator() {
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ['eval', 'overview'], queryFn: () => api.get<EvalOverview>('/eval/overview') });
-  const [tab, setTab] = useState<Tab>('held');
+  const [tab, setTab] = useTab<Tab>('held');
   const d = q.data;
   const refresh = () => qc.invalidateQueries({ queryKey: ['eval'] });
   if (q.isLoading) return <Spinner label="Cargando el panel…" />;
@@ -46,7 +47,7 @@ export default function Evaluator() {
                   <li key={b.id} className="rounded-lg border border-line p-3">
                     <BatchHeader b={b} />
                     <p className="text-xs text-muted mt-1">{b.centerName} · periodo {fmtDate(b.periodStart)} – {fmtDate(b.periodEnd)}</p>
-                    {b.qualityVerification && <KeyValue items={[{ k: 'Resultado', v: b.qualityVerification.result === 'approved' ? 'Aprobado' : 'Rechazado' }, { k: 'Fecha', v: fmtDateTime(b.qualityVerification.createdAt) }, { k: 'Justificación', v: b.qualityVerification.justification }]} />}
+                    {b.qualityVerification && <KeyValue items={[{ k: 'Resultado', v: b.qualityVerification.result === 'approved' ? 'Aprobado' : 'Rechazado' }, { k: 'Fecha', v: fmtDateTime(b.qualityVerification.createdAt) }, { k: 'Justificación', v: b.qualityVerification.justification }, ...(b.qualityVerification.tests || []).map((t) => ({ k: `${t.testType} · ${t.method}`, v: `${t.result} ${t.unit} · ${t.date}${t.laboratory ? ` · ${t.laboratory}` : ''}` }))]} />}
                   </li>
                 ))}
               </ul>
@@ -113,7 +114,10 @@ function QualityForm({ b, checklist, onDone }: { b: BatchView; checklist: Checkl
   const [just, setJust] = useState('');
   const [docs, setDocs] = useState<CapturedPhoto[]>([]);
   const [docId, setDocId] = useState<string | null>(null);
-  const ready = checklistComplete(checklist, check) && !!result && just.trim().length >= 5;
+  const EMPTY_TEST = { testType: '', method: '', date: '', result: '', unit: '', laboratory: '' };
+  const [tests, setTests] = useState<(typeof EMPTY_TEST)[]>([]);
+  const testsOk = tests.every((t) => t.testType.trim().length >= 2 && t.method && t.date && t.result && t.unit);
+  const ready = checklistComplete(checklist, check) && !!result && just.trim().length >= 5 && testsOk;
   const onFile = async (file: File | undefined) => {
     if (!file) return;
     const dataUrl = await new Promise<string>((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result)); fr.onerror = () => rej(new Error('No se pudo leer el archivo.')); fr.readAsDataURL(file); });
@@ -143,6 +147,18 @@ function QualityForm({ b, checklist, onDone }: { b: BatchView; checklist: Checkl
         <Textarea value={just} onChange={(e) => setJust(e.target.value)} />
       </Field>
       <div className="mb-3">
+        <span className="label">Ensayos</span>
+        {tests.map((t, i) => (
+          <div key={i} className="rounded-lg border border-line p-2 mb-2 grid grid-cols-2 sm:grid-cols-3 gap-x-2">
+            {([['testType', 'Tipo de ensayo', 'text'], ['method', 'Método', 'text'], ['date', 'Fecha', 'date'], ['result', 'Resultado', 'text'], ['unit', 'Unidad', 'text'], ['laboratory', 'Laboratorio (opcional)', 'text']] as const).map(([k, label, type]) => (
+              <Field key={k} label={label} required={k !== 'laboratory'}><Input type={type} value={t[k]} onChange={(e) => setTests(tests.map((x, j) => (j === i ? { ...x, [k]: e.target.value } : x)))} /></Field>
+            ))}
+            <Button size="sm" variant="ghost" onClick={() => setTests(tests.filter((_, j) => j !== i))}>Quitar ensayo</Button>
+          </div>
+        ))}
+        <Button size="sm" variant="secondary" onClick={() => setTests([...tests, { ...EMPTY_TEST }])}>Agregar ensayo</Button>
+      </div>
+      <div className="mb-3">
         <span className="label">Documento adjunto (opcional)</span>
         <div className="flex flex-wrap gap-2 items-center">
           <label className="btn-secondary btn-sm cursor-pointer">Subir PDF o imagen<input type="file" accept="application/pdf,image/*" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} /></label>
@@ -151,7 +167,7 @@ function QualityForm({ b, checklist, onDone }: { b: BatchView; checklist: Checkl
         </div>
       </div>
       {error && <Alert tone="bad" className="mb-2">{error}</Alert>}
-      <Button disabled={busy || !ready} onClick={() => run(async () => { await api.post(`/eval/batches/${b.id}/quality`, { checklist: check, result, justification: just.trim(), documentId: docId }); toast.success(result === 'approved' ? `Lote ${b.code} aprobado. El centro ya puede despacharlo.` : `Lote ${b.code} rechazado. No podrá despacharse a obras.`); onDone(); })}>
+      <Button disabled={busy || !ready} onClick={() => run(async () => { await api.post(`/eval/batches/${b.id}/quality`, { checklist: check, result, justification: just.trim(), documentId: docId, tests: tests.map((t) => ({ ...t, laboratory: t.laboratory || null })) }); toast.success(result === 'approved' ? `Lote ${b.code} aprobado. El centro ya puede despacharlo.` : `Lote ${b.code} rechazado. No podrá despacharse a obras.`); onDone(); })}>
         {busy ? 'Registrando…' : 'Registrar verificación'}
       </Button>
     </div>

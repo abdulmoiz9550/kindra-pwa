@@ -97,7 +97,7 @@ npm run typecheck      # verificación de tipos de servidor y cliente
 
 ## Copia de seguridad diaria
 
-`npm run backup` guarda una copia en `server/data/backups/`. Programarlo una vez al día con cron o el Programador de tareas de Windows.
+`npm run backup` guarda una copia en `server/data/backups/`. Programarlo una vez al día con cron o el Programador de tareas de Windows. También se puede automatizar con `BACKUP_INTERVAL_HOURS=24` y probar una restauración con `npm run restore -w server -- copia.json`. Especificación v4.0 (auditoría, permisos, pantallas por aprobar, seguridad): [docs/SPEC_V4.md](docs/SPEC_V4.md).
 
 ## AURA
 

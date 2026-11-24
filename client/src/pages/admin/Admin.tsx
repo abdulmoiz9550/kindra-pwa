@@ -16,6 +16,8 @@ import Features from './Features';
 import Spaces from './Spaces';
 import Audit from './Audit';
 import Gates from './Gates';
+import Governance from './Governance';
+import Participation, { Modules, Operators } from './Participation';
 import { TwoFactorGate } from './TwoFactorGate';
 import { useFeature } from '../../lib/config';
 
@@ -25,6 +27,9 @@ const NAV = [
   { to: 'espacios', label: 'Espacios' },
   { to: 'entidades', label: 'Entidades' },
   { to: 'usuarios', label: 'Usuarios' },
+  { to: 'modulos', label: 'Módulos' },
+  { to: 'operadores', label: 'Operadores' },
+  { to: 'participacion', label: 'Comunidades y comercios' },
   { to: 'sectores', label: 'Sectores' },
   { to: 'centros', label: 'Centros' },
   { to: 'vehiculos', label: 'Vehículos' },
@@ -36,6 +41,7 @@ const NAV = [
   { to: 'fotos', label: 'Moderación de fotos' },
   { to: 'preregistro', label: 'Pre-registro', feature: 'preregistration' },
   { to: 'bitacora', label: 'Bitácora de administración' },
+  { to: 'gobierno', label: 'Gobierno de datos' },
   { to: 'demo', label: 'Datos de demostración' },
 ];
 
@@ -48,8 +54,8 @@ export default function Admin() {
   const nav = NAV.filter((n) => !n.feature || (n.feature === 'preregistration' && preregOn));
   return (
     <TwoFactorGate>
-      <div className="md:grid md:grid-cols-[220px_1fr] md:gap-6">
-        <nav aria-label="Secciones de administración" className="mb-4 md:mb-0">
+      <div>
+        <nav aria-label="Secciones de administración" className="mb-4 md:hidden">
           <ul className="flex md:flex-col gap-1 overflow-x-auto pb-2 md:pb-0 -mx-1 px-1">
             {nav.map((n) => (
               <li key={n.to} className="shrink-0">
@@ -78,6 +84,10 @@ export default function Admin() {
             <Route path="fotos" element={<Photos />} />
             {preregOn && <Route path="preregistro" element={<Prereg />} />}
             <Route path="bitacora" element={<Audit />} />
+            <Route path="modulos" element={<Modules />} />
+            <Route path="operadores" element={<Operators />} />
+            <Route path="participacion" element={<Participation />} />
+            <Route path="gobierno" element={<Governance />} />
             <Route path="demo" element={<Demo />} />
             <Route path="*" element={<Navigate to="/admin" replace />} />
           </Routes>

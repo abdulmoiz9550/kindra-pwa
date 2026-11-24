@@ -25,6 +25,18 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
+  const [show, setShow] = useState(false);
+  const [recovery, setRecovery] = useState<string | null>(null);
+  const askRecovery = async () => {
+    setError(null);
+    if (!identifier.trim()) return setRecovery('Escribe primero tu alias o teléfono.');
+    try {
+      await api.post('/auth/recovery', { identifier });
+      setRecovery('Si la cuenta existe, la administración recibió tu solicitud y verificará tu identidad antes de darte una contraseña nueva.');
+    } catch (err) {
+      setRecovery(errorMessage(err));
+    }
+  };
   const [error, setError] = useState<string | null>(null);
 
   const done = (s: { token: string; user: PublicUser }) => {
@@ -70,8 +82,11 @@ export default function Login() {
               <Input value={identifier} onChange={(e) => setIdentifier(e.target.value)} autoComplete="username" required />
             </Field>
             <Field label="Contraseña" required>
-              <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required />
+              <Input type={show ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required />
             </Field>
+            <label className="flex items-center gap-2 text-sm mb-3">
+              <input type="checkbox" className="h-5 w-5 accent-[var(--primary)]" checked={show} onChange={(e) => setShow(e.target.checked)} /> Mostrar contraseña
+            </label>
             {error && (
               <Alert tone="bad" className="mb-3">
                 {error}
@@ -101,6 +116,12 @@ export default function Login() {
               {busy ? 'Entrando…' : 'Entrar con el código'}
             </Button>
           </form>
+        )}
+        {mode === 'password' && (
+          <div className="mt-3 text-sm text-center">
+            <button type="button" className="underline text-primary py-2" onClick={askRecovery}>Olvidé mi contraseña</button>
+            {recovery && <p role="status" className="text-ink-2">{recovery}</p>}
+          </div>
         )}
         <p className="mt-4 text-sm text-center">
           ¿Sin cuenta?{' '}

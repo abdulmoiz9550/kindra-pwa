@@ -21,6 +21,10 @@ let flushing = false;
 
 const list = async () => ((await get(KEY)) as QueuedAction[] | undefined) || [];
 
+export async function pendingPaths(): Promise<string[]> {
+  return (await list()).map((a) => a.path);
+}
+
 export async function pendingActions(): Promise<number> {
   return (await list()).length;
 }

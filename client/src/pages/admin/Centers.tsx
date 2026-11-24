@@ -48,6 +48,8 @@ export default function Centers() {
                 </Badge>
                 <span className="text-muted self-center">{sectors.data?.find((s) => s.id === c.sectorId)?.name}</span>
               </div>
+              <p className="text-xs mt-2">{c.location ? `Coordenadas: ${c.location.lat}, ${c.location.lng}` : 'Coordenadas pendientes de entrega: no se ubica en el mapa.'}</p>
+              {(c.operatorEntityIds || []).length > 0 && <p className="text-xs text-muted">Otros operadores: {c.operatorEntityIds!.map((id) => entities.data?.find((e) => e.id === id)?.name || id).join(', ')}</p>}
             </Card>
           </li>
         ))}

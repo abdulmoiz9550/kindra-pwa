@@ -11,6 +11,7 @@ import { toast } from '../lib/toast';
 import { fmtDate, fmtDateTime } from '../lib/format';
 import { Alert, Button, Card, KeyValue, PageTitle, ProgressBar, Spinner } from '../components/ui';
 import { CardLink, Achievements, Referrals } from '../components/Loyalty';
+import { AccountSettings } from '../components/AccountSettings';
 
 interface ProfileData {
   user: PublicUser;
@@ -140,6 +141,7 @@ export default function Profile() {
         )}
       </Card>
 
+      <AccountSettings />
       <CardLink />
       <Achievements />
       <Referrals />

@@ -2,7 +2,9 @@ import type {
   Entity, User, Sector, Origin, VehicleType, Vehicle, Trip, Center, Reception, Batch, HazardDecision,
   QualityVerification, Work, Dispatch, Closure, DailySummary, JobsRecord, Observation, Lesson, LessonCompletion,
   MonitorRequest, Alert, Photo, Notification, AuraTextEntry, PreregistrationCode, KEvent, AppConfig, Space,
-  Movement, DeclaredStop, TrackPoint, TripRoute,
+  Movement, DeclaredStop, TrackPoint, TripRoute, ReportSnapshot, InfoRequest,
+  PickupRequest, RiskEntry, SecurityIncident, RecoveryRequest,
+  Group, Membership, GroupActivity, WasteReport, Business, ModuleDefinition, AiSuggestion,
 } from '@kindra/shared';
 import type { Persistence } from '../persistence/types';
 
@@ -59,6 +61,21 @@ export interface Collections {
   trackPoints: TrackPoint;
   /** Ruta planificada de cada viaje. */
   tripRoutes: TripRoute;
+  /** Reportes operativos importados (v4.0): cifras reportadas con su fecha y hora de fuente. */
+  reportSnapshots: ReportSnapshot;
+  /** Solicitudes de información (v4.0, sección 9). Cada cambio queda además como evento. */
+  infoRequests: InfoRequest;
+  pickupRequests: PickupRequest;
+  risks: RiskEntry;
+  incidents: SecurityIncident;
+  recoveryRequests: RecoveryRequest;
+  groups: Group;
+  memberships: Membership;
+  groupActivities: GroupActivity;
+  wasteReports: WasteReport;
+  businesses: Business;
+  moduleDefinitions: ModuleDefinition;
+  aiSuggestions: AiSuggestion;
   // Proyecciones derivadas de eventos
   origins: Origin;
   trips: Trip;
@@ -90,7 +107,7 @@ export const PROJECTION_COLLECTIONS: CollectionName[] = [
 
 const ALL_COLLECTIONS: CollectionName[] = [
   'entities', 'users', 'sectors', 'centers', 'vehicleTypes', 'vehicles', 'lessons', 'auraTexts', 'config', 'photos',
-  'preregistrationCodes', 'notifications', 'auraSessions', 'certificates', 'spaces', 'twoFactorSecrets', 'trackPoints', 'tripRoutes', ...PROJECTION_COLLECTIONS,
+  'preregistrationCodes', 'notifications', 'auraSessions', 'certificates', 'spaces', 'twoFactorSecrets', 'trackPoints', 'tripRoutes', 'reportSnapshots', 'infoRequests', 'pickupRequests', 'risks', 'incidents', 'recoveryRequests', 'groups', 'memberships', 'groupActivities', 'wasteReports', 'businesses', 'moduleDefinitions', 'aiSuggestions', ...PROJECTION_COLLECTIONS,
 ];
 
 /**

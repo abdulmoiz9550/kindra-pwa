@@ -16,7 +16,7 @@ import { getConfig } from '../services/config';
 export const trackingRouter = Router();
 
 const geo = z.object({ lat: z.number(), lng: z.number() }).nullable().optional();
-const INTERNAL = ['admin', 'coordinator', 'supervisor', 'center', 'removal', 'destination'] as const;
+const INTERNAL = ['admin', 'coordinator', 'supervisor', 'center', 'removal', 'driver', 'destination'] as const;
 
 // ---------------------------------------------------------------- reenvío desde Traccar (sin sesión, con secreto)
 trackingRouter.post('/traccar/forward', (req, res) => {

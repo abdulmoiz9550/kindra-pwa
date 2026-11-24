@@ -56,3 +56,16 @@ entityAdminRouter.post(
     res.json(upsertEntityVehicle(req.auth!.actor, body));
   }),
 );
+
+/** Documentos y evidencias subidos por las cuentas de la propia entidad (v4.0, 5.2). */
+entityAdminRouter.get('/documents', (req, res) => {
+  const store = db();
+  const users = new Map(store.filter('users', (u) => u.entityId === req.auth!.user.entityId).map((u) => [u.id, u.alias]));
+  res.json(
+    store
+      .filter('photos', (p) => !!p.uploadedBy && users.has(p.uploadedBy) && p.kind !== 'selfie')
+      .sort((a, b) => (a.uploadedAt < b.uploadedAt ? 1 : -1))
+      .slice(0, 200)
+      .map((p) => ({ id: p.id, url: p.url, kind: p.kind, uploadedAt: p.uploadedAt, by: users.get(p.uploadedBy!) })),
+  );
+});

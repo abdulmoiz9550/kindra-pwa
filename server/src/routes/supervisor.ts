@@ -7,7 +7,7 @@ import { tripView } from '../services/trips';
 import { batchView } from '../services/batches';
 import { workView } from '../services/works';
 import { buildDashboard } from '../services/dashboard';
-import { eventView } from '../services/record';
+import { eventView, maskReporter } from '../services/record';
 import { originView } from './helpers';
 
 export const supervisorRouter = Router();
@@ -24,7 +24,7 @@ supervisorRouter.get('/overview', (req, res) => {
   const batches = store.list('batches').map(batchView).filter((b) => !sector || b.composition.some((c) => c.sectorId === sector));
   const batchIds = new Set(batches.map((b) => b.id));
   const works = store.list('works').map(workView).filter((w) => !sector || w.dispatches.some((d) => batchIds.has(d.batchId)));
-  const inconsistent = store.allEvents().filter((e) => e.inconsistentTime).map((e) => eventView(e, false));
+  const inconsistent = store.allEvents().filter((e) => e.inconsistentTime).map((e) => maskReporter(eventView(e, false)));
   const alerts = store.list('alerts').sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
   res.json({
     origins,

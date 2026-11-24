@@ -41,6 +41,7 @@ export interface SectorShare {
 }
 
 export interface ReceptionView extends Reception {
+  arrivalPhotoId: string | null;
   tripCode: string | null;
   originCodes: string[];
   sectorNames: string[];
@@ -55,8 +56,10 @@ export interface BatchView extends Batch {
   qualityVerification: QualityVerification | null;
   dispatches: (Dispatch & { workCode: string | null; workName: string | null })[];
   dispatchedQuantity: number;
+  materialBalance: { input: number; output: number; unit: string; difference: number; flagged: boolean } | null;
   pendingHazard: number;
   unclassified: number;
+  separateProcessing: boolean;
 }
 
 export interface WorkView extends Work {
@@ -99,6 +102,7 @@ export interface RemovalOverview {
 
 export interface CenterOverview {
   center: { id: string; name: string; type: string; shortCode: string; entityName: string | null };
+  operators: { id: string; name: string }[];
   inTransit: TripView[];
   noArrival: TripView[];
   received: TripView[];

@@ -53,15 +53,20 @@ export function toPublicUser(user: User, activeRole: Role, mfa = false): PublicU
 }
 
 function defaultRole(user: User): Role {
-  const order: Role[] = ['admin', 'entity_admin', 'coordinator', 'removal', 'center', 'evaluator', 'supervisor', 'destination', 'monitor', 'citizen'];
+  const order: Role[] = ['admin', 'entity_admin', 'coordinator', 'removal', 'driver', 'center', 'processing', 'evaluator', 'supervisor', 'destination', 'business', 'community', 'coastal', 'householder', 'monitor', 'citizen'];
   for (const r of order) if (user.roles.includes(r)) return r;
   return 'citizen';
 }
 
-export function login(identifier: string, password: string): { token: string; user: PublicUser } {
+/** Cuenta activa que corresponde a un alias o teléfono. */
+export function findLoginUser(identifier: string): User | undefined {
   const id = identifier.trim().toLowerCase();
   const digits = id.replace(/\D/g, '');
-  const user = db().find('users', (u) => u.active && (u.alias.toLowerCase() === id || (digits.length >= 7 && (u.phone || '').replace(/\D/g, '') === digits)));
+  return db().find('users', (u) => u.active && (u.alias.toLowerCase() === id || (digits.length >= 7 && (u.phone || '').replace(/\D/g, '') === digits)));
+}
+
+export function login(identifier: string, password: string): { token: string; user: PublicUser } {
+  const user = findLoginUser(identifier);
   if (!user || !checkPassword(password, user.passwordHash)) throw unauthorized('Alias o contraseña incorrectos.');
   const role = defaultRole(user);
   return { token: issueToken(user.id, role), user: toPublicUser(user, role) };
@@ -163,7 +168,7 @@ export function submitSelfie(user: User, photoId: string): PublicUser {
 export function listDemoRoles(): { role: Role; alias: string }[] {
   if (!getConfig().demoMode) return [];
   const out: { role: Role; alias: string }[] = [];
-  const roles: Role[] = ['citizen', 'monitor', 'coordinator', 'removal', 'center', 'evaluator', 'supervisor', 'destination', 'entity_admin', 'admin'];
+  const roles: Role[] = ['citizen', 'monitor', 'coordinator', 'removal', 'center', 'evaluator', 'supervisor', 'destination', 'entity_admin', 'admin', 'driver', 'processing', 'householder', 'community', 'business', 'coastal'];
   for (const r of roles) {
     const u = db().find('users', (x) => !!x.isDemo && x.roles.includes(r) && x.active);
     if (u) out.push({ role: r, alias: u.alias });

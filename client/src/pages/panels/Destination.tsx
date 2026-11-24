@@ -6,6 +6,7 @@ import { USE_TYPE_LABELS } from '@kindra/shared';
 import type { WorkUseType } from '@kindra/shared';
 import { api, errorMessage } from '../../lib/api';
 import { toast } from '../../lib/toast';
+import { useTab } from '../../lib/useTab';
 import { fmtNum, fmtDate, unitLabel } from '../../lib/format';
 import { Card, Button, Field, Input, Select, Textarea, Alert, EmptyState, Modal, PageTitle, Tabs, Spinner, Badge, DispatchStateBadge } from '../../components/ui';
 import { CompositionBars, useSubmit } from '../../components/panels/shared';
@@ -16,7 +17,7 @@ type Tab = 'pending' | 'works' | 'new';
 export default function Destination() {
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ['dest', 'overview'], queryFn: () => api.get<DestOverview>('/dest/overview') });
-  const [tab, setTab] = useState<Tab>('pending');
+  const [tab, setTab] = useTab<Tab>('pending');
   const [useFor, setUseFor] = useState<WorkView | null>(null);
   const d = q.data;
   const refresh = () => qc.invalidateQueries({ queryKey: ['dest'] });
@@ -94,10 +95,10 @@ function WorkCard({ w, onUse }: { w: WorkView; onUse: () => void }) {
         {w.totalReceived > 0 && <Badge tone="info" icon={false}>Recibido: {fmtNum(w.totalReceived)} {unitLabel(w.unit)}</Badge>}
       </div>
       {w.dispatches.length > 0 && (
-        <table className="table-plain mb-2">
+        <div className="overflow-x-auto"><table className="table-plain mb-2">
           <thead><tr><th>Despacho</th><th>Lote</th><th>Centro</th><th>Despachado</th><th>Recibido</th><th>Estado</th></tr></thead>
           <tbody>{w.dispatches.map((x) => <tr key={x.id}><td>{x.code}</td><td>{x.batchCode}</td><td>{x.centerName}</td><td>{fmtNum(x.quantity)} {unitLabel(x.unit)}</td><td>{x.quantityReceived == null ? '—' : fmtNum(x.quantityReceived)}</td><td><DispatchStateBadge state={x.state} /></td></tr>)}</tbody>
-        </table>
+        </table></div>
       )}
       {w.composition.length > 0 && (
         <div className="mb-2">

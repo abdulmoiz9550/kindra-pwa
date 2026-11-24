@@ -5,6 +5,8 @@ import { db, type CollectionName } from '../core/db';
 import { newId, nowIso } from '../core/ids';
 import { badRequest, conflict, notFound } from '../core/errors';
 import { hashPassword } from './auth';
+import { logAccountChange } from './governance';
+import { clearFailures } from './lockout';
 import { containsForbiddenExpression } from './notifications';
 import { updateConfig } from './config';
 import { withFixedGates } from '../core/transitions';
@@ -50,6 +52,7 @@ export interface UserInput {
   active?: boolean;
   verificationStatus?: User['verificationStatus'];
   spaceId?: string | null;
+  businessId?: string | null;
   /** Referencia del documento de designación (obligatoria para administrador de entidad). */
   appointmentDocumentRef?: string | null;
   appointmentPhotoId?: string | null;
@@ -80,7 +83,9 @@ export function upsertUser(input: UserInput, editor?: UserEditor): User {
   if (clash) throw conflict('Ese alias ya está en uso.');
   const institutional = input.roles.some((r) => INSTITUTIONAL_ROLES.includes(r));
   if (institutional && !input.entityId) throw badRequest('Un usuario institucional debe pertenecer a una entidad.');
-  if (input.roles.includes('center') && !input.centerId) throw badRequest('Un usuario de centro debe tener un centro asignado.');
+  if ((input.roles.includes('center') || input.roles.includes('processing')) && !input.centerId) throw badRequest('Un usuario de centro o de procesamiento debe tener un centro asignado.');
+  if (input.roles.includes('business') && !(input.businessId ?? existing?.businessId)) throw badRequest('Un usuario de comercio debe tener un comercio asignado.');
+  if (input.businessId && !store.get('businesses', input.businessId)) throw badRequest('El comercio no existe.');
   if (input.roles.includes('evaluator') && !existing?.roles.includes('evaluator')) {
     // 4: el evaluador nunca se autoasigna; lo activa el administrador tras la designación de la entidad.
   }
@@ -107,12 +112,22 @@ export function upsertUser(input: UserInput, editor?: UserEditor): User {
     referredBy: existing?.referredBy ?? null,
     proposedRoles: (existing?.proposedRoles || []).filter((p) => !input.roles.includes(p.role)),
     twoFactor: existing?.twoFactor ?? null,
+    businessId: input.businessId !== undefined ? input.businessId : existing?.businessId ?? null,
+    preferences: existing?.preferences ?? null,
     appointment: becomesEntityAdmin
       ? { documentRef: input.appointmentDocumentRef!.trim(), documentPhotoId: input.appointmentPhotoId ?? null, appointedAt: nowIso(), activatedBy: editor?.id || 'kindra', activatedAt: nowIso() }
       : input.roles.includes('entity_admin')
         ? existing?.appointment ?? null
         : null,
   };
+  // v4.0, sección 10: los cambios de rol y las suspensiones quedan con el valor anterior y el nuevo.
+  const before = existing ? [...existing.roles].sort().join(',') : '';
+  const after = [...user.roles].sort().join(',');
+  if (before !== after) logAccountChange(editor?.id ?? null, user.id, 'role_change', before, after);
+  if (existing && existing.active !== user.active) logAccountChange(editor?.id ?? null, user.id, user.active ? 'account_reactivated' : 'account_suspended', String(existing.active), String(user.active));
+  // Una contraseña nueva asignada por la administración levanta el bloqueo por intentos fallidos.
+  if (existing && input.password) clearFailures(`pw:${user.id}`);
+  if (existing && input.password) logAccountChange(editor?.id ?? null, user.id, 'password_reset', null, null);
   return store.put('users', user);
 }
 
@@ -172,6 +187,10 @@ export function upsertCenter(input: Partial<Center> & { name: string; type: Cent
   if (!store.get('sectors', input.sectorId)) throw badRequest('El sector no existe.');
   if (!store.get('entities', input.entityId)) throw badRequest('La entidad responsable no existe.');
   const shortCode = (input.shortCode || existing?.shortCode || input.name.replace(/[^A-Za-z]/g, '').slice(0, 5)).toUpperCase();
+  // v4.0, sección 4: cada sitio físico existe una sola vez. Un operador nuevo se asocia al centro existente.
+  const norm = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+  const twin = store.find('centers', (c) => c.id !== existing?.id && (norm(c.name) === norm(input.name) || (!!input.location && !!c.location && c.location.lat === input.location.lat && c.location.lng === input.location.lng)));
+  if (twin) throw conflict(`Ese sitio físico ya existe como "${twin.name}". Asocia el operador a ese centro en lugar de crear otro.`, 'duplicate_facility');
   const operatorEntityIds = (input.operatorEntityIds ?? existing?.operatorEntityIds ?? []).filter((id) => id !== input.entityId);
   for (const id of operatorEntityIds) if (!store.get('entities', id)) throw badRequest('Una de las entidades operadoras no existe.');
   return store.put('centers', { id: existing?.id || newId('ce'), name: input.name.trim(), shortCode, type: input.type, sectorId: input.sectorId, entityId: input.entityId, location: input.location ?? existing?.location ?? null, operatorEntityIds, unloadingPoint: input.unloadingPoint !== undefined ? input.unloadingPoint : existing?.unloadingPoint ?? null });

@@ -1,4 +1,4 @@
-import type { Batch, BatchOutputs, Reception, Subcategory, HazardDecision, QualityVerification, Dispatch, DailySummary, JobsRecord, Center } from '@kindra/shared';
+import type { Batch, BatchOutputs, Reception, Subcategory, HazardDecision, QualityVerification, QualityTest, Dispatch, DailySummary, JobsRecord, Center } from '@kindra/shared';
 import { db } from '../core/db';
 import { appendEvent, SYSTEM_ACTOR, type Actor } from '../core/events';
 import { assertTransition } from '../core/transitions';
@@ -135,9 +135,21 @@ export function decideHazard(batchId: string, actor: Actor, input: HazardInput):
 
 const HELD_MESSAGE = 'El lote está retenido por posible material peligroso: no se puede procesar hasta que el evaluador decida sobre todas las recepciones sospechosas (regla 7.3).';
 
+/**
+ * v4.0, 5.5 y 5.6: cuando un centro tiene personal de procesamiento, quien recibe ya no procesa.
+ * Los centros sin ese personal siguen operando como hasta ahora.
+ */
+export const hasProcessingStaff = (centerId: string) => !!db().find('users', (u) => u.active && u.roles.includes('processing') && u.centerId === centerId);
+
+function assertProcessingSeparation(actor: Actor, centerId: string): void {
+  if (actor.role !== 'center') return;
+  if (hasProcessingStaff(centerId)) throw forbidden('Este centro tiene personal de procesamiento: cerrar el lote y registrar salidas le corresponde a ese rol.');
+}
+
 export function closeBatch(batchId: string, actor: Actor, deviceTime?: string | null): Batch {
   const batch = getBatchOrThrow(batchId);
   if (batch.state === 'held') throw conflict(HELD_MESSAGE, 'batch_held');
+  assertProcessingSeparation(actor, batch.centerId);
   assertTransition('batch', 'batch_closed', batch.state, { actor, batch });
   appendEvent({ type: 'batch_closed', objectType: 'batch', objectId: batch.id, actor, data: {}, deviceTime });
   return db().get('batches', batch.id)!;
@@ -149,8 +161,10 @@ export function recordOutputs(batchId: string, actor: Actor, outputs: BatchOutpu
   for (const k of ['aggregate', 'metal', 'specialDisposal', 'rejects'] as const) {
     if (typeof outputs[k] !== 'number' || outputs[k] < 0) throw badRequest('Las salidas deben ser números no negativos.');
   }
+  if (outputs.input != null && !(outputs.input > 0)) throw badRequest('La cantidad de entrada debe ser mayor que cero.');
   // 7.3: desde "closed", no retenido, sin sospechosas pendientes (tabla de transiciones)
   if (batch.state === 'held') throw conflict(HELD_MESSAGE, 'batch_held');
+  assertProcessingSeparation(actor, batch.centerId);
   assertTransition('batch', 'outputs_recorded', batch.state, { actor, batch });
   appendEvent({ type: 'outputs_recorded', objectType: 'batch', objectId: batch.id, actor, data: { outputs, composition: batchComposition(batch) }, deviceTime });
   const processed = db().get('batches', batch.id)!;
@@ -166,6 +180,7 @@ export interface QualityInput {
   result: 'approved' | 'rejected';
   justification: string;
   documentId?: string | null;
+  tests?: QualityTest[];
   deviceTime?: string | null;
 }
 
@@ -185,6 +200,7 @@ export function verifyQuality(batchId: string, actor: Actor, input: QualityInput
     evaluatorId: actor.id,
     entityId: actor.entityId,
     documentId: input.documentId ?? null,
+    tests: input.tests ?? [],
     createdAt: nowIso(),
   };
   appendEvent({ type: 'quality_verified', objectType: 'batch', objectId: batch.id, actor, data: { verification }, deviceTime: input.deviceTime });
@@ -265,7 +281,17 @@ export function valorizationRate(batches: Batch[]): { rate: number | null; aggre
     aggregate += b.outputs.aggregate;
     total += b.outputs.aggregate + b.outputs.metal + b.outputs.specialDisposal + b.outputs.rejects;
   }
-  return { rate: total > 0 ? aggregate / total : null, aggregate, total, unitMix: units.size > 1 };
+  // v4.0, sección 8: toneladas y m³ nunca se suman. Con lotes en ambas unidades no hay tasa única.
+  const unitMix = units.size > 1;
+  return { rate: total > 0 && !unitMix ? aggregate / total : null, aggregate, total, unitMix };
+}
+
+function materialBalance(b: Batch): { input: number; output: number; unit: string; difference: number; flagged: boolean } | null {
+  if (b.outputs?.input == null) return null;
+  const o = b.outputs;
+  const output = Math.round((o.aggregate + o.metal + o.specialDisposal + o.rejects) * 100) / 100;
+  const difference = Math.round((output - o.input!) * 100) / 100;
+  return { input: o.input!, output, unit: o.unit, difference, flagged: difference !== 0 };
 }
 
 export function batchView(b: Batch) {
@@ -281,9 +307,11 @@ export function batchView(b: Batch) {
     centerName: center?.name ?? null,
     composition: batchComposition(b),
     movements: moved,
+    // v4.0, sección 7: balance de material (entrada frente a salidas, en la misma unidad).
+    materialBalance: materialBalance(b),
     receptions: receptions.map((r) => {
       const t = store.get('trips', r.tripId);
-      return { ...r, tripCode: t?.code ?? null, originCodes: (t?.originIds || []).map((id) => store.get('origins', id)?.code).filter(Boolean), sectorNames: [...new Set((t?.originIds || []).map((id) => store.get('sectors', store.get('origins', id)?.sectorId || '')?.name).filter(Boolean))], photoUrl: r.photoId ? store.get('photos', r.photoId)?.url ?? null : null };
+      return { ...r, tripCode: t?.code ?? null, originCodes: (t?.originIds || []).map((id) => store.get('origins', id)?.code).filter(Boolean), sectorNames: [...new Set((t?.originIds || []).map((id) => store.get('sectors', store.get('origins', id)?.sectorId || '')?.name).filter(Boolean))], photoUrl: r.photoId ? store.get('photos', r.photoId)?.url ?? null : null, arrivalPhotoId: t?.arrival?.photoId ?? null };
     }),
     hazardDecisions: b.hazardDecisionIds.map((id) => store.get('hazardDecisions', id)).filter(Boolean),
     qualityVerification: b.qualityVerificationId ? store.get('qualityVerifications', b.qualityVerificationId) : null,
@@ -291,6 +319,7 @@ export function batchView(b: Batch) {
     dispatchedQuantity: dispatchedQuantity(b),
     pendingHazard: receptions.filter((r) => r.subcategory === 'possible_hazardous' && !r.hazardDecision).length,
     unclassified: receptions.filter((r) => !r.subcategory).length,
+    separateProcessing: hasProcessingStaff(b.centerId),
   };
 }
 

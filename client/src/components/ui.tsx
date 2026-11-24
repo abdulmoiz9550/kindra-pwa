@@ -1,7 +1,7 @@
 import { useState, type ReactNode, type ButtonHTMLAttributes, type InputHTMLAttributes, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
 import { Info, X, CheckCircle2, AlertTriangle, XCircle, Clock, Circle } from 'lucide-react';
 import type { OriginEffectiveState, BatchState, TripState, DispatchState } from '@kindra/shared';
-import { ORIGIN_STATE_LABELS, BATCH_STATE_LABELS, TRIP_STATE_LABELS, DISPATCH_STATE_LABELS } from '@kindra/shared';
+import { ORIGIN_STATE_LABELS, BATCH_STATE_LABELS, TRIP_STATE_LABELS, DISPATCH_STATE_LABELS, statusText } from '@kindra/shared';
 import { fmtDate } from '../lib/format';
 
 export function Spinner({ label = 'Cargando…' }: { label?: string }) {
@@ -17,8 +17,8 @@ export function Card({ children, className = '', title, subtitle, actions }: { c
   return (
     <section className={`card ${className}`}>
       {(title || actions) && (
-        <header className="mb-3 flex items-start justify-between gap-3">
-          <div>
+        <header className="mb-3 flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 flex-1 basis-40">
             {title && <h2 className="text-base font-bold leading-tight">{title}</h2>}
             {subtitle && <p className="text-sm text-muted mt-0.5">{subtitle}</p>}
           </div>
@@ -106,19 +106,19 @@ export function originTone(state: OriginEffectiveState): Tone {
   }
 }
 export function OriginStateBadge({ state }: { state: OriginEffectiveState }) {
-  return <Badge tone={originTone(state)}>{ORIGIN_STATE_LABELS[state] || state}</Badge>;
+  return <Badge tone={originTone(state)}>{statusText('origin', state, ORIGIN_STATE_LABELS[state] || state)}</Badge>;
 }
 export function BatchStateBadge({ state }: { state: BatchState }) {
   const tone: Tone = state === 'held' ? 'bad' : state === 'rejected' ? 'bad' : ['approved', 'partially_dispatched', 'fully_dispatched'].includes(state) ? 'ok' : state === 'under_verification' ? 'warn' : 'info';
-  return <Badge tone={tone}>{BATCH_STATE_LABELS[state] || state}</Badge>;
+  return <Badge tone={tone}>{statusText('batch', state, BATCH_STATE_LABELS[state] || state)}</Badge>;
 }
 export function TripStateBadge({ state }: { state: TripState }) {
   const tone: Tone = state === 'received' ? 'ok' : state === 'no_arrival' ? 'bad' : 'warn';
-  return <Badge tone={tone}>{TRIP_STATE_LABELS[state] || state}</Badge>;
+  return <Badge tone={tone}>{statusText('trip', state, TRIP_STATE_LABELS[state] || state)}</Badge>;
 }
 export function DispatchStateBadge({ state }: { state: DispatchState }) {
   const tone: Tone = state === 'received' ? 'ok' : state === 'discrepancy' ? 'bad' : 'warn';
-  return <Badge tone={tone}>{DISPATCH_STATE_LABELS[state] || state}</Badge>;
+  return <Badge tone={tone}>{statusText('dispatch', state, DISPATCH_STATE_LABELS[state] || state)}</Badge>;
 }
 
 export function Alert({ tone = 'info', title, children, className = '' }: { tone?: Tone; title?: string; children?: ReactNode; className?: string }) {
@@ -126,7 +126,7 @@ export function Alert({ tone = 'info', title, children, className = '' }: { tone
     <div role={tone === 'bad' ? 'alert' : 'status'} className={`rounded-[10px] border px-3 py-3 text-sm ${toneClass[tone]} border-current/20 ${className}`}>
       <div className="flex gap-2">
         <span className="mt-0.5 shrink-0">{toneIcon[tone]}</span>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1 basis-40">
           {title && <p className="font-semibold">{title}</p>}
           {children && <div className="text-ink">{children}</div>}
         </div>

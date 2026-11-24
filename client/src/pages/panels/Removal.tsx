@@ -5,6 +5,7 @@ import type { FillLevel } from '@kindra/shared';
 import { api, errorMessage } from '../../lib/api';
 import { usePublicConfig } from '../../lib/config';
 import { toast } from '../../lib/toast';
+import { useTab } from '../../lib/useTab';
 import { fmtNum } from '../../lib/format';
 import { Card, Button, Field, Select, Alert, EmptyState, Modal, PageTitle, Tabs, Spinner, Badge } from '../../components/ui';
 import { MapView } from '../../components/MapView';
@@ -18,7 +19,7 @@ type Tab = 'origins' | 'map' | 'trips' | 'zones';
 export default function Removal() {
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ['removal', 'overview'], queryFn: () => api.get<RemovalOverview>('/removal/overview') });
-  const [tab, setTab] = useState<Tab>('origins');
+  const [tab, setTab] = useTab<Tab>('origins');
   const [selected, setSelected] = useState<string[]>([]);
   const [departure, setDeparture] = useState(false);
   const [beforeAfter, setBeforeAfter] = useState<OriginView | null>(null);

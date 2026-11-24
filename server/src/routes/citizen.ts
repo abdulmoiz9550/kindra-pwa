@@ -19,6 +19,8 @@ import { cardFor, regenerateCard, achievementsFor } from '../services/card';
 import { referralSummary } from '../services/referrals';
 import { assertFeature } from '../services/features';
 
+import { logExport } from '../services/governance';
+
 export const citizenRouter = Router();
 
 const geo = z.object({ lat: z.number(), lng: z.number() }).nullable().optional();
@@ -72,10 +74,16 @@ function canSeeFull(req: Parameters<typeof citizenActor>[0], originId: string): 
   return !!o && o.reporterId === req.auth.user.id;
 }
 
+/** Supervisor y contralor comunitario nunca ven la identidad de quien reportó (salvo su propio reporte). */
+function hideReporter(req: Parameters<typeof citizenActor>[0], originId: string): boolean {
+  if (!req.auth || !['monitor', 'supervisor', 'driver', 'processing'].includes(req.auth.role)) return false;
+  return db().get('origins', originId)?.reporterId !== req.auth.user.id;
+}
+
 citizenRouter.get('/origins/:code', (req, res) => {
   const o = getOriginOrThrow(String(req.params.code));
   const full = canSeeFull(req, o.id);
-  res.json(buildRecord(o, { publicVersion: !full }));
+  res.json(buildRecord(o, { publicVersion: !full, hideReporter: hideReporter(req, o.id) }));
 });
 
 citizenRouter.get('/origins/:code/verificar', (req, res) => {
@@ -84,7 +92,9 @@ citizenRouter.get('/origins/:code/verificar', (req, res) => {
 
 citizenRouter.get('/origins/:code/export', (req, res) => {
   const o = getOriginOrThrow(String(req.params.code));
-  const record = buildRecord(o, { publicVersion: !canSeeFull(req, o.id) });
+  const record = buildRecord(o, { publicVersion: !canSeeFull(req, o.id), hideReporter: hideReporter(req, o.id) });
+  // v4.0, secciones 9 y 20: toda descarga queda registrada.
+  logExport(citizenActor(req), 'origin_record', 1, { code: o.code, format: req.query.format === 'csv' ? 'csv' : 'json', publicVersion: record.isPublicVersion });
   if (req.query.format === 'csv') {
     res.setHeader('Content-Disposition', `attachment; filename="ficha-${o.code}.csv"`);
     res.type('text/csv; charset=utf-8').send('﻿' + recordToCsv(record));
@@ -178,11 +188,16 @@ function recipientKeys(req: Parameters<typeof citizenActor>[0]): string[] {
   return keys;
 }
 
+/** Los avisos que la persona silenció no se muestran (v4.0, 17.5). */
+const visibleNotifications = (req: Parameters<typeof citizenActor>[0]) => {
+  const muted = new Set(req.auth?.user.preferences?.mutedKinds ?? []);
+  return listNotifications(recipientKeys(req)).filter((n) => !muted.has(n.kind));
+};
 citizenRouter.get('/me/notifications', (req, res) => {
-  res.json(listNotifications(recipientKeys(req)));
+  res.json(visibleNotifications(req));
 });
 citizenRouter.post('/me/notifications/lookup', (req, res) => {
-  res.json(listNotifications(recipientKeys(req)));
+  res.json(visibleNotifications(req));
 });
 citizenRouter.post('/me/notifications/:id/read', (req, res) => {
   markRead(String(req.params.id), recipientKeys(req));

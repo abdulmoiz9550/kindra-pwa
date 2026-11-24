@@ -1,7 +1,8 @@
 import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { REPORT_ROLES } from '@kindra/shared';
 import { Layout } from './components/Layout';
-import { RequireRole } from './components/RequireRole';
+import { RequireAccount, RequireRole } from './components/RequireRole';
 import { Spinner } from './components/ui';
 import './lib/offlineActions';
 
@@ -41,6 +42,16 @@ const TrackingLive = lazy(() => import('./pages/panels/TrackingLive'));
 const TripDetail = lazy(() => import('./pages/panels/TripDetail'));
 const Escort = lazy(() => import('./pages/panels/Escort'));
 const Checkpoint = lazy(() => import('./pages/panels/Checkpoint'));
+const Reports = lazy(() => import('./pages/panels/Reports'));
+const InfoRequestPage = lazy(() => import('./pages/public/InfoRequest'));
+const Driver = lazy(() => import('./pages/Driver'));
+const Household = lazy(() => import('./pages/Service').then((m) => ({ default: m.Household })));
+const BusinessArea = lazy(() => import('./pages/Service').then((m) => ({ default: m.BusinessArea })));
+const GroupArea = lazy(() => import('./pages/GroupArea'));
+const GroupsDirectory = lazy(() => import('./pages/GroupArea').then((m) => ({ default: m.GroupsDirectory })));
+const Processing = lazy(() => import('./pages/panels/Processing'));
+const RequestsPanel = lazy(() => import('./pages/panels/RequestsPanel'));
+const GroupReview = lazy(() => import('./pages/panels/GroupReview'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
 export default function App() {
@@ -61,8 +72,19 @@ export default function App() {
           <Route path="/recompensas" element={<Rewards />} />
           <Route path="/puerta/:code" element={<GatePage />} />
           <Route path="/panel/seguimiento" element={<RequireRole roles={['admin', 'coordinator', 'supervisor', 'center']}><TrackingLive /></RequireRole>} />
-          <Route path="/panel/viaje/:key" element={<RequireRole roles={['admin', 'coordinator', 'supervisor', 'center', 'removal', 'destination']}><TripDetail /></RequireRole>} />
-          <Route path="/panel/escolta" element={<RequireRole roles={['removal', 'center']}><Escort /></RequireRole>} />
+          <Route path="/panel/viaje/:key" element={<RequireRole roles={['admin', 'coordinator', 'supervisor', 'center', 'removal', 'driver', 'destination']}><TripDetail /></RequireRole>} />
+          <Route path="/conductor/*" element={<RequireRole roles={['driver']}><Driver /></RequireRole>} />
+          <Route path="/hogar/*" element={<RequireRole roles={['householder']}><Household /></RequireRole>} />
+          <Route path="/comercio/*" element={<RequireRole roles={['business']}><BusinessArea /></RequireRole>} />
+          <Route path="/comunidad/*" element={<RequireRole roles={['community']}><GroupArea kind="community" /></RequireRole>} />
+          <Route path="/costero/*" element={<RequireRole roles={['coastal']}><GroupArea kind="coastal" /></RequireRole>} />
+          <Route path="/grupos" element={<RequireAccount><GroupsDirectory /></RequireAccount>} />
+          <Route path="/panel/procesamiento" element={<RequireRole roles={['processing']}><Processing /></RequireRole>} />
+          <Route path="/panel/solicitudes" element={<RequireRole roles={['coordinator', 'entity_admin', 'removal', 'center', 'admin']}><RequestsPanel /></RequireRole>} />
+          <Route path="/panel/grupos" element={<RequireRole roles={['coordinator']}><GroupReview /></RequireRole>} />
+          <Route path="/panel/reportes" element={<RequireRole roles={REPORT_ROLES}><Reports /></RequireRole>} />
+          <Route path="/solicitar-informacion" element={<InfoRequestPage />} />
+          <Route path="/panel/escolta" element={<RequireRole roles={['removal', 'center', 'driver']}><Escort /></RequireRole>} />
           <Route path="/panel/control" element={<RequireRole roles={['center', 'destination', 'coordinator']}><Checkpoint /></RequireRole>} />
           <Route path="/notificaciones" element={<Notifications />} />
           <Route path="/ajustes" element={<Settings />} />

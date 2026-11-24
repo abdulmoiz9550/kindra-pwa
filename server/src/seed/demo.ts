@@ -6,6 +6,7 @@ import { env } from '../config/env';
 import { newId, nowIso, setClockOffset } from '../core/ids';
 import { hashPassword } from '../services/auth';
 import { ensureDefaults, updateConfig } from '../services/config';
+import { ensureReportSnapshots } from '../services/reportSnapshots';
 import { registerPhoto } from '../services/photos';
 import { appendEvent, SYSTEM_ACTOR, type Actor } from '../core/events';
 import { createCitizenReport, createInstitutionalOrigin, validateOrigin, rejectOrigin, markDuplicate, markRemoved, respondRemovalClosure, resolveDispute, answerSatisfaction, setPriority, setOriginZone } from '../services/origins';
@@ -46,7 +47,9 @@ export async function resetDemo(): Promise<SeedSummary> {
   const store = db();
   await store.resetAll();
   ensureDefaults();
-  return seedDemo();
+  const summary = await seedDemo();
+  ensureReportSnapshots();
+  return summary;
 }
 
 // ---------------------------------------------------------------- utilidades
@@ -414,6 +417,8 @@ export async function seedDemo(): Promise<SeedSummary> {
   void o21;
   void o22;
 
+  seedProfiles(hash);
+
   // ---- reloj real, escalamientos y certificados ----
   setClockOffset(0);
   runEscalations();
@@ -429,6 +434,24 @@ export async function seedDemo(): Promise<SeedSummary> {
     events: store.allEvents().length,
     users: store.count('users'),
   };
+}
+
+/** Cuentas y espacios de demostración de los perfiles v4.0. Sin cantidades ni actividad inventadas. */
+function seedProfiles(hash: string): void {
+  const store = db();
+  const now = nowIso();
+  const add = (id: string, alias: string, name: string, role: Role, extra: Partial<User> = {}) =>
+    store.put('users', { id, alias, name, roles: [role], entityId: null, centerId: null, sectorId: 'sc_este', passwordHash: hash, verificationStatus: ['driver', 'processing'].includes(role) ? 'verified' : 'not_required', selfiePhotoId: null, active: true, createdAt: now, isDemo: true, spaceId: DEFAULT_SPACE_ID, cardCode: newCardCode(), referralCode: newReferralCode(), referredBy: null, proposedRoles: [], ...extra });
+  store.put('businesses', { id: 'bz_demo', name: 'Comercio de demostración', category: 'Restaurante', address: 'Dirección de demostración', sectorId: 'sc_este', contact: null, openingHours: 'Por definir', collectionPoint: { acceptedMaterials: [], storageInstructions: '', status: 'paused', location: null }, active: true, isDemo: true, createdAt: now, updatedAt: now });
+  for (const [id, kind, name] of [['gr_demo_com', 'community', 'Comunidad de demostración'], ['gr_demo_cos', 'coastal', 'Grupo costero de demostración']] as const) store.put('groups', { id, kind, name, region: 'La Guaira', sectorId: 'sc_este', description: 'Datos de demostración.', contact: null, active: true, isDemo: true, createdAt: now });
+  add('us_conductor', 'conductor', 'Conductor Demo', 'driver', { entityId: 'en_ejec' });
+  add('us_procesamiento', 'procesamiento', 'Procesamiento Demo', 'processing', { entityId: 'en_cnorte', centerId: 'ce_sur' });
+  add('us_hogar', 'hogar', 'Hogar Demo', 'householder');
+  add('us_comercio', 'comercio', 'Comercio Demo', 'business', { businessId: 'bz_demo' });
+  add('us_comunidad', 'comunidad', 'Comunidad Demo', 'community');
+  add('us_costero', 'costero', 'Grupo Costero Demo', 'coastal');
+  store.put('memberships', { id: 'mb_demo_com', groupId: 'gr_demo_com', userId: 'us_comunidad', role: 'leader', status: 'active', createdAt: now, updatedAt: now });
+  store.put('memberships', { id: 'mb_demo_cos', groupId: 'gr_demo_cos', userId: 'us_costero', role: 'leader', status: 'active', createdAt: now, updatedAt: now });
 }
 
 export { PROJECTION_COLLECTIONS };

@@ -58,7 +58,7 @@ export function upsertEntityUser(actor: Actor, input: EntityUserInput): Omit<Use
   const notAllowed = requested.filter((r) => !ENTITY_ASSIGNABLE_ROLES.includes(r));
   if (notAllowed.length) throw forbidden('Ese rol solo lo activa Kindra. Para evaluadores usa "Proponer evaluador".');
   if (!requested.length) throw badRequest('Asigna al menos un rol operativo.');
-  if (requested.includes('center')) {
+  if (requested.includes('center') || requested.includes('processing')) {
     const center = input.centerId ? store.get('centers', input.centerId) : undefined;
     if (!center || center.entityId !== entityId) throw badRequest('Elige un centro que pertenezca a tu entidad.');
   }
@@ -71,7 +71,7 @@ export function upsertEntityUser(actor: Actor, input: EntityUserInput): Omit<Use
     phone: input.phone,
     roles: [...new Set([...kept, ...requested])],
     entityId,
-    centerId: requested.includes('center') ? input.centerId ?? null : null,
+    centerId: requested.includes('center') || requested.includes('processing') ? input.centerId ?? null : null,
     sectorId: existing?.sectorId ?? null,
     password: input.password,
     active: input.active,

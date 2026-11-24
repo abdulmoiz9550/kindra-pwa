@@ -9,6 +9,7 @@
     "test": "tsx --test test/*.test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "backup": "tsx src/scripts/backup.ts",
+    "restore": "tsx src/scripts/restore.ts",
     "db:schema": "tsx src/scripts/applySchema.ts",
     "reset-2fa": "tsx src/scripts/reset2fa.ts"
   },

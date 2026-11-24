@@ -21,6 +21,10 @@ import { runEscalations } from '../services/escalation';
 import { resetDemo } from '../seed/demo';
 import { badRequest } from '../core/errors';
 import { clientCount } from '../realtime/sse';
+import { listInfoRequests, actOnInfoRequest, securityLog, listRecovery, resolveRecovery, upsertRisk, createIncident, updateIncident } from '../services/governance';
+import { listBackups, createBackup, verifyBackupFile } from '../services/backup';
+import { adminGroups, upsertGroup, upsertBusiness, businessBody } from '../services/profiles';
+import { nowIso } from '../core/ids';
 
 export const adminRouter = Router();
 // Administrador principal de Kindra: rol admin + verificación de identidad + verificación en dos pasos.
@@ -115,6 +119,7 @@ adminRouter.post(
         active: z.boolean().optional(),
         verificationStatus: z.enum(['not_required', 'pending', 'verified', 'rejected']).optional(),
         spaceId: z.string().nullable().optional(),
+        businessId: z.string().nullable().optional(),
         appointmentDocumentRef: z.string().max(200).nullable().optional(),
         appointmentPhotoId: z.string().nullable().optional(),
       })
@@ -341,5 +346,128 @@ adminRouter.post(
     const started = Date.now();
     const summary = await resetDemo();
     res.json({ ok: true, ms: Date.now() - started, ...summary });
+  }),
+);
+
+// ---------------------------------------------------------------- gobierno de datos y seguridad (v4.0, secciones 9 a 11)
+
+adminRouter.get('/info-requests', (_req, res) => res.json(listInfoRequests()));
+adminRouter.post(
+  '/info-requests/:id/action',
+  wrap((req, res) => {
+    const body = z
+      .object({
+        action: z.enum(['classify', 'assign', 'start_review', 'release', 'partial_release', 'deny', 'close']),
+        classification: z.enum(['public', 'restricted', 'confidential', 'critical']).nullable().optional(),
+        reviewerId: z.string().nullable().optional(),
+        note: z.string().max(2000).nullable().optional(),
+        releasedItems: z.array(z.string().max(200)).max(50).optional(),
+        redactions: z.string().max(2000).nullable().optional(),
+      })
+      .parse(req.body);
+    res.json(actOnInfoRequest(req.auth!.actor, String(req.params.id), body));
+  }),
+);
+
+adminRouter.get('/security', (_req, res) => res.json(securityLog()));
+adminRouter.get('/recovery', (_req, res) => res.json(listRecovery()));
+adminRouter.post(
+  '/recovery/:id/resolve',
+  wrap((req, res) => {
+    resolveRecovery(req.auth!.actor, String(req.params.id));
+    res.json({ ok: true });
+  }),
+);
+
+const riskLevel = z.number().int().min(1).max(5);
+adminRouter.get('/risks', (_req, res) => res.json(db().list('risks').sort((a, b) => b.score - a.score)));
+adminRouter.post(
+  '/risks',
+  wrap((req, res) => {
+    const body = z
+      .object({
+        id: z.string().optional(),
+        description: z.string().min(5).max(500),
+        affected: z.string().min(2).max(300),
+        likelihood: riskLevel,
+        impact: riskLevel,
+        mitigation: z.string().min(2).max(800),
+        owner: z.string().min(2).max(120),
+        reviewDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        status: z.enum(['open', 'in_progress', 'resolved']),
+        controlTestedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
+        controlTestNote: z.string().max(500).nullable(),
+      })
+      .parse(req.body);
+    res.json(upsertRisk(req.auth!.actor, body));
+  }),
+);
+
+adminRouter.get('/incidents', (_req, res) => res.json(db().list('incidents').sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))));
+adminRouter.post(
+  '/incidents',
+  wrap((req, res) => {
+    const body = z.object({ title: z.string().min(3).max(150), description: z.string().min(5).max(2000), severity: z.enum(['low', 'medium', 'high', 'critical']) }).parse(req.body);
+    res.status(201).json(createIncident(req.auth!.actor, body));
+  }),
+);
+adminRouter.post(
+  '/incidents/:id/status',
+  wrap((req, res) => {
+    const body = z.object({ status: z.enum(['contained', 'investigating', 'escalated', 'closed']), note: z.string().min(3).max(1000) }).parse(req.body);
+    res.json(updateIncident(req.auth!.actor, String(req.params.id), body.status, body.note));
+  }),
+);
+
+adminRouter.get('/backups', (_req, res) => res.json(listBackups()));
+adminRouter.post(
+  '/backups',
+  wrap(async (_req, res) => {
+    res.status(201).json(await createBackup());
+  }),
+);
+adminRouter.post(
+  '/backups/verify',
+  wrap(async (req, res) => {
+    const { file } = z.object({ file: z.string().regex(/^[\w.-]+\.json$/) }).parse(req.body);
+    res.json(await verifyBackupFile(file));
+  }),
+);
+
+// ---------------------------------------------------------------- módulos, incentivos, grupos y comercios (v4.0)
+
+adminRouter.get('/module-definitions', (_req, res) => res.json(db().list('moduleDefinitions')));
+adminRouter.put(
+  '/module-definitions/:id',
+  wrap((req, res) => {
+    const id = z.enum(['oil_module']).parse(req.params.id);
+    const t = z.string().max(3000);
+    const body = z.object({ workflow: t, dataFields: t, units: t, validationRules: t, roles: t, risks: t, approvalReference: z.string().max(200) }).parse(req.body);
+    res.json(db().put('moduleDefinitions', { id, ...body, updatedBy: req.auth!.user.id, updatedAt: nowIso() }));
+  }),
+);
+
+adminRouter.put(
+  '/incentives',
+  wrap((req, res) => {
+    const body = z.object({ status: z.enum(['pending', 'approved']), reference: z.string().max(200).nullable() }).parse(req.body);
+    if (body.status === 'approved' && (body.reference || '').trim().length < 3) throw badRequest('Indica la referencia del documento que aprueba el esquema.');
+    res.json(updateConfig({ incentives: body.status === 'approved' ? { status: 'approved', reference: body.reference!.trim(), approvedAt: nowIso(), approvedBy: req.auth!.user.id } : { status: 'pending', reference: null, approvedAt: null, approvedBy: null } }).incentives);
+  }),
+);
+
+adminRouter.get('/groups', (_req, res) => res.json(adminGroups()));
+adminRouter.post(
+  '/groups',
+  wrap((req, res) => {
+    const body = z.object({ id: z.string().optional(), kind: z.enum(['community', 'coastal']), name: z.string().min(3).max(120), region: z.string().min(2).max(120), sectorId: z.string().nullable(), description: z.string().max(600), contact: z.string().max(120).nullable(), active: z.boolean(), leaderAlias: z.string().nullable().optional() }).parse(req.body);
+    res.json(upsertGroup(req.auth!.actor, body));
+  }),
+);
+adminRouter.get('/businesses', (_req, res) => res.json(db().list('businesses')));
+adminRouter.post(
+  '/businesses',
+  wrap((req, res) => {
+    res.json(upsertBusiness(req.auth!.actor, businessBody.extend({ id: z.string().optional(), active: z.boolean() }).parse(req.body)));
   }),
 );

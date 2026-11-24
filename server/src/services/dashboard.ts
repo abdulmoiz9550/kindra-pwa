@@ -128,14 +128,16 @@ export function buildDashboard(sectorId: string | null): DashboardData {
   });
   const perSector = sectorsInScope.map((s) => {
     let agg = 0, tot = 0, asOf: string | null = null;
+    const units = new Set<string>();
     for (const b of batchesAll) {
       const share = batchComposition(b).find((c) => c.sectorId === s.id)?.share || 0;
       if (!share || !b.outputs) continue;
+      units.add(b.outputs.unit);
       agg += b.outputs.aggregate * share;
       tot += (b.outputs.aggregate + b.outputs.metal + b.outputs.specialDisposal + b.outputs.rejects) * share;
       asOf = latest([asOf, b.processedAt]);
     }
-    return { sectorId: s.id, sectorName: s.name, rate: fig(tot > 0 ? agg / tot : null, `${PLATFORM} de los centros, ponderado por la participación del sector en cada lote`, asOf, valExplanation) };
+    return { sectorId: s.id, sectorName: s.name, rate: fig(tot > 0 && units.size === 1 ? agg / tot : null, `${PLATFORM} de los centros, ponderado por la participación del sector en cada lote`, asOf, valExplanation) };
   });
 
   // Obras y empleos

@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { USE_TYPE_LABELS } from '@kindra/shared';
-import type { ObservedObjectType } from '@kindra/shared';
+import type { EventView, ObservedObjectType } from '@kindra/shared';
 import { api, errorMessage } from '../../lib/api';
 import { toast } from '../../lib/toast';
+import { useTab } from '../../lib/useTab';
 import { fmtDateTime, fmtRelative, fmtNum, fmtDate, unitLabel } from '../../lib/format';
 import { Card, Button, Field, Select, Textarea, Alert, EmptyState, Modal, PageTitle, Tabs, Spinner, Badge, OriginStateBadge, TripStateBadge, BatchStateBadge } from '../../components/ui';
 import { TrackingIndicators } from '../../components/panels/TrackingWidgets';
@@ -12,13 +13,35 @@ import { EventHistory } from '../../components/EventHistory';
 import { CompositionBars, useSubmit } from '../../components/panels/shared';
 import type { SupervisorOverview } from '../../components/panels/types';
 
-type Tab = 'origins' | 'trips' | 'batches' | 'works' | 'discrepancies' | 'times' | 'observations' | 'alerts';
+type Tab = 'origins' | 'trips' | 'batches' | 'works' | 'discrepancies' | 'times' | 'observations' | 'alerts' | 'citizen' | 'audit';
 interface Target { objectType: ObservedObjectType; objectId: string; code: string }
+
+/** v4.0, 5.9: estado y cierre de los reportes ciudadanos, sin identidad de quien reportó. */
+function CitizenOversight({ d }: { d: SupervisorOverview }) {
+  const rows = d.origins.filter((o) => o.type === 'citizen');
+  const groups = [...new Set(rows.map((o) => o.effectiveState))].map((s) => ({ s, n: rows.filter((o) => o.effectiveState === s) }));
+  return (
+    <Card title="Reportes ciudadanos" subtitle={`${rows.length} reportes en este filtro. Nunca se muestra quién reportó.`}>
+      {rows.length === 0 ? <EmptyState title="Sin reportes en este filtro" /> : <ul className="divide-y divide-line">{groups.map((g) => <li key={g.s} className="py-2 text-sm flex flex-wrap items-center justify-between gap-2"><OriginStateBadge state={g.s} /><span>{g.n.map((o) => <Link key={o.id} className="text-primary underline mr-2" to={`/reporte/${o.code}`}>{o.code}</Link>)}</span><strong>{g.n.length}</strong></li>)}</ul>}
+    </Card>
+  );
+}
+
+const AUDIT_TYPES = ['correction', 'origin_validated', 'origin_rejected', 'dispute_resolved', 'hazard_decided', 'quality_verified', 'batch_released', 'dispatch_discrepancy'];
+
+/** v4.0, 5.9: cambios y aprobaciones, solo lectura. */
+function AuditTrail() {
+  const q = useQuery({ queryKey: ['supervisor', 'audit'], queryFn: () => api.get<{ events: EventView[] }>('/events?limit=500') });
+  if (q.isLoading) return <Spinner />;
+  if (q.error || !q.data) return <Alert tone="bad">{errorMessage(q.error)}</Alert>;
+  const events = q.data.events.filter((e) => AUDIT_TYPES.includes(e.type)).reverse();
+  return <Card title="Cambios y aprobaciones" subtitle="Correcciones, validaciones y decisiones. Cada registro está sellado y no se puede editar.">{events.length === 0 ? <EmptyState title="Sin registros" /> : <EventHistory events={events} />}</Card>;
+}
 
 export default function Supervisor() {
   const qc = useQueryClient();
   const [sector, setSector] = useState('');
-  const [tab, setTab] = useState<Tab>('origins');
+  const [tab, setTab] = useTab<Tab>('origins');
   const [target, setTarget] = useState<Target | null>(null);
   const q = useQuery({ queryKey: ['supervisor', 'overview', sector], queryFn: () => api.get<SupervisorOverview>(`/supervisor/overview${sector ? `?sector=${sector}` : ''}`) });
   const d = q.data;
@@ -52,6 +75,8 @@ export default function Supervisor() {
           { value: 'times', label: 'Horas inconsistentes', count: d.inconsistentTimes.length },
           { value: 'observations', label: 'Observaciones', count: d.observations.length },
           { value: 'alerts', label: 'Alertas', count: openAlerts.length },
+          { value: 'citizen', label: 'Reportes ciudadanos' },
+          { value: 'audit', label: 'Cambios y aprobaciones' },
         ]}
       />
       <div className="mt-3 space-y-4">
@@ -71,6 +96,8 @@ export default function Supervisor() {
             )}
           </Card>
         )}
+        {tab === 'citizen' && <CitizenOversight d={d} />}
+        {tab === 'audit' && <AuditTrail />}
         {tab === 'trips' && (
           <Card title="Viajes">
             {d.trips.length === 0 ? <EmptyState title="Sin viajes" /> : (
@@ -90,7 +117,7 @@ export default function Supervisor() {
         {tab === 'batches' && (
           <div className="space-y-3">
             {d.batches.length === 0 ? <EmptyState title="Sin lotes" /> : d.batches.map((b) => (
-              <Card key={b.id} title={<span className="flex items-center gap-2">{b.code} <BatchStateBadge state={b.state} /></span>} subtitle={`${b.centerName} · ${fmtDate(b.periodStart)} – ${fmtDate(b.periodEnd)} · ${b.receptionIds.length} recepciones${b.outputs ? ` · agregado ${fmtNum(b.outputs.aggregate)} ${unitLabel(b.outputs.unit)}` : ''}`} actions={<div className="flex gap-2">{observe('batch', b.id, b.code)}<Link to={`/publico/lote/${b.code}`} className="btn-ghost btn-sm">Página pública</Link></div>}>
+              <Card key={b.id} title={<span className="flex flex-wrap items-center gap-2">{b.code} <BatchStateBadge state={b.state} /></span>} subtitle={`${b.centerName} · ${fmtDate(b.periodStart)} – ${fmtDate(b.periodEnd)} · ${b.receptionIds.length} recepciones${b.outputs ? ` · agregado ${fmtNum(b.outputs.aggregate)} ${unitLabel(b.outputs.unit)}` : ''}`} actions={<div className="flex flex-wrap gap-2">{observe('batch', b.id, b.code)}<Link to={`/publico/lote/${b.code}`} className="btn-ghost btn-sm">Página pública</Link></div>}>
                 <CompositionBars composition={b.composition} withTable={false} />
                 {b.pendingHazard > 0 && <p className="text-sm text-bad mt-2">{b.pendingHazard} recepción(es) sospechosa(s) sin decisión del evaluador.</p>}
               </Card>

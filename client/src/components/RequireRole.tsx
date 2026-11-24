@@ -1,9 +1,17 @@
 import type { ReactNode } from 'react';
 import { Link, Navigate, useLocation } from 'react-router-dom';
 import type { Role } from '@kindra/shared';
-import { ROLE_LABELS } from '@kindra/shared';
+import { PROFILE_ROLES, ROLE_LABELS } from '@kindra/shared';
 import { useAuth } from '../lib/auth';
 import { Alert, Button } from './ui';
+
+/** Páginas para cualquier persona con cuenta. */
+export function RequireAccount({ children }: { children: ReactNode }) {
+  const user = useAuth((s) => s.user);
+  const location = useLocation();
+  if (!user) return <Navigate to={`/ingresar?next=${encodeURIComponent(location.pathname)}`} replace />;
+  return <>{children}</>;
+}
 
 /** La interfaz solo muestra lo permitido; la validación real ocurre en el servidor (3.3, 3.5). */
 export function RequireRole({ roles, children }: { roles: Role[]; children: ReactNode }) {
@@ -25,7 +33,7 @@ export function RequireRole({ roles, children }: { roles: Role[]; children: Reac
       </div>
     );
   }
-  if (user.verificationStatus !== 'verified') {
+  if (user.verificationStatus !== 'verified' && !PROFILE_ROLES.includes(user.activeRole)) {
     return (
       <div className="max-w-lg mx-auto">
         <Alert tone="info" title="Falta la verificación de identidad">

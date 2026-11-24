@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Role, User, Entity, Center, Sector, Photo, VerificationStatus, Space } from '@kindra/shared';
+import type { Business, Role, User, Entity, Center, Sector, Photo, VerificationStatus, Space } from '@kindra/shared';
 import { ROLES, ROLE_LABELS, INSTITUTIONAL_ROLES } from '@kindra/shared';
 import { Card, Button, Field, Input, Select, Badge, Modal, Spinner, Tabs } from '../../components/ui';
 import { Section, useAdminList, useAdminAction } from './shared';
@@ -22,15 +22,17 @@ interface Draft {
   appointmentDocumentRef: string;
   /** El usuario ya era administrador de entidad al abrir el formulario. */
   wasEntityAdmin: boolean;
+  businessId: string;
 }
 
-const EMPTY: Draft = { alias: '', name: '', phone: '', roles: ['citizen'], entityId: '', centerId: '', sectorId: '', password: '', active: true, verificationStatus: 'not_required', spaceId: '', appointmentDocumentRef: '', wasEntityAdmin: false };
+const EMPTY: Draft = { alias: '', name: '', phone: '', roles: ['citizen'], entityId: '', centerId: '', sectorId: '', password: '', active: true, verificationStatus: 'not_required', spaceId: '', appointmentDocumentRef: '', wasEntityAdmin: false, businessId: '' };
 
 const VERIF_LABEL: Record<VerificationStatus, string> = { not_required: 'no requerida', pending: 'pendiente', verified: 'verificado', rejected: 'rechazada' };
 
 export default function Users() {
   const users = useAdminList<UserRow>('users');
   const entities = useAdminList<Entity>('entities');
+  const businesses = useAdminList<Business>('businesses');
   const centers = useAdminList<Center>('centers');
   const sectors = useAdminList<Sector>('sectors');
   const photos = useAdminList<Photo>('photos?moderation=all');
@@ -45,14 +47,14 @@ export default function Users() {
   const edit = (u?: UserRow) =>
     setEditing(
       u
-        ? { id: u.id, alias: u.alias, name: u.name || '', phone: u.phone || '', roles: u.roles, entityId: u.entityId || '', centerId: u.centerId || '', sectorId: u.sectorId || '', password: '', active: u.active, verificationStatus: u.verificationStatus, spaceId: u.spaceId || '', appointmentDocumentRef: u.appointment?.documentRef || '', wasEntityAdmin: u.roles.includes('entity_admin') }
+        ? { id: u.id, alias: u.alias, name: u.name || '', phone: u.phone || '', roles: u.roles, entityId: u.entityId || '', centerId: u.centerId || '', sectorId: u.sectorId || '', password: '', active: u.active, verificationStatus: u.verificationStatus, spaceId: u.spaceId || '', appointmentDocumentRef: u.appointment?.documentRef || '', wasEntityAdmin: u.roles.includes('entity_admin'), businessId: u.businessId || '' }
         : { ...EMPTY },
     );
 
   const save = async () => {
     if (!editing) return;
     const { wasEntityAdmin: _w, ...rest } = editing;
-    const body = { ...rest, entityId: editing.entityId || null, centerId: editing.centerId || null, sectorId: editing.sectorId || null, spaceId: editing.spaceId || null, password: editing.password || undefined, name: editing.name || undefined, phone: editing.phone || undefined, appointmentDocumentRef: editing.appointmentDocumentRef || null };
+    const body = { ...rest, businessId: editing.businessId || null, entityId: editing.entityId || null, centerId: editing.centerId || null, sectorId: editing.sectorId || null, spaceId: editing.spaceId || null, password: editing.password || undefined, name: editing.name || undefined, phone: editing.phone || undefined, appointmentDocumentRef: editing.appointmentDocumentRef || null };
     const r = await post('users', body, 'Usuario guardado.');
     if (r) setEditing(null);
   };
@@ -179,7 +181,7 @@ export default function Users() {
                   ))}
                 </Select>
               </Field>
-              <Field label="Centro asignado" required={editing.roles.includes('center')}>
+              <Field label="Centro asignado" required={editing.roles.includes('center') || editing.roles.includes('processing')}>
                 <Select value={editing.centerId} onChange={(e) => setEditing({ ...editing, centerId: e.target.value })}>
                   <option value="">Sin centro</option>
                   {(centers.data || []).map((c) => (
@@ -200,6 +202,14 @@ export default function Users() {
                 </Select>
               </Field>
             </div>
+            {editing.roles.includes('business') && (
+              <Field label="Comercio" required>
+                <Select value={editing.businessId} onChange={(e) => setEditing({ ...editing, businessId: e.target.value })}>
+                  <option value="">Elige el comercio</option>
+                  {businesses.data?.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </Select>
+              </Field>
+            )}
             {editing.roles.includes('entity_admin') && (
               <Field label="Documento de designación por escrito" required={!editing.wasEntityAdmin} hint="Oficio o carta en que la institución o empresa designa a esta persona. Kindra lo activa al guardar.">
                 <Input value={editing.appointmentDocumentRef} disabled={editing.wasEntityAdmin} onChange={(e) => setEditing({ ...editing, appointmentDocumentRef: e.target.value })} placeholder="Ej.: Oficio EE-2026-014" />

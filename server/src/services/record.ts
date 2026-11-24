@@ -122,7 +122,11 @@ function summarizeData(e: KEvent, pub = false): Record<string, unknown> {
       break;
     case 'correction':
       out.motivo = d.reason;
-      out.cambios = d.patch;
+      // La versión pública no muestra los valores corregidos: pueden traer dirección o nombre de quien reportó.
+      if (!pub) {
+        out.cambios = d.patch;
+        if (d.previous) out.valoresPrevios = d.previous;
+      }
       break;
     case 'observation_recorded':
       out.texto = d.observation?.text;
@@ -138,7 +142,7 @@ function summarizeData(e: KEvent, pub = false): Record<string, unknown> {
 }
 
 /** 11. Ficha de trazabilidad: siete campos, completitud, historial, cadenas. */
-export function buildRecord(o: Origin, opts: { publicVersion: boolean }): TraceabilityRecord {
+export function buildRecord(o: Origin, opts: { publicVersion: boolean; hideReporter?: boolean }): TraceabilityRecord {
   const store = db();
   const sector = store.get('sectors', o.sectorId);
   const { trips, batches, works, closures } = linkedObjects(o);
@@ -174,11 +178,14 @@ export function buildRecord(o: Origin, opts: { publicVersion: boolean }): Tracea
   const events = chains.flatMap((c) => store.eventsOfChain(c)).sort((a, b) => a.seq - b.seq);
   const history = events
     .filter((e) => !pub || isPublished(e.entityId, 'observations') || e.type !== 'observation_recorded')
-    .map((e) => eventView(e, pub));
+    .map((e) => eventView(e, pub))
+    .map((v) => (opts.hideReporter ? maskReporter(v) : v));
 
   const publicOrigin: Origin = pub
     ? { ...o, location: null, street: null, reference: null, reporterId: null, reporterName: null, voiceNoteId: null, linkedReporterKeys: [] }
-    : o;
+    : opts.hideReporter
+      ? { ...o, reporterId: null, reporterName: null, linkedReporterKeys: [] }
+      : o;
 
   const photoIds = [...o.photoIds, ...(o.afterPhotoId ? [o.afterPhotoId] : []), ...(o.verifiedOnSitePhotoId ? [o.verifiedOnSitePhotoId] : []), ...(o.disputeEvidencePhotoId ? [o.disputeEvidencePhotoId] : [])];
   const photos: Photo[] = photosByIds(photoIds, pub);
@@ -198,6 +205,19 @@ export function buildRecord(o: Origin, opts: { publicVersion: boolean }): Tracea
     isPublicVersion: pub,
     publicUrl: `${env.publicBaseUrl}/publico/ficha/${o.code}`,
   };
+}
+
+/** v4.0, 5.9 y 5.10: supervisión y contraloría ven la cadena sin la identidad de quien reportó. */
+export function maskReporter(v: EventView): EventView {
+  const e = db().eventById(v.id);
+  const hidden = (x: unknown): Record<string, unknown> => {
+    const { reporterName: _r, ...rest } = (x || {}) as Record<string, unknown>;
+    return rest;
+  };
+  const data = { ...v.data };
+  if (data.cambios) data.cambios = hidden(data.cambios);
+  if (data.valoresPrevios) data.valoresPrevios = hidden(data.valoresPrevios);
+  return { ...v, data, userAlias: e?.actorRole === 'citizen' ? 'reportante' : v.userAlias };
 }
 
 export function recordCompleteness(o: Origin): number {

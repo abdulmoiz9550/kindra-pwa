@@ -12,7 +12,14 @@ export type Role =
   | 'supervisor'
   | 'destination'
   | 'entity_admin'
-  | 'admin';
+  | 'admin'
+  // v4.0: permisos internos separados y perfiles de la PWA
+  | 'driver'
+  | 'processing'
+  | 'householder'
+  | 'community'
+  | 'business'
+  | 'coastal';
 
 export type EntityType = 'coordinating' | 'removal' | 'center' | 'technical' | 'supervisor' | 'destination';
 
@@ -112,6 +119,19 @@ export interface User {
   proposedRoles?: RoleProposal[];
   /** Verificación en dos pasos (obligatoria para el administrador principal). */
   twoFactor?: TwoFactorState | null;
+  /** Comercio al que pertenece la cuenta (perfil comercio). */
+  businessId?: string | null;
+  /** Preferencias personales (v4.0, 17.5). */
+  preferences?: UserPreferences | null;
+}
+
+export interface UserPreferences {
+  /** Tipos de aviso que la persona no quiere ver. */
+  mutedKinds: string[];
+  /** Conductor disponible para nuevas solicitudes. */
+  available: boolean;
+  /** Dirección guardada (confidencial). */
+  address: string | null;
 }
 
 /** Usuario tal como lo ve el cliente (sin hash). */
@@ -373,6 +393,14 @@ export interface Reception {
   classifiedBy?: string | null;
   hazardDecision?: 'release' | 'special_disposal' | null;
   hazardDecisionId?: string | null;
+  /** v4.0, sección 7: operador responsable, cantidad recibida con su unidad, condición y discrepancia. */
+  operatorEntityId?: string | null;
+  receivedQuantity?: number | null;
+  receivedUnit?: OutputUnit | null;
+  condition?: string | null;
+  discrepancyNote?: string | null;
+  receivedBy?: string | null;
+  quantityCheck?: QuantityCheck | null;
 }
 
 export type BatchState =
@@ -393,6 +421,10 @@ export interface BatchOutputs {
   metal: number;
   specialDisposal: number;
   rejects: number;
+  /** v4.0, sección 7: entrada procesada (misma unidad) y método de separación o trituración. */
+  input?: number | null;
+  method?: string | null;
+  evidencePhotoId?: string | null;
 }
 
 export interface Batch {
@@ -438,6 +470,8 @@ export interface QualityVerification {
   entityId: string;
   documentId?: string | null;
   createdAt: string;
+  /** Ensayos registrados por el evaluador (v4.0). */
+  tests?: QualityTest[];
 }
 
 export type WorkUseType = 'road_base' | 'sidewalks' | 'curbs' | 'blocks' | 'fill' | 'other';
@@ -703,6 +737,8 @@ export interface AppConfig {
   provisionalFlags: Record<string, boolean>;
   /** Funciones activables por el administrador principal (addendum, partes 1 y 4). */
   features: Record<string, boolean>;
+  /** Aprobación formal del esquema de puntos y niveles (v4.0, sección 29). */
+  incentives?: { status: 'pending' | 'approved'; reference: string | null; approvedAt: string | null; approvedBy: string | null };
   /** Seguimiento de rutas y puntos de control (addendum v1.3). Umbrales configurables. */
   tracking: TrackingConfig;
 }
@@ -811,4 +847,318 @@ export interface SourcedFigure<T = number> {
   asOf: string | null;
   explanation: string;
   label?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Especificación v4.0 (23 nov 2026): reportes operativos, solicitudes de información, clasificación
+// ---------------------------------------------------------------------------
+
+/** Indicador de cabecera de un reporte operativo (cifra reportada en una fecha, no un dato en vivo). */
+export interface ReportIndicator {
+  key: string;
+  label: string;
+  value: number | null;
+  unit: string | null;
+  /** Desglose tal como lo trae el reporte (p. ej. frentes por operador). */
+  breakdown?: { label: string; value: number }[];
+}
+
+/**
+ * Fila del reporte operativo por CDT. Una fila = un centro físico + un operador.
+ * null = el reporte muestra un guion ("—"): no hay cifra; nunca se convierte en cero.
+ */
+export interface ReportSnapshotRow {
+  id: string;
+  /** Etiqueta tal como aparece en el reporte. */
+  label: string;
+  /** Centro físico canónico (un solo registro por sitio). null = sitio por confirmar. */
+  facilityId: string | null;
+  /** Motivo por el que la fila no está vinculada a un centro físico. */
+  facilityPending?: string | null;
+  /** Operador u organización responsable. null = el reporte no indica operador. */
+  operatorEntityId: string | null;
+  m3Today: number | null;
+  m3Accumulated: number | null;
+  tonnesToday: number | null;
+  tonnesAccumulated: number | null;
+}
+
+export interface ReportSnapshotTotals {
+  m3Today: number | null;
+  m3Accumulated: number | null;
+  tonnesToday: number | null;
+  tonnesAccumulated: number | null;
+}
+
+/** Instantánea de un reporte operativo importado. Conserva la fecha y hora de la fuente. */
+export interface ReportSnapshot {
+  id: string;
+  title: string;
+  source: string;
+  /** Fecha y hora del reporte en la fuente (ISO con zona horaria). */
+  reportedAt: string;
+  importedAt: string;
+  importedBy: string | null;
+  note: string;
+  indicators: ReportIndicator[];
+  rows: ReportSnapshotRow[];
+  /** Totales tal como aparecen impresos en el reporte. */
+  reportedTotals: ReportSnapshotTotals;
+}
+
+/** Niveles de clasificación de la información (sección 9). */
+export type InfoClassification = 'public' | 'restricted' | 'confidential' | 'critical';
+
+export type InfoRequestStatus = 'submitted' | 'under_review' | 'released' | 'partially_released' | 'denied' | 'closed';
+
+/** Solicitud de información: se registra, se clasifica y la decide una persona autorizada (nunca el sistema). */
+export interface InfoRequest {
+  id: string;
+  code: string;
+  subject: string;
+  description: string;
+  /** Confidencial: solo la ven el administrador principal y la persona revisora asignada. */
+  requesterName: string | null;
+  requesterContact: string | null;
+  requesterUserId: string | null;
+  status: InfoRequestStatus;
+  classification: InfoClassification | null;
+  reviewerId: string | null;
+  /** Qué se entregó exactamente (lista de campos o documentos) y qué se tachó. */
+  releasedItems: string[];
+  redactions: string | null;
+  decisionNote: string | null;
+  approvedBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+  history: { at: string; by: string | null; action: string; note: string | null }[];
+}
+
+/** Cantidad recibida en el centro frente a la despachada. La cifra original nunca se sobrescribe. */
+export interface QuantityCheck {
+  dispatched: number | null;
+  received: number;
+  unit: OutputUnit;
+  /** recibido − despachado; null si no son comparables (distinta unidad o sin dato de salida). */
+  difference: number | null;
+  flagged: boolean;
+}
+
+/** Ensayo técnico dentro de la verificación de calidad (v4.0, sección 7). */
+export interface QualityTest {
+  testType: string;
+  method: string;
+  date: string;
+  result: string;
+  unit: string;
+  laboratory: string | null;
+}
+
+export type PickupUnit = 'l' | 'kg' | 't' | 'm3';
+export type PickupStatus = 'submitted' | 'new' | 'assigned' | 'en_route' | 'arrived' | 'collected' | 'received' | 'completed' | 'issue' | 'cancelled';
+
+/**
+ * Solicitud de recolección (v4.0, 17.2 y 17.6). No duplica la operación: usa el código del origen (LG-…)
+ * y, al recolectar, queda vinculada al mismo viaje que confirma el centro.
+ */
+export interface PickupRequest {
+  id: string;
+  /** Código canónico del origen. */
+  code: string;
+  originId: string | null;
+  module: 'debris' | 'oil';
+  status: PickupStatus;
+  /** Entidad de retiro cuyos conductores pueden tomar la solicitud. */
+  operatorEntityId: string | null;
+  /** Quien solicita (hogar o comercio); null si la creó la coordinación desde un origen. */
+  requesterUserId: string | null;
+  businessId: string | null;
+  address: string | null;
+  location: GeoPoint | null;
+  sectorId: string | null;
+  photoIds: string[];
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  material: string;
+  estimatedQuantity: number;
+  unit: PickupUnit;
+  /** Día y ventana horaria solicitados. */
+  date: string;
+  windowFrom: string;
+  windowTo: string;
+  centerId: string | null;
+  instructions: string | null;
+  handlingNotes: string | null;
+  driverId: string | null;
+  acceptedAt: string | null;
+  tripId: string | null;
+  collected: { quantity: number; unit: PickupUnit; photoId: string; note: string | null; at: string } | null;
+  /** Recepción directa en el centro (módulos sin viaje de escombros). En escombros la determina el viaje. */
+  received: { quantity: number; unit: PickupUnit; condition: string | null; by: string; at: string; check: { dispatched: number | null; difference: number | null; flagged: boolean } } | null;
+  validatedBy: string | null;
+  validatedAt: string | null;
+  rejections: { driverId: string; reason: PickupRejectReason; note: string | null; at: string }[];
+  issue: { by: string; text: string; at: string } | null;
+  history: { at: string; by: string | null; action: string; note: string | null }[];
+}
+
+export type PickupRejectReason = 'vehicle_unavailable' | 'schedule_conflict' | 'unsafe_access' | 'outside_area' | 'other';
+
+export interface RiskEntry {
+  id: string;
+  description: string;
+  affected: string;
+  likelihood: number;
+  impact: number;
+  score: number;
+  mitigation: string;
+  owner: string;
+  reviewDate: string;
+  status: 'open' | 'in_progress' | 'resolved';
+  /** Un control no se da por resuelto hasta haberse probado. */
+  controlTestedAt: string | null;
+  controlTestNote: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SecurityIncident {
+  id: string;
+  title: string;
+  description: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  status: 'open' | 'contained' | 'investigating' | 'escalated' | 'closed';
+  createdAt: string;
+  updatedAt: string;
+  history: { at: string; by: string | null; status: string; note: string }[];
+}
+
+/** Solicitud de recuperación de acceso: la atiende el administrador; la respuesta pública nunca revela si la cuenta existe. */
+export interface RecoveryRequest {
+  id: string;
+  userId: string;
+  createdAt: string;
+  status: 'pending' | 'done';
+  resolvedAt: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Perfiles de la PWA (v4.0, sección 25)
+// ---------------------------------------------------------------------------
+
+export type GroupKind = 'community' | 'coastal';
+
+export interface Group {
+  id: string;
+  kind: GroupKind;
+  name: string;
+  region: string;
+  sectorId: string | null;
+  description: string;
+  contact: string | null;
+  active: boolean;
+  isDemo?: boolean;
+  createdAt: string;
+}
+
+export interface Membership {
+  id: string;
+  groupId: string;
+  userId: string;
+  role: 'leader' | 'member';
+  status: 'invited' | 'requested' | 'active' | 'left';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GroupActivity {
+  id: string;
+  groupId: string;
+  title: string;
+  date: string;
+  time: string;
+  place: string;
+  meetingPoint: string;
+  instructions: string | null;
+  capacity: number | null;
+  status: 'draft' | 'published' | 'completed' | 'cancelled';
+  /** Asistencia y horas declaradas por quien lidera; cuentan solo cuando la coordinación valida la actividad. */
+  participants: { userId: string; attended: boolean | null; hours: number | null }[];
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  completedAt: string | null;
+  validatedBy: string | null;
+  validatedAt: string | null;
+}
+
+export type WasteReportStatus = 'submitted' | 'under_review' | 'validated' | 'rejected';
+
+export interface WasteReport {
+  id: string;
+  code: string;
+  groupId: string;
+  activityId: string | null;
+  kind: 'observation' | 'collection';
+  category: 'plastic' | 'glass' | 'metal' | 'organic' | 'mixed' | 'other';
+  quantity: number | null;
+  unit: 'kg' | 't' | 'm3' | null;
+  place: string;
+  location: GeoPoint | null;
+  date: string;
+  description: string;
+  photoIds: string[];
+  status: WasteReportStatus;
+  reportedBy: string;
+  createdAt: string;
+  updatedAt: string;
+  /** Cantidad confirmada por la coordinación. La reportada nunca se sobrescribe. */
+  validatedQuantity: number | null;
+  validatedBy: string | null;
+  validatedAt: string | null;
+  reviewNote: string | null;
+}
+
+export interface Business {
+  id: string;
+  name: string;
+  category: string;
+  address: string;
+  sectorId: string | null;
+  contact: string | null;
+  openingHours: string;
+  collectionPoint: { acceptedMaterials: string[]; storageInstructions: string; status: 'active' | 'paused'; location: GeoPoint | null };
+  active: boolean;
+  isDemo?: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Definición que debe estar completa y aprobada antes de activar un módulo futuro (v4.0, sección 2). */
+export interface ModuleDefinition {
+  id: string;
+  workflow: string;
+  dataFields: string;
+  units: string;
+  validationRules: string;
+  roles: string;
+  risks: string;
+  approvalReference: string;
+  updatedBy: string | null;
+  updatedAt: string;
+}
+
+/** Sugerencia de IA sobre una foto: no vale hasta que una persona autorizada la confirma. */
+export interface AiSuggestion {
+  id: string;
+  photoId: string;
+  requestedBy: string;
+  createdAt: string;
+  model: string;
+  suggestion: { showsDebris: boolean; subcategory: Subcategory | null; confidence: 'low' | 'medium' | 'high'; visibleText: string; note: string };
+  status: 'suggested' | 'accepted' | 'changed' | 'discarded';
+  decidedBy: string | null;
+  decidedAt: string | null;
+  finalSubcategory: Subcategory | null;
 }

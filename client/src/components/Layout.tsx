@@ -1,9 +1,10 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { Home, MessageCircle, FileText, BarChart3, MoreHorizontal, Bell, UserRound, Settings as SettingsIcon, LogOut, BookOpen, ShieldCheck, Wifi, WifiOff, Award, Truck, ScanLine, Navigation } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { MoreHorizontal, Bell, UserRound, LogOut, ShieldCheck, Wifi, WifiOff, type LucideIcon } from 'lucide-react';
 import type { Role } from '@kindra/shared';
 import { ROLE_LABELS, ROLE_HOME } from '@kindra/shared';
-import { usePublicConfig } from '../lib/config';
+import { commonMenu, isNavActive, menuFor, type NavItem } from '../lib/nav';
+import { useFeature, usePublicConfig } from '../lib/config';
 import { useAuth } from '../lib/auth';
 import { api, errorMessage } from '../lib/api';
 import { useLiveUpdates } from '../lib/live';
@@ -17,16 +18,22 @@ export function Layout({ children }: { children: ReactNode }) {
   const { data: cfg } = usePublicConfig();
   const { connected } = useLiveUpdates();
   const location = useLocation();
-  const isPublicPage = location.pathname.startsWith('/publico/') || location.pathname === '/tablero';
+  const signedIn = useAuth((x) => !!x.user);
+  const isPublicPage = location.pathname.startsWith('/publico/') || (location.pathname === '/tablero' && !signedIn);
+  const showNav = !isPublicPage;
   return (
     <div className="min-h-screen flex flex-col">
       <a href="#main" className="sr-only-focusable fixed left-2 top-2 z-[2000] rounded bg-surface px-3 py-2">
         Ir al contenido
       </a>
       {!isPublicPage && <Header connected={connected} />}
-      <main id="main" className="flex-1 w-full max-w-5xl mx-auto px-4 pt-4 pb-28 md:pb-10">
-        {children}
-      </main>
+      {!isPublicPage && <SessionContext />}
+      <div className={`flex-1 w-full mx-auto ${showNav ? 'max-w-7xl md:flex' : 'max-w-5xl'}`}>
+        {showNav && <Sidebar />}
+        <main id="main" className="min-w-0 flex-1 w-full max-w-5xl mx-auto px-4 pt-4 pb-28 md:pb-10">
+          {children}
+        </main>
+      </div>
       <Footer />
       {cfg?.simulatedLabel && (
         <div className="simulated-label" aria-live="off">
@@ -46,7 +53,7 @@ function Header({ connected }: { connected: boolean }) {
   const { unread } = useNotifications();
   return (
     <header className="app-header sticky top-0 z-[1100] no-print">
-      <div className="max-w-5xl mx-auto px-4 h-[60px] flex items-center gap-3">
+      <div className="max-w-7xl mx-auto px-4 h-[60px] flex items-center gap-3">
         <Link to="/" className="min-w-0" aria-label="Inicio">
           <BrandBlock light size={38} compact />
         </Link>
@@ -55,14 +62,7 @@ function Header({ connected }: { connected: boolean }) {
             {connected ? <Wifi size={15} /> : <WifiOff size={15} />}
             <span className="hidden md:inline">{connected ? 'en vivo' : 'sin señal'}</span>
           </span>
-          {cfg?.demoMode && <RoleSwitcher />}
-          <nav className="hidden md:flex items-center gap-1 mr-1 text-sm" aria-label="Menú principal">
-            <Link to="/aprende" className="header-icon !w-auto px-2">Formación</Link>
-            <Link to={user ? '/recompensas' : '/ingresar?next=/recompensas'} className="header-icon !w-auto px-2">Recompensas</Link>
-            {user && ['center', 'destination', 'coordinator'].includes(user.activeRole) && <Link to="/panel/control" className="header-icon !w-auto px-2">Control</Link>}
-            {user && ['admin', 'coordinator', 'supervisor', 'center'].includes(user.activeRole) && <Link to="/panel/seguimiento" className="header-icon !w-auto px-2">Seguimiento</Link>}
-            {user && ['removal', 'center'].includes(user.activeRole) && <Link to="/panel/escolta" className="header-icon !w-auto px-2">Escolta</Link>}
-          </nav>
+          {(cfg?.demoMode || (user?.roles.length ?? 0) > 1) && <RoleSwitcher />}
           <Link to="/notificaciones" className="header-icon relative" aria-label={`Notificaciones${unread ? `, ${unread} sin leer` : ''}`}>
             <Bell size={20} />
             {unread > 0 && <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full bg-brand-orange text-white text-[11px] font-bold grid place-items-center px-1">{unread}</span>}
@@ -74,6 +74,22 @@ function Header({ connected }: { connected: boolean }) {
         </div>
       </div>
     </header>
+  );
+}
+
+/** v4.0, sección 6: rol, organización y módulo activo siempre a la vista. */
+function SessionContext() {
+  const user = useAuth((s) => s.user);
+  const oil = useFeature('oil_module');
+  const modules = ['Escombros', ...(oil ? ['Aceite de cocina usado'] : [])];
+  if (!user) return null;
+  return (
+    <div className="no-print bg-surface border-b border-line text-xs text-ink-2">
+      <p className="max-w-7xl mx-auto px-4 py-1.5">
+        <strong>{ROLE_LABELS[user.activeRole]}</strong>
+        {user.entityName ? ` · ${user.entityName}` : ''} · {modules.length > 1 ? 'Módulos' : 'Módulo'}: {modules.join(', ')}
+      </p>
+    </div>
   );
 }
 
@@ -123,60 +139,91 @@ function RoleSwitcher() {
             ))}
           </optgroup>
         )}
-        <optgroup label="Usuarios de prueba">
-          {roles.map((r) => (
-            <option key={r.role} value={`demo:${r.role}`}>
-              {ROLE_LABELS[r.role]} ({r.alias})
-            </option>
-          ))}
-        </optgroup>
+        {roles.length > 0 && (
+          <optgroup label="Usuarios de prueba">
+            {roles.map((r) => (
+              <option key={r.role} value={`demo:${r.role}`}>
+                {ROLE_LABELS[r.role]} ({r.alias})
+              </option>
+            ))}
+          </optgroup>
+        )}
         {user && <option value="logout">Cerrar sesión</option>}
       </select>
     </label>
   );
 }
 
+function useMenu() {
+  const user = useAuth((s) => s.user);
+  const { data: cfg } = usePublicConfig();
+  return menuFor(user?.activeRole ?? null).filter((m) => !m.feature || cfg?.features?.[m.feature]);
+}
+
+function Sidebar() {
+  const user = useAuth((s) => s.user);
+  const { pathname, search } = useLocation();
+  const menu = useMenu();
+  const item = (it: NavItem) => {
+    const active = isNavActive(it, pathname, search);
+    return (
+      <li key={it.to}>
+        <Link to={it.to} aria-current={active ? 'page' : undefined} title={it.label} className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm ${active ? 'bg-primary text-primary-ink font-semibold' : 'hover:bg-surface-2'}`}>
+          <it.icon size={18} className="shrink-0" aria-hidden />
+          <span className="hidden lg:inline">{it.label}</span>
+          <span className="sr-only lg:hidden">{it.label}</span>
+        </Link>
+      </li>
+    );
+  };
+  return (
+    <nav aria-label="Menú principal" className="hidden md:block w-16 lg:w-60 shrink-0 border-r border-line no-print">
+      <div className="sticky top-[64px] max-h-[calc(100vh-64px)] overflow-y-auto px-2 py-4">
+        <ul className="space-y-0.5">{menu.map(item)}</ul>
+        <ul className="space-y-0.5 mt-3 pt-3 border-t border-line">
+          {item({ to: user ? '/perfil' : '/ingresar', label: user ? 'Perfil' : 'Ingresar', icon: UserRound })}
+          {commonMenu.map(item)}
+        </ul>
+      </div>
+    </nav>
+  );
+}
+
 function BottomNav() {
   const user = useAuth((s) => s.user);
   const [more, setMore] = useState(false);
-  const roleHome = user && user.activeRole !== 'citizen' ? ROLE_HOME[user.activeRole] : null;
-  const items = [
-    { to: '/', label: 'Inicio', icon: Home },
-    { to: '/aura', label: 'AURA', icon: MessageCircle },
-    { to: roleHome || '/mis-reportes', label: roleHome ? 'Mi panel' : 'Mis reportes', icon: FileText },
-    { to: '/tablero', label: 'Tablero', icon: BarChart3 },
-  ];
+  const { pathname, search } = useLocation();
+  const menu = useMenu();
+  // Conductor: las cinco secciones de la especificación, con Perfil a la vista.
+  const direct = user?.activeRole === 'driver';
+  const items = [...menu.slice(0, 4), ...(direct ? [{ to: '/perfil', label: 'Perfil', icon: UserRound } as NavItem] : [])];
+  const rest = menu.slice(4);
+  const extra = direct ? rest : [...rest, { to: user ? '/perfil' : '/ingresar', label: user ? 'Mi perfil' : 'Ingresar', icon: UserRound } as NavItem];
   return (
     <nav className="bottom-nav fixed bottom-0 inset-x-0 z-[1100] md:hidden no-print" aria-label="Navegación principal" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-      <ul className="grid grid-cols-5">
+      <ul className={`grid grid-cols-5`}>
         {items.map((it) => (
-          <li key={it.to}>
-            <NavLink to={it.to} end={it.to === '/'} className={({ isActive }) => `flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium ${isActive ? 'nav-active' : 'text-muted'}`}>
-              <it.icon size={22} />
-              {it.label}
-            </NavLink>
+          <li key={it.to} className="min-w-0">
+            <Link to={it.to} aria-current={isNavActive(it, pathname, search) ? 'page' : undefined} className={`flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium ${isNavActive(it, pathname, search) ? 'nav-active' : 'text-muted'}`}>
+              <it.icon size={22} aria-hidden />
+              <span className="max-w-full truncate px-0.5">{it.label}</span>
+            </Link>
           </li>
         ))}
-        <li>
+        {!direct && <li>
           <button type="button" className="w-full flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium text-muted" onClick={() => setMore(true)} aria-haspopup="dialog">
-            <MoreHorizontal size={22} />
+            <MoreHorizontal size={22} aria-hidden />
             Más
           </button>
-        </li>
+        </li>}
       </ul>
       {more && (
         <div className="fixed inset-0 z-[1250] bg-black/40" onClick={() => setMore(false)}>
-          <div role="dialog" aria-label="Más opciones" className="absolute bottom-0 inset-x-0 rounded-t-2xl bg-surface p-4" onClick={(e) => e.stopPropagation()}>
+          <div role="dialog" aria-label="Más opciones" className="absolute bottom-0 inset-x-0 max-h-[75vh] overflow-y-auto rounded-t-2xl bg-surface p-4" onClick={(e) => e.stopPropagation()}>
             <ul className="grid grid-cols-2 gap-2 text-sm">
-              <MoreLink to="/aprende" icon={BookOpen} label="Formación" onClick={() => setMore(false)} />
-              <MoreLink to={user ? '/recompensas' : '/ingresar?next=/recompensas'} icon={Award} label="Recompensas" onClick={() => setMore(false)} />
-              {user && ['center', 'destination', 'coordinator'].includes(user.activeRole) && <MoreLink to="/panel/control" icon={ScanLine} label="Punto de control" onClick={() => setMore(false)} />}
-              {user && ['admin', 'coordinator', 'supervisor', 'center'].includes(user.activeRole) && <MoreLink to="/panel/seguimiento" icon={Truck} label="Seguimiento" onClick={() => setMore(false)} />}
-              {user && ['removal', 'center'].includes(user.activeRole) && <MoreLink to="/panel/escolta" icon={Navigation} label="Escolta del viaje" onClick={() => setMore(false)} />}
-              <MoreLink to="/consultar" icon={FileText} label="Consultar mi reporte" onClick={() => setMore(false)} />
-              <MoreLink to="/notificaciones" icon={Bell} label="Notificaciones" onClick={() => setMore(false)} />
-              <MoreLink to={user ? '/perfil' : '/ingresar'} icon={UserRound} label={user ? 'Mi perfil' : 'Ingresar'} onClick={() => setMore(false)} />
-              <MoreLink to="/ajustes" icon={SettingsIcon} label="Accesibilidad" onClick={() => setMore(false)} />
+              {[...extra, ...commonMenu].map((it) => (
+                <MoreLink key={it.to} to={it.to} icon={it.icon} label={it.label} onClick={() => setMore(false)} />
+              ))}
               {user && <LogoutButton onDone={() => setMore(false)} />}
             </ul>
           </div>
@@ -186,7 +233,7 @@ function BottomNav() {
   );
 }
 
-function MoreLink({ to, icon: Icon, label, onClick }: { to: string; icon: typeof Home; label: string; onClick: () => void }) {
+function MoreLink({ to, icon: Icon, label, onClick }: { to: string; icon: LucideIcon; label: string; onClick: () => void }) {
   return (
     <li>
       <Link to={to} onClick={onClick} className="flex items-center gap-2 rounded-lg border border-line px-3 py-3">
@@ -232,6 +279,7 @@ export function Footer() {
           <Link to="/tablero">Tablero público</Link>
           <Link to="/aprende">Aprende</Link>
           <Link to="/ajustes">Accesibilidad</Link>
+          <Link to="/solicitar-informacion">Solicitar información</Link>
         </nav>
       </div>
     </footer>

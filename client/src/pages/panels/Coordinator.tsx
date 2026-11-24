@@ -7,6 +7,7 @@ import { api, errorMessage } from '../../lib/api';
 import { usePublicConfig, useFeature } from '../../lib/config';
 import { SectorAnnouncements } from '../../components/panels/SectorAnnouncements';
 import { toast } from '../../lib/toast';
+import { useTab } from '../../lib/useTab';
 import { fmtDateTime, fmtRelative } from '../../lib/format';
 import { Card, Button, Field, Input, Select, Textarea, Alert, EmptyState, Modal, PageTitle, Tabs, Spinner, Badge, OriginStateBadge, KeyValue } from '../../components/ui';
 import { MapView } from '../../components/MapView';
@@ -21,7 +22,7 @@ export default function Coordinator() {
   const qc = useQueryClient();
   const announcementsOn = useFeature('community_announcements');
   const q = useQuery({ queryKey: ['coord', 'overview'], queryFn: () => api.get<CoordOverview>('/coord/overview') });
-  const [tab, setTab] = useState<Tab>('inbox');
+  const [tab, setTab] = useTab<Tab>('inbox');
   const [openId, setOpenId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const d = q.data;

@@ -37,7 +37,7 @@ export default function Entry() {
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-sm font-semibold">Estás como {ROLE_LABELS[user.activeRole]}</p>
-              <p className="text-xs text-muted">Tu trabajo pendiente está en tu panel.</p>
+              <p className="text-xs text-muted">Tu panel reúne lo que tienes pendiente.</p>
             </div>
             <Link to={ROLE_HOME[user.activeRole]}>
               <Button size="sm">

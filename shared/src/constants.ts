@@ -1,14 +1,17 @@
 import type { Role, OriginEffectiveState, TripState, BatchState, OriginSize, OriginUrgency, Subcategory, WorkUseType, RejectionReason, StructureType, DebrisCause, EntityType, OriginPriority, SatisfactionAnswer, DispatchState } from './types';
 
-export const ROLES: Role[] = ['citizen', 'monitor', 'coordinator', 'removal', 'center', 'evaluator', 'supervisor', 'destination', 'entity_admin', 'admin'];
+export const ROLES: Role[] = ['citizen', 'monitor', 'coordinator', 'removal', 'center', 'evaluator', 'supervisor', 'destination', 'entity_admin', 'admin', 'driver', 'processing', 'householder', 'community', 'business', 'coastal'];
 
-export const INSTITUTIONAL_ROLES: Role[] = ['coordinator', 'removal', 'center', 'evaluator', 'supervisor', 'destination', 'entity_admin', 'admin'];
+export const INSTITUTIONAL_ROLES: Role[] = ['coordinator', 'removal', 'driver', 'center', 'processing', 'evaluator', 'supervisor', 'destination', 'entity_admin', 'admin'];
+
+/** Perfiles de participación: no son institucionales y los asigna la administración. */
+export const PROFILE_ROLES: Role[] = ['householder', 'community', 'business', 'coastal'];
 
 /**
  * Roles que un administrador de entidad puede asignar a los usuarios de su entidad.
  * No incluye evaluador (lo propone la entidad y lo activa Kindra), ni administrador.
  */
-export const ENTITY_ASSIGNABLE_ROLES: Role[] = ['coordinator', 'removal', 'center', 'supervisor', 'destination'];
+export const ENTITY_ASSIGNABLE_ROLES: Role[] = ['coordinator', 'removal', 'driver', 'center', 'processing', 'supervisor', 'destination'];
 
 /** Roles que solo el administrador principal de Kindra puede activar. */
 export const KINDRA_ONLY_ROLES: Role[] = ['admin', 'entity_admin', 'evaluator'];
@@ -24,6 +27,12 @@ export const ROLE_LABELS: Record<Role, string> = {
   destination: 'Destino final (obras)',
   entity_admin: 'Administrador de entidad',
   admin: 'Administrador principal Kindra',
+  driver: 'Conductor',
+  processing: 'Procesamiento',
+  householder: 'Hogar',
+  community: 'Comunidad',
+  business: 'Comercio',
+  coastal: 'Grupo costero',
 };
 
 export const ROLE_HOME: Record<Role, string> = {
@@ -37,6 +46,12 @@ export const ROLE_HOME: Record<Role, string> = {
   destination: '/panel/destino',
   entity_admin: '/panel/entidad',
   admin: '/admin',
+  driver: '/conductor',
+  processing: '/panel/procesamiento',
+  householder: '/hogar',
+  community: '/comunidad',
+  business: '/comercio',
+  coastal: '/costero',
 };
 
 export const ENTITY_TYPE_LABELS: Record<EntityType, string> = {
@@ -241,6 +256,16 @@ export const EVENT_TYPES = [
   'gate_presence',
   'stop_declared',
   'device_event',
+  // especificación v4.0: seguridad, exportaciones, solicitudes de información, reportes operativos
+  'security_event',
+  'data_exported',
+  'info_request_action',
+  'report_snapshot_imported',
+  'governance_action',
+  'pickup_request_action',
+  'group_action',
+  'business_action',
+  'ai_suggestion',
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -300,6 +325,44 @@ export const EVENT_LABELS: Record<EventType, string> = {
   gate_presence: 'Presencia registrada en la puerta',
   stop_declared: 'Parada declarada por el escolta',
   device_event: 'Evento del dispositivo de rastreo',
+  security_event: 'Evento de seguridad (inicio de sesión)',
+  data_exported: 'Exportación de datos',
+  info_request_action: 'Solicitud de información',
+  report_snapshot_imported: 'Reporte operativo importado',
+  governance_action: 'Gobierno de datos: riesgos e incidentes',
+  pickup_request_action: 'Solicitud de recolección',
+  group_action: 'Actividad de comunidad o grupo',
+  business_action: 'Punto de acopio de comercio',
+  ai_suggestion: 'Sugerencia de IA',
+};
+
+/** Roles con permiso de exportación (sección 9 y 20). Cada exportación queda registrada. */
+export const EXPORT_ROLES: Role[] = ['admin', 'supervisor', 'entity_admin'];
+
+/** Roles que consultan los reportes operativos por CDT (diario y acumulado, por operador). */
+export const REPORT_ROLES: Role[] = ['admin', 'supervisor', 'entity_admin', 'coordinator', 'center'];
+
+export const INFO_CLASSIFICATION_LABELS: Record<'public' | 'restricted' | 'confidential' | 'critical', string> = {
+  public: 'Pública',
+  restricted: 'Restringida',
+  confidential: 'Confidencial',
+  critical: 'Crítica',
+};
+
+export const INFO_CLASSIFICATION_HELP: Record<'public' | 'restricted' | 'confidential' | 'critical', string> = {
+  public: 'Avance agregado por sector, totales aprobados, estado público de seguimiento y resultados validados para publicar.',
+  restricted: 'Registros detallados de lotes, documentos operativos, asignaciones de personal y detalle por centro para usuarios autorizados.',
+  confidential: 'Identidad y contacto de quien reporta, direcciones privadas, imágenes identificables y datos personales sensibles.',
+  critical: 'Contraseñas, claves de API, credenciales de base de datos, ajustes de seguridad, copias de seguridad y GPS preciso de la flota.',
+};
+
+export const INFO_REQUEST_STATUS_LABELS: Record<'submitted' | 'under_review' | 'released' | 'partially_released' | 'denied' | 'closed', string> = {
+  submitted: 'Recibida',
+  under_review: 'En revisión',
+  released: 'Entregada',
+  partially_released: 'Entregada en parte (con datos tachados)',
+  denied: 'No entregada',
+  closed: 'Cerrada',
 };
 
 export const MOVEMENT_LEG_LABELS: Record<'cdt_cdf' | 'cdt_work' | 'cdt_state', string> = {
@@ -359,7 +422,7 @@ export interface FeatureDefinition {
 export const FEATURES: FeatureDefinition[] = [
   // Módulos de residuos (addendum v1.3): cada módulo vive en la misma PWA detrás de su propio interruptor.
   { key: 'module_debris', label: 'Módulo 1: escombros', description: 'Activo en la fase 1.', group: 'module', defaultOn: true, available: true, locked: true },
-  { key: 'oil_module', label: 'Módulo 2: aceite de cocina usado', description: 'Se mantiene oculto hasta que el administrador principal lo active al entregarse el módulo.', group: 'module', defaultOn: false, available: false },
+  { key: 'oil_module', label: 'Módulo 2: aceite de cocina usado', description: 'Apagado. Para encenderlo, el administrador principal completa primero su definición (flujo, datos, unidades, validación, roles y riesgos) con la referencia de aprobación.', group: 'module', defaultOn: false, available: true },
   { key: 'module_other', label: 'Módulos 3, 4 y siguientes (otros residuos)', description: 'Se construyen en la misma PWA y quedan ocultos hasta su activación.', group: 'module', defaultOn: false, available: false },
   // Funciones del módulo de escombros que el administrador principal puede apagar
   { key: 'kindra_card', label: 'Tarjeta Kindra y QR personal', description: 'Tarjeta con QR personal e intransferible. Los puntos de escombros van al mismo saldo.', group: 'debris', defaultOn: true, available: true },
@@ -368,7 +431,7 @@ export const FEATURES: FeatureDefinition[] = [
   { key: 'community_announcements', label: 'Avisos comunitarios por sector', description: 'Avisa a los vecinos de un sector cuando hay puntos asignados para retiro.', group: 'debris', defaultOn: true, available: true },
   { key: 'preregistration', label: 'Códigos de pre-registro', description: 'Ingreso con código para personas sin teléfono. Oculto en esta fase.', group: 'debris', defaultOn: false, available: true },
   // Fase posterior
-  { key: 'ai_photo_detection', label: 'Detección de escombro en fotos con IA', description: 'Con confirmación humana. Queda para una fase posterior; no forma parte de esta entrega.', group: 'later_phase', defaultOn: false, available: false },
+  { key: 'ai_photo_detection', label: 'Sugerencias de IA sobre fotos', description: 'Apagada por defecto. Al encenderla, la foto elegida se envía al servicio de IA de Anthropic. El resultado es solo una sugerencia hasta que una persona autorizada la confirma.', group: 'later_phase', defaultOn: false, available: true },
   // Ocultas en el módulo de escombros (addendum, parte 4)
   { key: 'hero_subscription', label: 'Suscripción Kindra Hero', description: 'Nivel de pago. Este módulo es un servicio de interés público.', group: 'hidden', defaultOn: false, available: false },
   { key: 'kindra_gift', label: 'Kindra Gift', description: 'Monetización, no aplica a escombros.', group: 'hidden', defaultOn: false, available: false },
@@ -413,3 +476,75 @@ export const PUBLIC_ROUTES = {
   record: (code: string) => `/publico/ficha/${code}`,
   certificate: (code: string) => `/publico/certificado/${code}`,
 };
+
+// ---------------------------------------------------------------- solicitudes de recolección (v4.0, 17)
+
+export const PICKUP_STATUS_LABELS: Record<'submitted' | 'new' | 'assigned' | 'en_route' | 'arrived' | 'collected' | 'received' | 'completed' | 'issue' | 'cancelled', string> = {
+  submitted: 'Pendiente de programar',
+  new: 'Programada, por asignar',
+  assigned: 'Asignada',
+  en_route: 'En camino al punto',
+  arrived: 'Recolección en curso',
+  collected: 'Recolectada, en tránsito',
+  received: 'Recibida en el centro',
+  completed: 'Validada y cerrada',
+  issue: 'Con incidencia',
+  cancelled: 'Cancelada',
+};
+
+export const PICKUP_REJECT_LABELS: Record<'vehicle_unavailable' | 'schedule_conflict' | 'unsafe_access' | 'outside_area' | 'other', string> = {
+  vehicle_unavailable: 'Vehículo no disponible',
+  schedule_conflict: 'Choque de horario',
+  unsafe_access: 'Acceso inseguro',
+  outside_area: 'Fuera del área asignada',
+  other: 'Otro motivo',
+};
+
+// ---------------------------------------------------------------- etiquetas de estado comunes (v4.0, secciones 6 y 8)
+
+export type StandardStatus = 'draft' | 'submitted' | 'under_review' | 'validated' | 'rejected' | 'completed';
+
+export const STANDARD_STATUS_LABELS: Record<StandardStatus, string> = {
+  draft: 'Borrador',
+  submitted: 'Enviado',
+  under_review: 'En revisión',
+  validated: 'Validado',
+  rejected: 'Rechazado / por corregir',
+  completed: 'Completado / cerrado',
+};
+
+export const STANDARD_STATUS: {
+  origin: Record<OriginEffectiveState, StandardStatus>;
+  batch: Record<BatchState, StandardStatus>;
+  trip: Record<TripState, StandardStatus>;
+  dispatch: Record<DispatchState, StandardStatus>;
+  pickup: Record<keyof typeof PICKUP_STATUS_LABELS, StandardStatus>;
+} = {
+  origin: { pending_authorization: 'under_review', registered: 'submitted', validated: 'validated', rejected: 'rejected', duplicate: 'completed', under_removal: 'validated', removed: 'validated', disputed: 'under_review', in_batch: 'validated', in_work: 'validated', closed: 'completed' },
+  batch: { open: 'draft', closed: 'submitted', held: 'under_review', processed: 'submitted', under_verification: 'under_review', approved: 'validated', rejected: 'rejected', partially_dispatched: 'validated', fully_dispatched: 'completed' },
+  trip: { in_transit: 'submitted', received: 'validated', no_arrival: 'under_review' },
+  dispatch: { pending: 'submitted', received: 'completed', discrepancy: 'under_review' },
+  pickup: { submitted: 'submitted', new: 'submitted', assigned: 'submitted', en_route: 'submitted', arrived: 'submitted', collected: 'submitted', received: 'under_review', completed: 'completed', issue: 'under_review', cancelled: 'completed' },
+};
+
+/** Etiqueta común seguida del detalle propio del módulo, sin repetir palabras. */
+export function statusText(kind: keyof typeof STANDARD_STATUS, state: string, detail: string): string {
+  const std = (STANDARD_STATUS[kind] as Record<string, StandardStatus>)[state];
+  if (!std) return detail;
+  const label = STANDARD_STATUS_LABELS[std];
+  const first = label.split(' ')[0].toLowerCase();
+  return detail.toLowerCase().includes(label.toLowerCase()) || detail.toLowerCase().startsWith(first) ? detail : `${label} · ${detail}`;
+}
+
+export const WASTE_CATEGORY_LABELS: Record<'plastic' | 'glass' | 'metal' | 'organic' | 'mixed' | 'other', string> = { plastic: 'Plástico', glass: 'Vidrio', metal: 'Metal', organic: 'Orgánico', mixed: 'Mixto', other: 'Otro' };
+
+export const WASTE_REPORT_STATUS_LABELS: Record<'submitted' | 'under_review' | 'validated' | 'rejected', string> = { submitted: 'Enviado', under_review: 'En revisión', validated: 'Validado', rejected: 'Rechazado / por corregir' };
+
+export const ACTIVITY_STATUS_LABELS: Record<'draft' | 'published' | 'completed' | 'cancelled', string> = { draft: 'Borrador', published: 'Publicada', completed: 'Realizada', cancelled: 'Cancelada' };
+
+/** Tipos de aviso que cada persona puede silenciar. Los operativos y de seguridad no se silencian. */
+export const MUTABLE_NOTIFICATIONS: { kind: string; label: string }[] = [
+  { kind: 'sector_announcement', label: 'Avisos comunitarios del sector' },
+  { kind: 'level_reached', label: 'Cambios de nivel' },
+  { kind: 'pickup_new', label: 'Solicitudes disponibles' },
+];

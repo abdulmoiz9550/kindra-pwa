@@ -3,8 +3,10 @@ import { z } from 'zod';
 import { ROLES } from '@kindra/shared';
 import type { Role } from '@kindra/shared';
 import { wrap, requireAuth } from '../middleware/auth';
-import { login, registerCitizen, loginWithPreregCode, demoSwitch, switchActiveRole, submitSelfie, toPublicUser, completeTwoFactor, sessionAfterEnable } from '../services/auth';
+import { findLoginUser, login, registerCitizen, loginWithPreregCode, demoSwitch, switchActiveRole, submitSelfie, toPublicUser, completeTwoFactor, sessionAfterEnable } from '../services/auth';
 import { twoFactorStatus, beginSetup, enableTwoFactor } from '../services/twoFactor';
+import { logSignIn, requestRecovery } from '../services/governance';
+import { assertNotLocked, recordFailure, clearFailures } from '../services/lockout';
 
 export const authRouter = Router();
 
@@ -12,7 +14,20 @@ authRouter.post(
   '/login',
   wrap((req, res) => {
     const body = z.object({ identifier: z.string().min(1), password: z.string().min(1) }).parse(req.body);
-    res.json(login(body.identifier, body.password));
+    // v4.0, sección 10: cada inicio de sesión, correcto o fallido, queda registrado (sin contraseña ni identificador escrito).
+    const key = `pw:${findLoginUser(body.identifier)?.id ?? body.identifier.trim().toLowerCase()}`;
+    assertNotLocked(key);
+    let session: ReturnType<typeof login>;
+    try {
+      session = login(body.identifier, body.password);
+    } catch (err) {
+      logSignIn(false, findLoginUser(body.identifier)?.id ?? null, 'password', req.ip ?? null);
+      recordFailure(key);
+      throw err;
+    }
+    clearFailures(key);
+    logSignIn(true, session.user.id, 'password', req.ip ?? null);
+    res.json(session);
   }),
 );
 
@@ -28,7 +43,9 @@ authRouter.post(
   '/prereg',
   wrap((req, res) => {
     const body = z.object({ code: z.string().min(4) }).parse(req.body);
-    res.json(loginWithPreregCode(body.code));
+    const session = loginWithPreregCode(body.code);
+    logSignIn(true, session.user.id, 'prereg', req.ip ?? null);
+    res.json(session);
   }),
 );
 
@@ -36,7 +53,19 @@ authRouter.post(
   '/demo-switch',
   wrap((req, res) => {
     const body = z.object({ role: z.enum(ROLES as [Role, ...Role[]]) }).parse(req.body);
-    res.json(demoSwitch(body.role));
+    const session = demoSwitch(body.role);
+    logSignIn(true, session.user.id, 'demo_switch', req.ip ?? null);
+    res.json(session);
+  }),
+);
+
+/** v4.0, sección 24: recuperación de acceso. La respuesta es idéntica exista o no la cuenta. */
+authRouter.post(
+  '/recovery',
+  wrap((req, res) => {
+    const body = z.object({ identifier: z.string().min(1).max(80) }).parse(req.body);
+    requestRecovery(findLoginUser(body.identifier)?.id ?? null);
+    res.json({ ok: true });
   }),
 );
 
@@ -83,7 +112,19 @@ authRouter.post(
   requireAuth,
   wrap((req, res) => {
     const { code } = codeBody.parse(req.body);
-    res.json(completeTwoFactor(req.auth!.user, req.auth!.role, code));
+    const key = `mfa:${req.auth!.user.id}`;
+    assertNotLocked(key);
+    let session: ReturnType<typeof completeTwoFactor>;
+    try {
+      session = completeTwoFactor(req.auth!.user, req.auth!.role, code);
+    } catch (err) {
+      logSignIn(false, req.auth!.user.id, 'mfa', req.ip ?? null);
+      recordFailure(key);
+      throw err;
+    }
+    clearFailures(key);
+    logSignIn(true, req.auth!.user.id, 'mfa', req.ip ?? null);
+    res.json(session);
   }),
 );
 

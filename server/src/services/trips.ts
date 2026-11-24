@@ -1,4 +1,4 @@
-import type { Trip, Reception, FillLevel, GeoPoint, Vehicle, TripLeg } from '@kindra/shared';
+import type { Trip, Reception, FillLevel, GeoPoint, Vehicle, TripLeg, OutputUnit, QuantityCheck } from '@kindra/shared';
 import { assertNoOpenTrip, centerPoint, geofenceCheck, ingestPoints, planRoute, raiseTrackingAlert, traceHash } from './tracking';
 import { db } from '../core/db';
 import { appendEvent, SYSTEM_ACTOR, type Actor } from '../core/events';
@@ -100,6 +100,22 @@ export interface ArrivalInput {
   location?: GeoPoint | null;
   /** Cierre por el escolta escaneando el QR de la puerta del centro, verificado dentro del perímetro (addendum v1.3). */
   viaGate?: boolean;
+  /** v4.0, sección 7: datos de la recepción en el centro. */
+  operatorEntityId?: string | null;
+  receivedQuantity?: number | null;
+  receivedUnit?: OutputUnit | null;
+  condition?: string | null;
+  discrepancyNote?: string | null;
+}
+
+/** Compara lo recibido con lo despachado solo si comparten unidad; marca la diferencia sin tocar la cifra de salida. */
+function quantityCheck(trip: Trip, input: ArrivalInput): QuantityCheck | null {
+  if (input.receivedQuantity == null) return null;
+  if (!(input.receivedQuantity >= 0)) throw badRequest('La cantidad recibida debe ser cero o mayor.');
+  if (!input.receivedUnit) throw badRequest('Indica la unidad de la cantidad recibida (t o m³).');
+  const comparable = input.receivedUnit === 'm3' && trip.estimatedVolumeM3 != null;
+  const difference = comparable ? Math.round((input.receivedQuantity - trip.estimatedVolumeM3!) * 100) / 100 : null;
+  return { dispatched: comparable ? trip.estimatedVolumeM3! : null, received: input.receivedQuantity, unit: input.receivedUnit, difference, flagged: difference !== null && difference !== 0 };
 }
 
 export function confirmArrival(tripId: string, actor: Actor, input: ArrivalInput): { trip: Trip; reception: Reception } {
@@ -125,6 +141,10 @@ export function confirmArrival(tripId: string, actor: Actor, input: ArrivalInput
     // sameCenter + notOwnReport (4.1: nadie recibe lo que reportó)
     assertTransition('trip', 'trip_arrival', trip.state, { actor, trip });
   }
+  const destination = store.get('centers', trip.centerId);
+  const operators = destination ? [destination.entityId, ...(destination.operatorEntityIds || [])] : [];
+  if (input.operatorEntityId && !operators.includes(input.operatorEntityId)) throw badRequest('Ese operador no está asociado a este centro.');
+  const check = quantityCheck(trip, input);
   const serverTime = nowIso();
   const batch = ensureOpenBatch(trip.centerId, serverTime);
   const arrival: TripLeg & { via?: string } = { userId: actor.id, entityId: actor.entityId, deviceTime: input.deviceTime || serverTime, serverTime, photoId: input.photoId ?? null, location: input.location ?? null, ...(input.viaGate ? { via: 'gate_qr' } : {}) };
@@ -141,12 +161,21 @@ export function confirmArrival(tripId: string, actor: Actor, input: ArrivalInput
     classifiedBy: null,
     hazardDecision: null,
     hazardDecisionId: null,
+    // Con un solo operador en el centro no hay duda; con varios, lo indica quien recibe.
+    operatorEntityId: input.operatorEntityId ?? (operators.length === 1 ? operators[0] : null),
+    receivedQuantity: input.receivedQuantity ?? null,
+    receivedUnit: input.receivedQuantity == null ? null : input.receivedUnit ?? null,
+    condition: input.condition?.trim() || null,
+    discrepancyNote: input.discrepancyNote?.trim() || null,
+    receivedBy: actor.id,
+    quantityCheck: check,
   };
   // Perímetro del centro (punto de descarga si existe) y sello del trazado completo en la cadena del viaje.
   const arrivalCheck = geofenceCheck(input.location, centerPoint(store.get('centers', trip.centerId)));
   if (input.location) ingestPoints(trip.id, [{ ...input.location, at: serverTime, label: 'Llegada' }], 'checkpoint', { delayed: !!input.offlineQueuedAt });
   const seal = traceHash(trip.id);
   appendEvent({ type: 'trip_arrival', objectType: 'trip', objectId: trip.id, actor, data: { arrival, reception, late: trip.state === 'no_arrival', arrivalCheck, traceHash: seal.hash, traceCount: seal.count }, deviceTime: input.deviceTime, offlineQueuedAt: input.offlineQueuedAt });
+  if (check?.flagged || reception.discrepancyNote) raiseTrackingAlert(`al_qty_${trip.id}`, 'manual_review', trip.id, `El viaje ${trip.code} tiene una discrepancia por revisar${check?.flagged ? `: salida estimada ${check.dispatched} m³, recibido ${check.received} m³` : ''}${reception.discrepancyNote ? `: ${reception.discrepancyNote}` : ''}.`);
   if (arrivalCheck === 'outside') raiseTrackingAlert(`al_arrfence_${trip.id}`, 'gate_alert', trip.id, `La llegada del viaje ${trip.code} se escaneó fuera del perímetro del centro: no cuenta como llegada verificada.`);
   for (const oid of trip.originIds) {
     const o = store.get('origins', oid);

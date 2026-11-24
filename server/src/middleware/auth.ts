@@ -1,9 +1,11 @@
 import type { Request, Response, NextFunction, RequestHandler } from 'express';
 import type { Role, User } from '@kindra/shared';
+import { INSTITUTIONAL_ROLES } from '@kindra/shared';
 import { db } from '../core/db';
 import { verifyToken } from '../services/auth';
 import { forbidden, unauthorized, HttpError } from '../core/errors';
 import type { Actor } from '../core/events';
+import { logDenied } from '../services/governance';
 
 export interface AuthInfo {
   user: User;
@@ -51,7 +53,7 @@ export function requireRole(...roles: Role[]): RequestHandler {
   return (req, _res, next) => {
     if (!req.auth) return next(unauthorized());
     if (!roles.includes(req.auth.role)) return next(forbidden(`Esta acción requiere el rol: ${roles.join(' o ')}.`));
-    const institutional: Role[] = ['coordinator', 'removal', 'center', 'evaluator', 'supervisor', 'destination', 'entity_admin', 'admin', 'monitor'];
+    const institutional: Role[] = [...INSTITUTIONAL_ROLES, 'monitor'];
     if (institutional.includes(req.auth.role) && req.auth.user.verificationStatus !== 'verified') {
       return next(forbidden('Debes completar la verificación de identidad para usar este rol.'));
     }
@@ -82,8 +84,9 @@ export const wrap = (fn: (req: Request, res: Response, next: NextFunction) => Pr
   Promise.resolve(fn(req, res, next)).catch(next);
 };
 
-export function errorHandler(err: unknown, _req: Request, res: Response, _next: NextFunction): void {
+export function errorHandler(err: unknown, req: Request, res: Response, _next: NextFunction): void {
   if (err instanceof HttpError) {
+    if (err.status === 403 && req.auth) logDenied(req.auth.user.id, req.auth.role, req.method, req.originalUrl.split('?')[0]);
     res.status(err.status).json({ error: err.message, code: err.code, details: err.details ?? null });
     return;
   }

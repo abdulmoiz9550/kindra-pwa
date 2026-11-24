@@ -2,7 +2,8 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { KINDRA_TAGLINE, USE_TYPE_LABELS, SIZE_LABELS, URGENCY_LABELS, SUBCATEGORY_LABELS, REJECTION_REASON_LABELS, STRUCTURE_TYPE_LABELS, CAUSE_LABELS, ROLE_LABELS } from '@kindra/shared';
 import { db } from '../core/db';
-import { wrap } from '../middleware/auth';
+import { wrap, citizenActor } from '../middleware/auth';
+import { submitInfoRequest, publicInfoRequest } from '../services/governance';
 import { getConfig } from '../services/config';
 import { listDemoRoles } from '../services/auth';
 import { buildDashboard, sectorProgress } from '../services/dashboard';
@@ -35,6 +36,7 @@ publicRouter.get('/config', (_req, res) => {
     publicBaseUrl: env.publicBaseUrl,
     complaintChannelUrl: cfg.complaintChannelUrl,
     levels: cfg.levels,
+    incentives: cfg.incentives ?? { status: 'pending', reference: null, approvedAt: null, approvedBy: null },
     points: cfg.points,
     thresholds: cfg.thresholds,
     hazardChecklist: cfg.hazardChecklist,
@@ -138,3 +140,20 @@ publicRouter.get('/reportes/:code/estado', (req, res) => {
 publicRouter.get('/branding', (_req, res) => {
   res.json(brandingBlock());
 });
+
+// v4.0, sección 9: solicitudes de información. Se registran y las decide una persona autorizada.
+publicRouter.post(
+  '/solicitudes-informacion',
+  wrap((req, res) => {
+    const body = z.object({ subject: z.string().max(120), description: z.string().max(2000), name: z.string().max(80).nullable().optional(), contact: z.string().max(120).nullable().optional() }).parse(req.body);
+    const r = submitInfoRequest(citizenActor(req), body);
+    res.status(201).json(publicInfoRequest(r.code));
+  }),
+);
+
+publicRouter.get(
+  '/solicitudes-informacion/:code',
+  wrap((req, res) => {
+    res.json(publicInfoRequest(String(req.params.code)));
+  }),
+);

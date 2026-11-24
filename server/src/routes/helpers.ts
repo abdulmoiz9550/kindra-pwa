@@ -14,13 +14,15 @@ export function originView(o: Origin, role?: string) {
   const photos = o.photoIds.map((id) => store.get('photos', id)).filter(Boolean);
   const lastTrip = o.tripIds.length ? store.get('trips', o.tripIds[o.tripIds.length - 1]) : undefined;
   const removalClosure = store.find('closures', (c) => c.originId === o.id && c.type === 'removal');
+  const hideReporter = role === 'supervisor' || role === 'monitor';
   return {
     ...o,
+    ...(hideReporter ? { reporterId: null, reporterName: null, linkedReporterKeys: [] } : {}),
     sectorName: sector?.name ?? null,
     sectorAuthorized: sector?.authorized ?? true,
     effectiveState: state,
     stateLabel: ORIGIN_STATE_LABELS[state],
-    reporterAlias: o.anonymous ? null : reporter?.alias ?? o.reporterName ?? null,
+    reporterAlias: hideReporter || o.anonymous ? null : reporter?.alias ?? o.reporterName ?? null,
     photos: photos.map((p) => ({ id: p!.id, url: p!.url, moderation: p!.moderation, unreadable: !!p!.unreadable })),
     afterPhotoUrl: o.afterPhotoId ? store.get('photos', o.afterPhotoId)?.url ?? null : null,
     onSitePhotoUrl: o.verifiedOnSitePhotoId ? store.get('photos', o.verifiedOnSitePhotoId)?.url ?? null : null,
