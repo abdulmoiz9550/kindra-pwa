@@ -1,6 +1,5 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
 import type { AiSuggestion, Subcategory } from '@kindra/shared';
 import { db } from '../core/db';
@@ -9,6 +8,7 @@ import { appendEvent, type Actor } from '../core/events';
 import { newId, nowIso } from '../core/ids';
 import { conflict, HttpError, notFound } from '../core/errors';
 import { assertFeature } from './features';
+import { askGemini, geminiReady, GeminiError } from './gemini';
 
 /**
  * v4.0, sección 8: la IA solo sugiere. Nada cambia en un registro hasta que una persona autorizada confirma,
@@ -27,17 +27,16 @@ const Result = z.object({
 });
 
 const SCHEMA = {
-  type: 'object',
-  additionalProperties: false,
+  type: 'OBJECT',
   required: ['showsDebris', 'subcategory', 'confidence', 'visibleText', 'note'],
   properties: {
-    showsDebris: { type: 'boolean' },
-    subcategory: { anyOf: [{ type: 'string', enum: [...SUBCATEGORIES] }, { type: 'null' }] },
-    confidence: { type: 'string', enum: ['low', 'medium', 'high'] },
-    visibleText: { type: 'string' },
-    note: { type: 'string' },
+    showsDebris: { type: 'BOOLEAN' },
+    subcategory: { type: 'STRING', enum: [...SUBCATEGORIES], nullable: true },
+    confidence: { type: 'STRING', enum: ['low', 'medium', 'high'] },
+    visibleText: { type: 'STRING' },
+    note: { type: 'STRING' },
   },
-} as const;
+};
 
 const SYSTEM =
   'Observas una foto de una carga de escombros y propones una clasificación para que una persona la revise. ' +
@@ -48,31 +47,22 @@ const SYSTEM =
 
 export type VisionCall = (image: { mediaType: 'image/jpeg' | 'image/png' | 'image/webp'; data: string }) => Promise<{ text: string; model: string }>;
 
-const callClaude: VisionCall = async ({ mediaType, data }) => {
-  if (!env.anthropicApiKey) throw new HttpError(503, 'El servicio de IA no está configurado en este servidor.', 'ai_not_configured');
-  const client = new Anthropic({ apiKey: env.anthropicApiKey, timeout: 60_000 });
+const callGemini: VisionCall = async ({ mediaType, data }) => {
+  if (!geminiReady()) throw new HttpError(503, 'El servicio de IA no está configurado en este servidor.', 'ai_not_configured');
   try {
-    const response = await client.messages.create({
-      model: env.auraModel,
-      max_tokens: 4000,
-      output_config: { effort: 'low', format: { type: 'json_schema', schema: SCHEMA } },
-      system: SYSTEM,
-      messages: [{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: mediaType, data } }, { type: 'text', text: 'Propón la clasificación de esta carga.' }] }],
-    });
-    if (response.stop_reason === 'refusal' || response.stop_reason === 'max_tokens') throw new HttpError(502, 'El servicio de IA no pudo analizar esta foto. Clasifícala a mano.', 'ai_no_answer');
-    const text = response.content.filter((b): b is Anthropic.TextBlock => b.type === 'text').map((b) => b.text).join('');
-    return { text, model: response.model };
+    const r = await askGemini({ system: SYSTEM, maxOutputTokens: 1000, schema: SCHEMA, timeoutMs: 45_000, parts: [{ inlineData: { mimeType: mediaType, data } }, { text: 'Propón la clasificación de esta carga.' }] });
+    if (!r.finished) throw new HttpError(502, 'El servicio de IA no pudo analizar esta foto. Clasifícala a mano.', 'ai_no_answer');
+    return { text: r.text, model: r.model };
   } catch (err) {
     if (err instanceof HttpError) throw err;
-    if (err instanceof Anthropic.RateLimitError) throw new HttpError(503, 'El servicio de IA está ocupado. Intenta en un momento o clasifica a mano.', 'ai_busy');
-    if (err instanceof Anthropic.APIError) console.warn('[ia] error del servicio:', err.status, err.message);
-    else console.warn('[ia] error:', (err as Error).message);
+    console.warn('[ia] error del servicio:', err instanceof GeminiError ? err.status : '', (err as Error).message);
+    if (err instanceof GeminiError && err.status === 429) throw new HttpError(503, 'El servicio de IA está ocupado. Intenta en un momento o clasifica a mano.', 'ai_busy');
     throw new HttpError(503, 'El servicio de IA no respondió. Clasifica a mano.', 'ai_unavailable');
   }
 };
 
 /** `call` se puede sustituir en las pruebas; en producción siempre es el servicio real. */
-export async function suggestFromPhoto(actor: Actor, photoId: string, call: VisionCall = callClaude): Promise<AiSuggestion> {
+export async function suggestFromPhoto(actor: Actor, photoId: string, call: VisionCall = callGemini): Promise<AiSuggestion> {
   assertFeature('ai_photo_detection');
   const photo = db().get('photos', photoId);
   if (!photo) throw notFound('La foto no existe.');

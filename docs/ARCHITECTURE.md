@@ -176,7 +176,7 @@ Etiqueta permanente "Datos simulados para demostración" mientras `config.demoMo
 ## 9. AURA (sección 8)
 
 - Sesiones en servidor: paso actual, borrador de reporte, código en contexto.
-- Intención híbrida: reglas por palabras clave (Plan B, siempre disponible) y, si `ANTHROPIC_API_KEY` está definido, clasificación por modelo restringida a devolver solo la intención.
+- Intención híbrida: reglas por palabras clave (Plan B, siempre disponible) y, si `GEMINI_API_KEY` está definido, clasificación por modelo restringida a devolver solo la intención.
 - Todos los textos salen de `auraTexts` (≥3 variantes rotadas) y cada dato viene de los servicios. Si no existe el código, lo dice.
 
 ## 10. Seguridad y no funcionales (18)
@@ -192,8 +192,8 @@ DB_DRIVER=memory            # memory | postgres
 DATABASE_URL=postgres://user:pass@host:5432/kindra
 PERSIST_FILE=true           # solo memory: guarda server/data/db.json
 DEMO_MODE=true
-ANTHROPIC_API_KEY=          # opcional
-AURA_MODEL=claude-opus-5-5
+GEMINI_API_KEY=          # opcional
+GEMINI_MODEL=gemini-2.5-flash
 TIME_SKEW_MINUTES=30
 UPLOAD_DIR=./data/uploads
 PUBLIC_BASE_URL=http://localhost:5173

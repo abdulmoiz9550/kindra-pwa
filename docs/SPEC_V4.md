@@ -26,7 +26,7 @@ Status codes are the ones in spec section 1: **1** working and verified, **2** p
 | Structured laboratory tests (7) | 4 | 1 | – | |
 | Corrections keep the previous value (8) | 2 | 1 | – | |
 | t and m³ never added together (8, 20) | 2 | 1 | – | Valorization rate mixed units when lots differed; corrected |
-| AI photo and text suggestion (8) | 4 | 2 | Medium | Built, off by default, tested with a substitute service. The live service refused the call: the API account has no credit |
+| AI photo and text suggestion (8) | 4 | 2 | Medium | Built, off by default, tested with a substitute service. Uses Google Gemini; see the live result in section 8 |
 | Reporter identity hidden from controller and auditor (5.9, 5.10) | 4 | 1 | – | Both roles could see it; corrected |
 | Public record without private values (9) | 2 | 1 | – | Corrected values could appear publicly; corrected |
 | Information requests (9) | 4 | 1 | – | Legal grounds and retention await approval |
@@ -202,7 +202,7 @@ Automated: 59 server tests pass (33 existing, 26 new in `spec-v4.test.ts` and `p
 | Offline capture marked pending, sent on reconnecting | Pass, driver collection |
 | Restore onto a real PostgreSQL database | Not tested; needs an empty database |
 | Household, business, community and coastal scenarios | Pass; oil tested by switching the module on in a test database |
-| AI suggestion against the live service | Failed: API account has no credit |
+| AI suggestion and AURA against live Gemini (2.5 Flash) | Pass, one call each from the server code |
 
 Test accounts (password `demo1234`): `ciudadano`, `contralora`, `coordinador`, `retiro`, `centro`, `centro-sur`, `evaluador`, `supervisor`, `obras`, `admin-ejecutor`, `admin`, `conductor`, `procesamiento`, `hogar`, `comercio`, `comunidad`, `costero`. The last six appear after resetting the demo data.
 

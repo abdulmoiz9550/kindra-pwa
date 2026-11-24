@@ -1,4 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk';
+import { askGemini, geminiReady, GeminiError } from './gemini';
 import type { GeoPoint, Lesson, OriginSize, OriginUrgency, SatisfactionAnswer, Sector } from '@kindra/shared';
 import { SIZE_LABELS, URGENCY_LABELS } from '@kindra/shared';
 import { db, type AuraSession } from '../core/db';
@@ -97,44 +97,29 @@ export function detectIntentByRules(text: string): Intent {
   return 'unknown';
 }
 
-let anthropic: Anthropic | null = null;
-function llm(): Anthropic | null {
-  if (!env.anthropicApiKey) return null;
-  if (!anthropic) anthropic = new Anthropic({ apiKey: env.anthropicApiKey });
-  return anthropic;
-}
-
 const INTENTS: Intent[] = ['report', 'status', 'confirm', 'dispute', 'where', 'safety', 'learn', 'progress', 'greeting', 'cancel', 'yes', 'no', 'out_of_scope', 'unknown'];
 
 /** Clasificación de intención con modelo de lenguaje. Devuelve solo una etiqueta; si falla, Plan B. */
 async function detectIntent(text: string, step: string): Promise<Intent> {
   const ruleIntent = detectIntentByRules(text);
-  const client = llm();
-  if (!client || ruleIntent !== 'unknown') return ruleIntent;
+  if (!geminiReady() || ruleIntent !== 'unknown') return ruleIntent;
   try {
-    const response = await client.messages.create({
-      model: env.auraModel,
-      max_tokens: 64,
-      output_config: { effort: 'low' },
+    const response = await askGemini({
+      maxOutputTokens: 64,
       system:
         'Clasificas mensajes en español de ciudadanos de La Guaira (Venezuela) que hablan con la asistente del retiro de escombros tras un terremoto. ' +
         'Responde únicamente con una de estas etiquetas, sin explicación: ' + INTENTS.join(', ') + '. ' +
         'report = quiere avisar de escombro; status = pregunta cómo va un reporte; confirm = dice que ya lo retiraron; dispute = dice que no lo retiraron; ' +
         'where = pregunta a dónde va o en qué se convierte; safety = pregunta si es peligroso; learn = quiere aprender; progress = pregunta por el avance del sector; ' +
         'greeting = saludo; cancel = quiere cancelar; yes/no = respuestas cortas; out_of_scope = otro servicio público; unknown = no está claro.',
-      messages: [{ role: 'user', content: `Paso actual de la conversación: ${step}\nMensaje: ${text}` }],
+      parts: [{ text: `Paso actual de la conversación: ${step}\nMensaje: ${text}` }],
     });
-    if (response.stop_reason === 'refusal') return ruleIntent;
-    const out = response.content
-      .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-      .map((b) => b.text)
-      .join(' ')
-      .trim()
-      .toLowerCase();
+    if (!response.finished) return ruleIntent;
+    const out = response.text.trim().toLowerCase();
     const found = INTENTS.find((i) => out === i || out.startsWith(i));
     return found || ruleIntent;
   } catch (err) {
-    if (err instanceof Anthropic.APIError) console.warn('[aura] clasificación por modelo no disponible:', err.status, err.message);
+    if (err instanceof GeminiError) console.warn('[aura] clasificación por modelo no disponible:', err.status, err.message);
     else console.warn('[aura] clasificación por modelo falló:', (err as Error).message);
     return ruleIntent;
   }

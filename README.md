@@ -101,7 +101,7 @@ npm run typecheck      # verificación de tipos de servidor y cliente
 
 ## AURA
 
-Funciona siempre con reconocimiento por palabras clave (Plan B). Si se define `ANTHROPIC_API_KEY`, la clasificación de intención usa además un modelo de lenguaje que devuelve únicamente la etiqueta de intención; los textos y los datos siguen saliendo de la base. Todos los textos de AURA y de los mensajes son editables en Administración → Textos de AURA.
+Funciona siempre con reconocimiento por palabras clave (Plan B). Si se define `GEMINI_API_KEY`, la clasificación de intención usa además un modelo de lenguaje que devuelve únicamente la etiqueta de intención; los textos y los datos siguen saliendo de la base. Todos los textos de AURA y de los mensajes son editables en Administración → Textos de AURA.
 
 ## Estructura
 

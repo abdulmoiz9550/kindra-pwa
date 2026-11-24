@@ -431,7 +431,7 @@ export const FEATURES: FeatureDefinition[] = [
   { key: 'community_announcements', label: 'Avisos comunitarios por sector', description: 'Avisa a los vecinos de un sector cuando hay puntos asignados para retiro.', group: 'debris', defaultOn: true, available: true },
   { key: 'preregistration', label: 'Códigos de pre-registro', description: 'Ingreso con código para personas sin teléfono. Oculto en esta fase.', group: 'debris', defaultOn: false, available: true },
   // Fase posterior
-  { key: 'ai_photo_detection', label: 'Sugerencias de IA sobre fotos', description: 'Apagada por defecto. Al encenderla, la foto elegida se envía al servicio de IA de Anthropic. El resultado es solo una sugerencia hasta que una persona autorizada la confirma.', group: 'later_phase', defaultOn: false, available: true },
+  { key: 'ai_photo_detection', label: 'Sugerencias de IA sobre fotos', description: 'Apagada por defecto. Al encenderla, la foto elegida se envía al servicio de IA de Google (Gemini). El resultado es solo una sugerencia hasta que una persona autorizada la confirma.', group: 'later_phase', defaultOn: false, available: true },
   // Ocultas en el módulo de escombros (addendum, parte 4)
   { key: 'hero_subscription', label: 'Suscripción Kindra Hero', description: 'Nivel de pago. Este módulo es un servicio de interés público.', group: 'hidden', defaultOn: false, available: false },
   { key: 'kindra_gift', label: 'Kindra Gift', description: 'Monetización, no aplica a escombros.', group: 'hidden', defaultOn: false, available: false },
