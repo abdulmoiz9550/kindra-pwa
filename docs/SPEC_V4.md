@@ -246,3 +246,13 @@ Effort in working days, to be confirmed after approval.
 - Administrador de entidad: instalaciones, trazabilidad y auditoría. Conductor: foto, vehículo, área, soporte, cumplimiento de horario.
 - Módulos por usuario, ingreso con correo, comprobantes, `/noticias`, `/ayuda`, ruta de navegación y detalle desde los gráficos.
 - Sin construir: Eco Challenges (faltan campañas aprobadas). Los textos «Acerca de» y de privacidad están publicados (redactados por el equipo); falta la revisión legal y el contacto de soporte.
+
+## Sin datos del cliente (26 nov 2026)
+
+- Retos ecológicos construidos y apagados: cada reto exige referencia de aprobación y no suma puntos.
+- Cifras oficiales en el tablero público: ninguna hasta marcarla con su aprobación (Administración → Noticias y ayuda).
+- Quejas y sugerencias por el formulario interno. Primera noticia publicada.
+- Conservación: propuesta técnica visible, sin aplicar.
+- Copia diaria en Supabase (Storage privado o base de datos). Falta un destino independiente de Supabase.
+- Salida a producción: base nueva y vacía con DEMO_MODE=false, SEED_ON_EMPTY=false, ADMIN_ALIAS y ADMIN_PASSWORD (12 o más). Borrar ADMIN_PASSWORD después del primer ingreso y activar el segundo paso.
+- Plantillas para el cliente: docs/plantillas.

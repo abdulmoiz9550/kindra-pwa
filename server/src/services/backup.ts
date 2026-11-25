@@ -1,11 +1,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { gunzipSync, gzipSync } from 'node:zlib';
 import type { KEvent } from '@kindra/shared';
 import { env } from '../config/env';
 import { db } from '../core/db';
 import { contentHashOf, finalHashOf } from '../core/events';
 import { badRequest, notFound } from '../core/errors';
 import { MemoryPersistence } from '../persistence/memory';
+import { remoteCopies } from './photoStore';
 import type { LoadedState, Persistence } from '../persistence/types';
 
 /**
@@ -28,17 +30,46 @@ export function listBackups() {
     .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
 }
 
+/** Copias del servidor y las guardadas en Supabase. */
+export async function listAllBackups() {
+  const local = listBackups();
+  const remote = await remoteCopies()?.list().catch(() => []);
+  const inRemote = new Map((remote || []).map((r) => [r.name.replace(/\.gz$/, ''), r]));
+  const rows = [...local.map((b) => ({ ...b, remote: inRemote.has(b.file) })), ...[...inRemote].filter(([f]) => !local.some((b) => b.file === f)).map(([file, r]) => ({ file, size: r.size, createdAt: r.createdAt, remote: true }))];
+  return rows.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+}
+
+/** Una copia diaria fuera del servidor: si la última tiene más de un día, se hace al arrancar y luego se revisa cada hora. */
+export async function dailyRemoteBackup(): Promise<void> {
+  const remote = remoteCopies();
+  if (!remote) return;
+  const last = (await remote.list()).map((r) => r.createdAt).sort().at(-1);
+  if (!last || Date.now() - Date.parse(last) > 24 * 3_600_000) await createBackup();
+}
+
 /** Copia lo que está realmente persistido (no el estado en memoria). */
-export async function createBackup(): Promise<{ file: string; events: number }> {
+export async function createBackup(): Promise<{ file: string; events: number; remote: boolean }> {
   const store = db();
   await store.flush();
   const state = await store.persistence.load();
   const dir = backupDir();
   fs.mkdirSync(dir, { recursive: true });
   const file = `auto-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
-  fs.writeFileSync(path.join(dir, file), JSON.stringify(state));
+  const json = JSON.stringify(state);
+  fs.writeFileSync(path.join(dir, file), json);
   for (const old of listBackups().filter((b) => b.file.startsWith('auto-')).slice(KEEP)) fs.unlinkSync(path.join(dir, old.file));
-  return { file, events: state.events.length };
+  let saved = false;
+  const remote = remoteCopies();
+  if (remote) {
+    try {
+      await remote.save(`${file}.gz`, gzipSync(json));
+      saved = true;
+      for (const old of (await remote.list()).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)).slice(KEEP)) await remote.remove(old.name);
+    } catch (err) {
+      console.error('[backup] no se pudo guardar fuera del servidor:', (err as Error).message);
+    }
+  }
+  return { file, events: state.events.length, remote: saved };
 }
 
 export function readBackup(fullPath: string): LoadedState {
@@ -81,6 +112,14 @@ export async function restoreInto(target: Persistence, state: LoadedState) {
 
 /** Prueba de restauración en una base temporal en memoria: no toca los datos reales. */
 export async function verifyBackupFile(file: string) {
+  const local = path.join(backupDir(), path.basename(file));
+  if (!fs.existsSync(local)) {
+    const data = await remoteCopies()?.load(`${path.basename(file)}.gz`);
+    if (data) {
+      fs.mkdirSync(backupDir(), { recursive: true });
+      fs.writeFileSync(local, gunzipSync(data));
+    }
+  }
   const state = readBackup(path.join(backupDir(), path.basename(file)));
   return { file, testedAt: new Date().toISOString(), ...(await restoreInto(new MemoryPersistence(null), state)) };
 }

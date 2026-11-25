@@ -28,7 +28,7 @@ const citizen: NavItem[] = [
 ];
 
 const MENUS: Record<Role, NavItem[]> = {
-  citizen: [...citizen, i('/recompensas', 'Recompensas', Award), i('/grupos', 'Comunidades y grupos', Users, { feature: 'community_groups' })],
+  citizen: [...citizen, i('/retos', 'Retos ecológicos', Leaf, { feature: 'eco_challenges' }), i('/recompensas', 'Recompensas', Award), i('/grupos', 'Comunidades y grupos', Users, { feature: 'community_groups' })],
   monitor: [
     i('/', 'Inicio', Home, { end: true }),
     i('/tablero', 'Avance por sector', BarChart3),
@@ -47,6 +47,7 @@ const MENUS: Record<Role, NavItem[]> = {
     i('/hogar/impacto', 'Mi impacto', Leaf),
     i('/aprende', 'Consejos y educación', BookOpen),
     i('/recompensas', 'Puntos', Award),
+    i('/retos', 'Retos ecológicos', Leaf, { feature: 'eco_challenges' }),
     i('/aura', 'AURA', MessageCircle),
   ],
   business: [
@@ -57,6 +58,7 @@ const MENUS: Record<Role, NavItem[]> = {
     i('/comercio/solicitar', 'Solicitar recolección', Package),
     i('/comercio/impacto', 'Impacto y reportes', Leaf),
     i('/aprende', 'Consejos y educación', BookOpen),
+    i('/retos', 'Retos ecológicos', Leaf, { feature: 'eco_challenges' }),
     i('/comercio/datos', 'Datos del comercio', Store),
   ],
   community: [
@@ -186,6 +188,7 @@ const MENUS: Record<Role, NavItem[]> = {
     i('/admin/puertas', 'Puertas y rastreo', ScanLine),
     i('/admin/configuracion', 'Configuración', Settings),
     i('/admin/estados', 'Estados', Database),
+    i('/admin/retos', 'Retos ecológicos', Leaf),
     i('/admin/contenido', 'Noticias y ayuda', Inbox),
     i('/admin/textos', 'Textos de AURA', MessageCircle),
     i('/admin/lecciones', 'Lecciones', BookOpen),

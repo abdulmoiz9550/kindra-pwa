@@ -5,6 +5,7 @@ import { requireAuth, requireRole, wrap } from '../middleware/auth';
 import { db } from '../core/db';
 import { badRequest, forbidden } from '../core/errors';
 import { assertFeature } from '../services/features';
+import { joinChallenge, listChallenges } from '../services/challenges';
 import { checkPassword, hashPassword, toPublicUser } from '../services/auth';
 import { logAccountChange } from '../services/governance';
 import { clearFailures, assertNotLocked, recordFailure } from '../services/lockout';
@@ -125,4 +126,14 @@ profilesRouter.get('/business', business, wrap((req, res) => {
 profilesRouter.put('/business', business, wrap((req, res) => {
   const b = myBusiness(req.auth!.user);
   res.json(upsertBusiness(req.auth!.actor, { ...businessBody.parse(req.body), id: b.id }));
+}));
+
+// ---------------------------------------------------------------- retos ecológicos
+
+profilesRouter.get('/challenges', wrap((req, res) => {
+  res.json(listChallenges(req.auth!.user, req.auth!.role));
+}));
+profilesRouter.post('/challenges/:id/join', wrap((req, res) => {
+  joinChallenge(req.auth!.user, req.auth!.role, String(req.params.id));
+  res.json({ ok: true });
 }));

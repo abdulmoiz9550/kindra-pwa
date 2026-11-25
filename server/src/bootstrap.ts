@@ -8,6 +8,7 @@ import { geminiReady } from './services/gemini';
 import { photoStoreName } from './services/photoStore';
 import { replayAll } from './core/events';
 import { seedDemo } from './seed/demo';
+import { startClean } from './seed/clean';
 import { ensureReportSnapshots } from './services/reportSnapshots';
 import path from 'node:path';
 
@@ -42,6 +43,7 @@ export async function initPlatform(opts: BootOptions = {}): Promise<Db> {
     const summary = await seedDemo();
     log(`[kindra] datos simulados cargados: ${summary.origins} orígenes, ${summary.trips} viajes, ${summary.batches} lotes, ${summary.events} eventos`);
   }
+  else if (!env.demoMode && process.env.ADMIN_ALIAS && process.env.ADMIN_PASSWORD && startClean(process.env.ADMIN_ALIAS, process.env.ADMIN_PASSWORD)) log('[kindra] arranque real: base vacía preparada sin datos simulados');
   ensureReportSnapshots();
   // Sugerencias de IA sobre fotos: encendidas una sola vez al autorizarse Gemini; después manda Administración → Funciones.
   if (geminiReady() && !getConfig().provisionalFlags.aiPhotosEnabled) updateConfig({ features: { ...getConfig().features, ai_photo_detection: true }, provisionalFlags: { ...getConfig().provisionalFlags, aiPhotosEnabled: true } });

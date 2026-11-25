@@ -111,6 +111,8 @@ export default function Dashboard() {
             <SourceNote source={d.origins.total.source} asOf={d.origins.total.asOf} />
           </Card>
 
+          <OfficialFigures />
+
           {/* Mapa de calor */}
           <Card
             title={
@@ -401,5 +403,18 @@ function Row({ label, value, unit, max, colorVar }: { label: string; value: numb
         {value === null ? 'sin dato' : `${fmtNum(value)} ${unit}`}
       </span>
     </div>
+  );
+}
+
+/** Cifras del reporte oficial aprobadas para ser públicas. Sin aprobación no aparece nada. */
+function OfficialFigures() {
+  const q = useQuery({ queryKey: ['public', 'official'], queryFn: () => api.get<{ title: string; reportedAt: string; indicators: { key: string; label: string; value: number | null; unit: string | null; breakdown?: { label: string; value: number }[] }[] } | null>('/public/reporte-oficial') });
+  if (!q.data?.indicators.length) return null;
+  return (
+    <Card title={q.data.title} subtitle={`Reporte oficial, ${new Date(q.data.reportedAt).toLocaleString('es-VE', { timeZone: 'America/Caracas' })}. No son datos en vivo.`}>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {q.data.indicators.map((i) => <div key={i.key}><p className="text-xs text-muted">{i.label}</p>{i.value !== null && <p className="text-lg font-bold">{i.value.toLocaleString('es-VE')} {i.unit}</p>}{i.breakdown?.map((b) => <p key={b.label} className="text-xs">{b.label}: {b.value}</p>)}</div>)}
+      </div>
+    </Card>
   );
 }

@@ -303,7 +303,7 @@ function Incidents() {
 }
 
 function Backups() {
-  const q = useAdminList<{ file: string; size: number; createdAt: string }>('backups');
+  const q = useAdminList<{ file: string; size: number; createdAt: string; remote?: boolean }>('backups');
   const { post, busy } = useAdminAction();
   const [result, setResult] = useState<{ file: string; ok: boolean; events: number; documents: number; chains: number; testedAt: string } | null>(null);
   if (q.isLoading) return <Spinner />;
@@ -317,7 +317,7 @@ function Backups() {
           <ul className="divide-y divide-line">
             {q.data!.map((b) => (
               <li key={b.file} className="py-2 text-sm flex flex-wrap justify-between gap-2">
-                <span>{fmtDateTime(b.createdAt)}<span className="block text-xs text-muted font-mono">{b.file} · {Math.round(b.size / 1024)} KB</span></span>
+                <span>{fmtDateTime(b.createdAt)}<span className="block text-xs text-muted font-mono">{b.file} · {Math.round(b.size / 1024)} KB{b.remote ? ' · guardada en Supabase' : ' · solo en el servidor'}</span></span>
                 <Button size="sm" variant="secondary" disabled={busy} onClick={async () => setResult(await post('backups/verify', { file: b.file }))}>Probar restauración</Button>
               </li>
             ))}

@@ -37,6 +37,9 @@ export function ensureDefaults(): void {
     for (const t of DEFAULT_AURA_TEXTS) if (!store.get('auraTexts', t.key)) store.put('auraTexts', { ...t, id: t.key } as AuraTextEntry & { id: string });
   }
   if (store.count('lessons') === 0) for (const l of DEFAULT_LESSONS) store.put('lessons', l);
+  if (!store.get('news', 'nw_inicio')) {
+    store.put('news', { id: 'nw_inicio', kind: 'news', title: 'Cómo avisar de un escombro', body: 'Desde «Avisar de un escombro» puedes enviar la ubicación y una foto, con o sin cuenta. Al terminar recibes un código. Guárdalo: con él puedes consultar cómo va tu reporte.', audience: [], published: true, publishedAt: '2026-11-25T12:00:00.000Z', updatedAt: '2026-11-25T12:00:00.000Z' });
+  }
   ensureDefaultSpace();
 }
 

@@ -21,10 +21,10 @@ interface Store {
 
 const auth = () => ({ Authorization: `Bearer ${env.supabaseServiceKey}`, apikey: env.supabaseServiceKey });
 let bucketReady: Promise<void> | null = null;
-async function ensureBucket(): Promise<void> {
-  const res = await fetch(`${env.supabaseUrl}/storage/v1/bucket/${BUCKET}`, { headers: auth(), signal: AbortSignal.timeout(15_000) });
+async function ensureBucket(bucket = BUCKET): Promise<void> {
+  const res = await fetch(`${env.supabaseUrl}/storage/v1/bucket/${bucket}`, { headers: auth(), signal: AbortSignal.timeout(15_000) });
   if (res.ok) return;
-  const made = await fetch(`${env.supabaseUrl}/storage/v1/bucket`, { method: 'POST', headers: { ...auth(), 'Content-Type': 'application/json' }, body: JSON.stringify({ id: BUCKET, name: BUCKET, public: false }), signal: AbortSignal.timeout(15_000) });
+  const made = await fetch(`${env.supabaseUrl}/storage/v1/bucket`, { method: 'POST', headers: { ...auth(), 'Content-Type': 'application/json' }, body: JSON.stringify({ id: bucket, name: bucket, public: false }), signal: AbortSignal.timeout(15_000) });
   if (!made.ok && made.status !== 409) throw new Error(`no se pudo crear el contenedor (${made.status})`);
 }
 
@@ -93,4 +93,56 @@ export function restoreMissingUpload(req: Request, _res: Response, next: NextFun
   const name = path.basename(decodeURIComponent(req.path));
   if (!/^[\w.-]+$/.test(name)) return next();
   ensureLocalUpload(name).then(() => next(), () => next());
+}
+
+// ---------------------------------------------------------------- copias de seguridad fuera del servidor
+
+/** Contenedor privado aparte; sin la clave de Storage, la base de datos. Nunca se sirven por la web. */
+const COPIES = 'kindra-copias';
+const COPY_PREFIX = 'copia/';
+export interface RemoteCopy {
+  name: string;
+  size: number;
+  createdAt: string;
+}
+export interface RemoteCopies {
+  save(name: string, data: Buffer): Promise<void>;
+  load(name: string): Promise<Buffer | null>;
+  list(): Promise<RemoteCopy[]>;
+  remove(name: string): Promise<void>;
+}
+
+export function remoteCopies(): RemoteCopies | null {
+  if (env.supabaseUrl && env.supabaseServiceKey) {
+    const api = `${env.supabaseUrl}/storage/v1`;
+    const call = (url: string, init: RequestInit) => fetch(url, { ...init, headers: { ...auth(), ...(init.headers || {}) }, signal: AbortSignal.timeout(60_000) });
+    return {
+      async save(name, data) {
+        await ensureBucket(COPIES);
+        const r = await call(`${api}/object/${COPIES}/${encodeURIComponent(name)}`, { method: 'POST', headers: { 'Content-Type': 'application/gzip', 'x-upsert': 'true' }, body: new Uint8Array(data) });
+        if (!r.ok) throw new Error(`Supabase Storage respondió ${r.status}`);
+      },
+      async load(name) {
+        const r = await call(`${api}/object/${COPIES}/${encodeURIComponent(name)}`, { method: 'GET' });
+        return r.ok ? Buffer.from(await r.arrayBuffer()) : null;
+      },
+      async list() {
+        const r = await call(`${api}/object/list/${COPIES}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prefix: '', limit: 100, sortBy: { column: 'created_at', order: 'desc' } }) });
+        if (!r.ok) return [];
+        const rows = (await r.json()) as { name: string; created_at: string; metadata?: { size?: number } | null }[];
+        return rows.map((x) => ({ name: x.name, size: x.metadata?.size ?? 0, createdAt: x.created_at }));
+      },
+      async remove(name) {
+        await call(`${api}/object/${COPIES}/${encodeURIComponent(name)}`, { method: 'DELETE' });
+      },
+    };
+  }
+  const p = db().persistence;
+  if (!(p instanceof PostgresPersistence)) return null;
+  return {
+    save: (n, d) => p.saveFile(COPY_PREFIX + n, 'application/gzip', d),
+    load: (n) => p.loadFile(COPY_PREFIX + n),
+    list: async () => (await p.listFiles(COPY_PREFIX)).map((x) => ({ ...x, name: x.name.slice(COPY_PREFIX.length) })),
+    remove: (n) => p.deleteFile(COPY_PREFIX + n),
+  };
 }

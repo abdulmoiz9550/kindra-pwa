@@ -436,6 +436,7 @@ export const FEATURES: FeatureDefinition[] = [
   { key: 'preregistration', label: 'Códigos de pre-registro', description: 'Ingreso con código para personas sin teléfono. Oculto en esta fase.', group: 'debris', defaultOn: false, available: true },
   // Fase posterior
   { key: 'ai_photo_detection', label: 'Sugerencias de IA sobre fotos', description: 'Al estar encendida, la foto elegida se envía al servicio de IA de Google (Gemini). El resultado es solo una sugerencia hasta que una persona autorizada la confirma.', group: 'later_phase', defaultOn: false, available: true },
+  { key: 'eco_challenges', label: 'Retos ecológicos', description: 'Apagados hasta que el proyecto apruebe una campaña. Cada reto exige su referencia de aprobación.', group: 'later_phase', defaultOn: false, available: true },
   // Ocultas en el módulo de escombros (addendum, parte 4)
   { key: 'community_groups', label: 'Comunidades y grupos costeros', description: 'Ocultos en el Módulo 1 por decisión del cliente.', group: 'hidden', defaultOn: false, available: true, locked: true },
   { key: 'hero_subscription', label: 'Suscripción Kindra Hero', description: 'Nivel de pago. Este módulo es un servicio de interés público.', group: 'hidden', defaultOn: false, available: false },
@@ -569,3 +570,13 @@ export const REVIEW_SCHEDULE: { key: string; label: string; scope: string }[] = 
   { key: 'month9', label: 'Control del piloto: mes 9', scope: 'Revisión formal.' },
   { key: 'month12', label: 'Control del piloto: mes 12', scope: 'Revisión formal.' },
 ];
+
+export const CHALLENGE_METRIC_LABELS: Record<'pickups' | 'reports' | 'lessons', string> = { pickups: 'recolecciones completadas y validadas', reports: 'reportes validados', lessons: 'lecciones completadas' };
+
+/** Propuesta técnica de conservación. No se aplica: falta la aprobación y la causal legal. */
+export const RETENTION_PROPOSAL: Record<'public' | 'restricted' | 'confidential' | 'critical', string> = {
+  public: 'Permanente',
+  restricted: 'Durante el proyecto y 5 años después de su cierre',
+  confidential: 'Durante el proyecto y 2 años después de su cierre',
+  critical: 'Accesos y seguridad: 2 años. Copias: las 14 más recientes',
+};

@@ -55,10 +55,12 @@ const RequestsPanel = lazy(() => import('./pages/panels/RequestsPanel'));
 const GroupReview = lazy(() => import('./pages/panels/GroupReview'));
 const NewsPage = lazy(() => import('./components/News'));
 const HelpPage = lazy(() => import('./components/News').then((m) => ({ default: m.HelpPage })));
+const Challenges = lazy(() => import('./pages/Challenges'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
 export default function App() {
   const groupsOn = useFeature('community_groups');
+  const ecoOn = useFeature('eco_challenges');
   return (
     <Layout>
       <Suspense fallback={<Spinner label="Cargando…" />}>
@@ -91,6 +93,7 @@ export default function App() {
           <Route path="/panel/escolta" element={<RequireRole roles={['removal', 'center', 'driver']}><Escort /></RequireRole>} />
           <Route path="/panel/control" element={<RequireRole roles={['center', 'destination', 'coordinator']}><Checkpoint /></RequireRole>} />
           <Route path="/notificaciones" element={<Notifications />} />
+          {ecoOn && <Route path="/retos" element={<RequireAccount><Challenges /></RequireAccount>} />}
           <Route path="/noticias" element={<NewsPage />} />
           <Route path="/ayuda" element={<HelpPage />} />
           <Route path="/ajustes" element={<Settings />} />

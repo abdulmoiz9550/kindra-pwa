@@ -75,6 +75,15 @@ export class PostgresPersistence implements Persistence {
     return r.rows[0]?.data ?? null;
   }
 
+  async listFiles(prefix: string): Promise<{ name: string; size: number; createdAt: string }[]> {
+    const r = await this.pool.query<{ name: string; size: number; created_at: Date }>('SELECT name, length(data) AS size, created_at FROM photo_files WHERE starts_with(name, $1) ORDER BY created_at DESC', [prefix]);
+    return r.rows.map((x) => ({ name: x.name, size: Number(x.size), createdAt: x.created_at.toISOString() }));
+  }
+
+  async deleteFile(name: string): Promise<void> {
+    await this.pool.query('DELETE FROM photo_files WHERE name = $1', [name]);
+  }
+
   async clearAll(): Promise<void> {
     // Único punto donde se borra la bitácora: reinicio de datos de demostración (19.5).
     await this.pool.query('SELECT kindra_reset_demo()');

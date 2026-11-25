@@ -47,7 +47,7 @@ export function HelpPage() {
       {block('Acerca de Kindra', q.data.about)}
       {block('Aviso de privacidad', q.data.privacy)}
       {block('Contacto y soporte', q.data.contact)}
-      <p className="text-sm"><Link className="underline text-primary" to="/solicitar-informacion">Solicitar información</Link>{q.data.complaintChannelUrl && <> · <a className="underline text-primary" href={q.data.complaintChannelUrl} target="_blank" rel="noreferrer">Canal de denuncias</a></>}</p>
+      <p className="text-sm"><Link className="underline text-primary" to="/solicitar-informacion">Solicitar información</Link>{' · '}<Link className="underline text-primary" to="/solicitar-informacion?asunto=Queja%20o%20sugerencia">Enviar una queja o sugerencia</Link>{q.data.complaintChannelUrl && <> · <a className="underline text-primary" href={q.data.complaintChannelUrl} target="_blank" rel="noreferrer">Canal de denuncias</a></>}</p>
     </div>
   );
 }

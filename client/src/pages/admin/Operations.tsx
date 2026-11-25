@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { INFO_CLASSIFICATION_LABELS, ROLES, ROLE_LABELS } from '@kindra/shared';
+import { INFO_CLASSIFICATION_LABELS, RETENTION_PROPOSAL, ROLES, ROLE_LABELS } from '@kindra/shared';
 import type { Entity, InfoClassification, NewsItem, OriginEffectiveState, Role, AppConfig } from '@kindra/shared';
 import { api } from '../../lib/api';
 import { fmtDate, fmtDateTime } from '../../lib/format';
 import { Alert, Badge, Button, Card, EmptyState, Field, Input, Modal, OriginStateBadge, Select, Spinner, Textarea } from '../../components/ui';
 import { TraceList, type TraceRow } from '../../components/TraceList';
 import type { HelpData } from '../../components/News';
+import { PublicFigures } from './Challenges';
 import { Section, useAdminAction, useAdminGet, useAdminList } from './shared';
 
 /** Vista global o de una organización (v4.0, 5.1). */
@@ -75,6 +76,7 @@ export function Content() {
         <Card title="Noticias y campañas">
           {!q.data?.length ? <EmptyState title="Todavía no hay publicaciones" /> : <ul className="divide-y divide-line text-sm">{q.data.map((n) => <li key={n.id} className="py-2 flex justify-between gap-2"><span><strong>{n.title}</strong> <Badge tone={n.published ? 'ok' : 'neutral'}>{n.published ? 'Publicada' : 'Borrador'}</Badge><span className="block text-xs text-muted">{n.kind === 'campaign' ? 'Campaña' : 'Noticia'} · {fmtDate(n.publishedAt)} · {n.audience.length ? n.audience.map((r) => ROLE_LABELS[r]).join(', ') : 'todas las personas'}</span></span><Button size="sm" variant="ghost" onClick={() => { const { updatedAt: _u, ...rest } = n; setD(rest); }}>Editar</Button></li>)}</ul>}
         </Card>
+        <PublicFigures />
         <Card title="Página de ayuda" subtitle="Lo que quede vacío se muestra como pendiente de publicación.">
           <Field label="Acerca de Kindra"><Textarea rows={4} value={h.about} onChange={(e) => setH({ ...h, about: e.target.value })} /></Field>
           <Field label="Aviso de privacidad (texto aprobado)"><Textarea rows={6} value={h.privacy} onChange={(e) => setH({ ...h, privacy: e.target.value })} /></Field>
@@ -149,7 +151,7 @@ export function Retention() {
       <ul className="divide-y divide-line text-sm">
         {(Object.keys(INFO_CLASSIFICATION_LABELS) as InfoClassification[]).map((k) => {
           const r = q.data?.retention?.[k];
-          return <li key={k} className="py-2 flex justify-between gap-2"><span><strong>{INFO_CLASSIFICATION_LABELS[k]}</strong><span className="block text-xs text-muted">{r ? `${r.period} · ${r.legalBasis} · aprobación ${r.approvalReference} · ${fmtDate(r.updatedAt)}` : 'Pendiente de aprobación'}</span></span><Button size="sm" variant="ghost" onClick={() => setEdit({ level: k, period: r?.period || '', legalBasis: r?.legalBasis || '', approvalReference: r?.approvalReference || '' })}>Editar</Button></li>;
+          return <li key={k} className="py-2 flex justify-between gap-2"><span><strong>{INFO_CLASSIFICATION_LABELS[k]}</strong><span className="block text-xs text-muted">{r ? `${r.period} · ${r.legalBasis} · aprobación ${r.approvalReference} · ${fmtDate(r.updatedAt)}` : `Pendiente de aprobación. Propuesta técnica: ${RETENTION_PROPOSAL[k]}`}</span></span><Button size="sm" variant="ghost" onClick={() => setEdit({ level: k, period: r?.period || RETENTION_PROPOSAL[k], legalBasis: r?.legalBasis || '', approvalReference: r?.approvalReference || '' })}>Editar</Button></li>;
         })}
       </ul>
       <Modal open={!!edit} onClose={() => setEdit(null)} title={edit ? INFO_CLASSIFICATION_LABELS[edit.level] : ''}>

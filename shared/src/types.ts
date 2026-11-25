@@ -750,6 +750,8 @@ export interface AppConfig {
   provisionalFlags: Record<string, boolean>;
   /** Funciones activables por el administrador principal (addendum, partes 1 y 4). */
   features: Record<string, boolean>;
+  /** Cifras del reporte oficial que se muestran en público. Sin valor = ninguna. */
+  publicReport?: { keys: string[]; approvalReference: string };
   /** Contenido de Ayuda. Vacío = pendiente de publicación. */
   help?: { about: string; privacy: string; contact: string; updatedAt: string | null };
   /** Plazos de conservación aprobados por nivel de clasificación. Sin valor = pendiente. */
@@ -1228,4 +1230,21 @@ export interface ReviewLog {
   note: string;
   userId: string | null;
   doneAt: string;
+}
+
+/** Reto ecológico (v4.0, 25.3). Solo se publica con referencia de aprobación. */
+export interface EcoChallenge {
+  id: string;
+  title: string;
+  rules: string;
+  recognition: string;
+  startDate: string;
+  endDate: string;
+  metric: 'pickups' | 'reports' | 'lessons';
+  target: number;
+  audience: Role[];
+  approvalReference: string;
+  published: boolean;
+  participants: { userId: string; joinedAt: string }[];
+  updatedAt: string;
 }

@@ -18,6 +18,7 @@ import Audit from './Audit';
 import Gates from './Gates';
 import Governance from './Governance';
 import { CitizenReports, Content, Traceability } from './Operations';
+import AdminChallenges from './Challenges';
 import Participation, { Modules, Operators } from './Participation';
 import { TwoFactorGate } from './TwoFactorGate';
 import { useFeature } from '../../lib/config';
@@ -26,6 +27,7 @@ const NAV = [
   { to: '', label: 'Resumen' },
   { to: 'trazabilidad', label: 'Trazabilidad' },
   { to: 'reportes', label: 'Reportes ciudadanos' },
+  { to: 'retos', label: 'Retos ecológicos' },
   { to: 'contenido', label: 'Noticias y ayuda' },
   { to: 'funciones', label: 'Funciones' },
   { to: 'espacios', label: 'Espacios' },
@@ -75,6 +77,7 @@ export default function Admin() {
             <Route index element={<Overview />} />
             <Route path="trazabilidad" element={<Traceability />} />
             <Route path="reportes" element={<CitizenReports />} />
+            <Route path="retos" element={<AdminChallenges />} />
             <Route path="contenido" element={<Content />} />
             <Route path="funciones" element={<Features />} />
             <Route path="espacios" element={<Spaces />} />

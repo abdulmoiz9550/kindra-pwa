@@ -5,7 +5,7 @@ import type {
   Movement, DeclaredStop, TrackPoint, TripRoute, ReportSnapshot, InfoRequest,
   PickupRequest, RiskEntry, SecurityIncident, RecoveryRequest,
   Group, Membership, GroupActivity, WasteReport, Business, ModuleDefinition, AiSuggestion,
-  CorrectionRequest, NewsItem, ReportAssignment, ReviewLog,
+  CorrectionRequest, NewsItem, ReportAssignment, ReviewLog, EcoChallenge,
 } from '@kindra/shared';
 import type { Persistence } from '../persistence/types';
 
@@ -81,6 +81,7 @@ export interface Collections {
   news: NewsItem;
   reportAssignments: ReportAssignment;
   reviewLogs: ReviewLog;
+  ecoChallenges: EcoChallenge;
   // Proyecciones derivadas de eventos
   origins: Origin;
   trips: Trip;
@@ -112,7 +113,7 @@ export const PROJECTION_COLLECTIONS: CollectionName[] = [
 
 const ALL_COLLECTIONS: CollectionName[] = [
   'entities', 'users', 'sectors', 'centers', 'vehicleTypes', 'vehicles', 'lessons', 'auraTexts', 'config', 'photos',
-  'preregistrationCodes', 'notifications', 'auraSessions', 'certificates', 'spaces', 'twoFactorSecrets', 'trackPoints', 'tripRoutes', 'reportSnapshots', 'infoRequests', 'pickupRequests', 'risks', 'incidents', 'recoveryRequests', 'groups', 'memberships', 'groupActivities', 'wasteReports', 'businesses', 'moduleDefinitions', 'aiSuggestions', 'correctionRequests', 'news', 'reportAssignments', 'reviewLogs', ...PROJECTION_COLLECTIONS,
+  'preregistrationCodes', 'notifications', 'auraSessions', 'certificates', 'spaces', 'twoFactorSecrets', 'trackPoints', 'tripRoutes', 'reportSnapshots', 'infoRequests', 'pickupRequests', 'risks', 'incidents', 'recoveryRequests', 'groups', 'memberships', 'groupActivities', 'wasteReports', 'businesses', 'moduleDefinitions', 'aiSuggestions', 'correctionRequests', 'news', 'reportAssignments', 'reviewLogs', 'ecoChallenges', ...PROJECTION_COLLECTIONS,
 ];
 
 /**

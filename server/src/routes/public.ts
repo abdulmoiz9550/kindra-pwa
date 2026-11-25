@@ -4,6 +4,7 @@ import { KINDRA_TAGLINE, USE_TYPE_LABELS, SIZE_LABELS, URGENCY_LABELS, SUBCATEGO
 import { db } from '../core/db';
 import { wrap, citizenActor } from '../middleware/auth';
 import { listNews } from '../services/ops';
+import { listSnapshots } from '../services/reportSnapshots';
 import { submitInfoRequest, publicInfoRequest } from '../services/governance';
 import { getConfig } from '../services/config';
 import { listDemoRoles } from '../services/auth';
@@ -45,7 +46,7 @@ publicRouter.get('/config', (_req, res) => {
     labels: { useTypes: USE_TYPE_LABELS, sizes: SIZE_LABELS, urgencies: URGENCY_LABELS, subcategories: SUBCATEGORY_LABELS, rejectionReasons: REJECTION_REASON_LABELS, structureTypes: STRUCTURE_TYPE_LABELS, causes: CAUSE_LABELS, roles: ROLE_LABELS },
     provisionalFlags: cfg.provisionalFlags,
     // Solo el estado efectivo (encendida o no); nunca la lista de funciones ocultas.
-    features: Object.fromEntries(FEATURES.filter((f) => f.group === 'debris' || (['oil_module', 'ai_photo_detection', 'community_groups'].includes(f.key) && featureOn(cfg.features, f.key))).map((f) => [f.key, featureOn(cfg.features, f.key)])),
+    features: Object.fromEntries(FEATURES.filter((f) => f.group === 'debris' || (['oil_module', 'ai_photo_detection', 'community_groups', 'eco_challenges'].includes(f.key) && featureOn(cfg.features, f.key))).map((f) => [f.key, featureOn(cfg.features, f.key)])),
   });
 });
 
@@ -163,4 +164,12 @@ publicRouter.get('/noticias', (req, res) => res.json(listNews(req.auth?.role ?? 
 publicRouter.get('/ayuda', (_req, res) => {
   const cfg = getConfig();
   res.json({ ...(cfg.help || { about: '', privacy: '', contact: '', updatedAt: null }), complaintChannelUrl: cfg.complaintChannelUrl });
+});
+
+/** Cifras del reporte oficial con aprobación para ser públicas. Ninguna por defecto. */
+publicRouter.get('/reporte-oficial', (_req, res) => {
+  const p = getConfig().publicReport;
+  const snap = listSnapshots()[0];
+  if (!p?.keys.length || !p.approvalReference || !snap) return res.json(null);
+  res.json({ title: snap.title, reportedAt: snap.reportedAt, source: snap.source, indicators: snap.indicators.filter((i) => p.keys.includes(i.key)) });
 });

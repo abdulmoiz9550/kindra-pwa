@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { INFO_REQUEST_STATUS_LABELS } from '@kindra/shared';
 import type { InfoRequestStatus } from '@kindra/shared';
 import { api, errorMessage } from '../../lib/api';
@@ -16,7 +17,8 @@ interface Status {
 
 /** v4.0, sección 9: solicitud de información. Se pide solo lo necesario; una persona la revisa. */
 export default function InfoRequestPage() {
-  const [f, setF] = useState({ subject: '', description: '', name: '', contact: '' });
+  const [params] = useSearchParams();
+  const [f, setF] = useState({ subject: (params.get('asunto') || '').slice(0, 120), description: '', name: '', contact: '' });
   const [code, setCode] = useState('');
   const [sent, setSent] = useState<Status | null>(null);
   const [found, setFound] = useState<Status | null>(null);
@@ -48,7 +50,7 @@ export default function InfoRequestPage() {
 
   return (
     <div className="max-w-xl mx-auto space-y-4">
-      <PageTitle title="Solicitar información" subtitle="Una persona autorizada revisa cada solicitud y decide qué se puede entregar." />
+      <PageTitle title="Solicitar información" subtitle="También puedes enviar una queja o sugerencia. Una persona autorizada revisa cada solicitud." />
       {sent && (
         <Alert tone="ok" title={`Solicitud recibida: ${sent.code}`}>
           Guarda este código para consultar el estado.
@@ -57,7 +59,7 @@ export default function InfoRequestPage() {
       <Card title="Nueva solicitud">
         <form onSubmit={(e) => { e.preventDefault(); send(); }}>
           <Field label="Asunto" required><Input value={f.subject} maxLength={120} onChange={(e) => setF({ ...f, subject: e.target.value })} required /></Field>
-          <Field label="Qué información buscas" required><Textarea value={f.description} maxLength={2000} onChange={(e) => setF({ ...f, description: e.target.value })} required /></Field>
+          <Field label="Qué información buscas o qué pasó" required><Textarea value={f.description} maxLength={2000} onChange={(e) => setF({ ...f, description: e.target.value })} required /></Field>
           <Field label="Tu nombre" hint="Opcional. No se publica."><Input value={f.name} maxLength={80} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
           <Field label="Cómo contactarte" hint="Opcional. Solo lo ve la administración."><Input value={f.contact} maxLength={120} onChange={(e) => setF({ ...f, contact: e.target.value })} /></Field>
           {error && <Alert tone="bad" className="mb-3">{error}</Alert>}

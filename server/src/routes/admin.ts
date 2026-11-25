@@ -22,7 +22,9 @@ import { resetDemo } from '../seed/demo';
 import { badRequest } from '../core/errors';
 import { clientCount } from '../realtime/sse';
 import { listInfoRequests, actOnInfoRequest, securityLog, listRecovery, resolveRecovery, upsertRisk, createIncident, updateIncident } from '../services/governance';
-import { listBackups, createBackup, verifyBackupFile } from '../services/backup';
+import { listAllBackups, createBackup, verifyBackupFile } from '../services/backup';
+import { upsertChallenge } from '../services/challenges';
+import { listSnapshots } from '../services/reportSnapshots';
 import { adminGroups, upsertGroup, upsertBusiness, businessBody } from '../services/profiles';
 import { nowIso } from '../core/ids';
 import { adminOverview, assignReport, citizenQueue, dataQuality, listNews, logReview, reviewStatus, traceability, upsertNews } from '../services/ops';
@@ -426,7 +428,9 @@ adminRouter.post(
   }),
 );
 
-adminRouter.get('/backups', (_req, res) => res.json(listBackups()));
+adminRouter.get('/backups', wrap(async (_req, res) => {
+  res.json(await listAllBackups());
+}));
 adminRouter.post(
   '/backups',
   wrap(async (_req, res) => {
@@ -526,5 +530,24 @@ adminRouter.post(
   wrap((req, res) => {
     const { note } = z.object({ note: z.string().min(3).max(800) }).parse(req.body);
     res.status(201).json(logReview(req.auth!.actor, String(req.params.key), note));
+  }),
+);
+
+adminRouter.get('/challenges', (_req, res) => res.json(db().list('ecoChallenges').sort((a, b) => (a.startDate < b.startDate ? 1 : -1))));
+adminRouter.post(
+  '/challenges',
+  wrap((req, res) => {
+    const d = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+    const body = z.object({ id: z.string().optional(), title: z.string().min(3).max(120), rules: z.string().min(5).max(3000), recognition: z.string().max(300), startDate: d, endDate: d, metric: z.enum(['pickups', 'reports', 'lessons']), target: z.number().int().min(1).max(1000), audience: z.array(z.enum(ROLES as [Role, ...Role[]])), approvalReference: z.string().max(200), published: z.boolean() }).parse(req.body);
+    res.json(upsertChallenge(req.auth!.actor, body));
+  }),
+);
+adminRouter.get('/public-report/options', (_req, res) => res.json(listSnapshots().slice(0, 1)));
+adminRouter.put(
+  '/public-report',
+  wrap((req, res) => {
+    const body = z.object({ keys: z.array(z.string().max(60)).max(30), approvalReference: z.string().max(200) }).parse(req.body);
+    if (body.keys.length && body.approvalReference.trim().length < 3) throw badRequest('Indica la referencia de aprobación.');
+    res.json(updateConfig({ publicReport: body }).publicReport);
   }),
 );
