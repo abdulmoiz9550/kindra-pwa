@@ -456,6 +456,10 @@ adminRouter.put(
   }),
 );
 
+adminRouter.use('/groups', (_req, _res, next) => {
+  assertFeature('community_groups');
+  next();
+});
 adminRouter.get('/groups', (_req, res) => res.json(adminGroups()));
 adminRouter.post(
   '/groups',

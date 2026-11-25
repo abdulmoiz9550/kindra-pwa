@@ -47,6 +47,8 @@ before(async () => {
   process.env.JOBS_INTERVAL_SECONDS = '0';
   process.env.OSRM_URL = 'off';
   await initPlatform({ persistence: new MemoryPersistence(null), seed: true, quiet: true });
+  // Ocultos en el Módulo 1: aquí se encienden solo para probarlos.
+  updateConfig({ features: { ...(db().get('config', 'main')!.features || {}), community_groups: true } });
   server = createApp().listen(0);
   await new Promise((r) => server.once('listening', r));
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
@@ -297,4 +299,14 @@ test('puntos: reglas y movimientos visibles; pendiente hasta registrar la aproba
   assert.equal((await put('/admin/incentives', admin, { status: 'approved', reference: 'ACTA-9' })).json.status, 'approved');
   assert.equal((await get('/public/config')).json.incentives.reference, 'ACTA-9');
   assert.equal((await put('/admin/incentives', admin, { status: 'pending', reference: null })).json.status, 'pending');
+});
+
+test('Módulo 1: comunidades y grupos costeros ocultos por defecto y sin interruptor', async () => {
+  const on = db().get('config', 'main')!.features;
+  updateConfig({ features: { ...on, community_groups: false } });
+  assert.equal((await get('/profiles/group', tok('costero', 'coastal'))).status, 403);
+  assert.equal((await get('/profiles/groups', tok('ciudadano', 'citizen'))).status, 403);
+  assert.equal((await post('/auth/demo-switch', null, { role: 'community' })).status, 403);
+  assert.ok(!(await get('/public/config')).json.demoRoles.some((r: any) => r.role === 'community' || r.role === 'coastal'));
+  assert.equal((await put('/admin/features', tok('admin', 'admin', true), { community_groups: true })).status, 400);
 });

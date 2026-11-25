@@ -28,7 +28,7 @@ const citizen: NavItem[] = [
 ];
 
 const MENUS: Record<Role, NavItem[]> = {
-  citizen: [...citizen, i('/recompensas', 'Recompensas', Award), i('/grupos', 'Comunidades y grupos', Users)],
+  citizen: [...citizen, i('/recompensas', 'Recompensas', Award), i('/grupos', 'Comunidades y grupos', Users, { feature: 'community_groups' })],
   monitor: [
     i('/', 'Inicio', Home, { end: true }),
     i('/tablero', 'Avance por sector', BarChart3),
@@ -38,7 +38,7 @@ const MENUS: Record<Role, NavItem[]> = {
     i('/aura', 'AURA', MessageCircle),
     i('/aprende', 'Guías y formación', BookOpen),
     i('/recompensas', 'Recompensas', Award),
-    i('/grupos', 'Comunidades y grupos', Users),
+    i('/grupos', 'Comunidades y grupos', Users, { feature: 'community_groups' }),
   ],
   householder: [
     i('/hogar', 'Inicio', Home, { end: true }),
@@ -149,7 +149,7 @@ const MENUS: Record<Role, NavItem[]> = {
     i('/panel/coordinador?tab=monitor', 'Contralores', ShieldCheck),
     i('/panel/coordinador?tab=manual', 'Revisión manual', FileText),
     i('/panel/coordinador?tab=new', 'Origen institucional', Building2),
-    i('/panel/grupos', 'Comunidades y grupos', Users),
+    i('/panel/grupos', 'Comunidades y grupos', Users, { feature: 'community_groups' }),
     i('/panel/control', 'Control', ScanLine),
     i('/panel/seguimiento', 'Seguimiento de camiones', Truck),
   ],
@@ -172,7 +172,7 @@ const MENUS: Record<Role, NavItem[]> = {
     i('/admin/operadores', 'Operadores', Factory),
     i('/panel/solicitudes', 'Solicitudes', ClipboardList),
     i('/panel/seguimiento', 'Seguimiento', Truck),
-    i('/admin/participacion', 'Comunidades y comercios', Store),
+    i('/admin/participacion', 'Comercios', Store),
     i('/admin/funciones', 'Funciones', Settings),
     i('/admin/espacios', 'Espacios', Layers),
     i('/admin/sectores', 'Sectores', MapIcon),

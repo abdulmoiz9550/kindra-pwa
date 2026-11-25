@@ -13,7 +13,7 @@ Status codes are the ones in spec section 1: **1** working and verified, **2** p
 | Modules, future ones inactive (2) | 1 | 1 | – | The oil module needs a complete, approved definition before it can be switched on; it is off |
 | 22 Nov report, daily/accumulated, m³/t, dash is not zero (3, 8) | 4 | 1 | – | Institutional roles only; publication not approved |
 | One facility, several operators (4) | 2 | 1 | – | Duplicate sites are rejected by the server |
-| Canonical coordinates (4) | 2 | 5 | High | 2 of 4 sites missing, see section 5 |
+| Canonical coordinates (4) | 2 | 1 | – | All four sites confirmed by the client |
 | Role separation on the server (5, 10) | 1 | 1 | – | 10 roles tested against 15 routes |
 | Separate processing role (5.6) | 2 | 1 | – | Once a centre has processing staff, its receiving staff can no longer process. Centres without them work as before |
 | Desktop sidebar, tabs per profile (6, 27) | 2 | 1 | – | |
@@ -40,7 +40,7 @@ Status codes are the ones in spec section 1: **1** working and verified, **2** p
 | Driver module (17) | 4 | 1 | – | Five sections, offline capture |
 | Driver earnings and wallet (17.3, 29) | – | 1 | – | Does not exist; payments are locked off |
 | Points, levels, card (18, 29) | 1 | 1 | – | Written rules and history on screen; marked pending until an approval document is recorded |
-| Household, community, business, coastal profiles (25) | 4 | 2 | Medium | Built. Eco Challenges are not, they need approved campaigns |
+| Household and business profiles (25) | 4 | 2 | Medium | Built; Eco Challenges are not. Communities and coastal groups are hidden in Module 1 by client decision |
 | Facility, operator and date filters, drill-down (20) | 2 | 1 | – | |
 | Installable, offline notice, queued captures (27) | 1 | 1 | – | |
 
@@ -139,14 +139,16 @@ Facility + Operator 1 ── n  Operational record
                             · reportSnapshots.rows: reported figures with source date and time
 ```
 
-| Facility | Coordinates in the project | Status |
-|---|---|---|
-| Santa Eduvigis | 10.58962, -67.0022 (unloading 10.58703, -67.00575) | Reused unchanged |
-| Playa Grande, Calle 6 | 10.61039, -67.01919 | Reused unchanged |
-| Caraballeda | none | **Missing, please resend** |
-| Playa Escondida | none | **Missing, please resend** |
+Confirmed by the client on 25 November 2026 (replaces v0.3 sections 1 and 4). Caribe and Tanaguarena are not separate sites.
 
-Searched: source code, its history, project documents, the DOCX and PDF of v4.0, and the downloads folder. An old local demo file holds placeholder points for generic centres; they were not used. The live site was also checked on 25 November 2026: it has no coordinates for these two sites either.
+| Facility | Type, zone | Coordinates | Operators |
+|---|---|---|---|
+| Caraballeda | CDT, East | 10.61911, -66.85436 | Public, contractor |
+| Playa Escondida | CDT, East | 10.61144, -66.83332 | Public, contractor |
+| Playa Grande (same site as Calle 6) | CDT, West | 10.61039, -67.01919 | Public, contractor |
+| Santa Eduvigis | CDF, West | 10.58962, -67.00220; unloading 10.58703, -67.00575 | To be registered |
+
+Operators are generic types; real companies are registered from Administration. Official m³ totals are stored as printed, next to the row sums, and flagged as a source discrepancy. A site is active if any operator reports material that day. Assumption to confirm: at Playa Grande, the "Playa Grande" row is the public operator and "Calle 6" the contractor.
 
 Santa Eduvigis keeps its existing classification as a separate final-disposal site.
 
@@ -227,14 +229,10 @@ Effort in working days, to be confirmed after approval.
 
 ## 11. Decisions needed
 
-1. Coordinates of Caraballeda and Playa Escondida.
-2. Is "Playa Grande" the same site as "Playa Grande, Calle 6"? Until answered its figures count in the total but sit on no site.
-3. Are the generic "Operador Contratista" and "Operador Público" the same organizations as Miyamoto International and the Ministry of Public Works? If so they should be merged.
-4. Operator of Playa Escondida (unlabelled row), Playa Grande and Santa Eduvigis.
-5. The report's printed m³ totals differ from the sum of its own rows: accumulated 1,382,738.94 against 1,382,739.69; daily 5,606.04 against 5,606.03. Tonnes match. Which is right?
-6. May the report figures and operator names be shown publicly?
-7. Client review of the screens in section 4 and of the counting rules in 4.3.
-8. Approval document for the points rules; whether a driver payment scheme exists; the oil module definition.
-9. Retention periods and legal grounds for disclosure.
-10. Email or SMS provider for password recovery; hosting for backups and images.
-11. The reference screenshots, the screen recording and VESTIGIOS.pdf, which were not among the files available.
+1. May the report figures be shown publicly?
+2. Approval document for the points rules; whether a driver payment scheme exists; the oil module definition.
+3. Retention periods and legal grounds for disclosure.
+4. Email or SMS provider for password recovery; hosting for backups and images; separate test site.
+5. May photos be sent to Google Gemini?
+6. Which Playa Grande row is public and which is contractor; operator of Santa Eduvigis.
+7. Client review of the screens in section 4.

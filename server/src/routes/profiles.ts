@@ -4,6 +4,7 @@ import { MUTABLE_NOTIFICATIONS } from '@kindra/shared';
 import { requireAuth, requireRole, wrap } from '../middleware/auth';
 import { db } from '../core/db';
 import { badRequest, forbidden } from '../core/errors';
+import { assertFeature } from '../services/features';
 import { checkPassword, hashPassword, toPublicUser } from '../services/auth';
 import { logAccountChange } from '../services/governance';
 import { clearFailures, assertNotLocked, recordFailure } from '../services/lockout';
@@ -12,6 +13,11 @@ import { businessBody, completeActivity, createActivity, decideMembership, group
 /** Perfiles de la PWA (v4.0, sección 25) y cuenta personal. */
 export const profilesRouter = Router();
 profilesRouter.use(requireAuth);
+// Comunidades y grupos costeros: ocultos en el Módulo 1.
+profilesRouter.use(['/groups', '/group', '/review'], (_req, _res, next) => {
+  assertFeature('community_groups');
+  next();
+});
 
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const time = z.string().regex(/^\d{2}:\d{2}$/);

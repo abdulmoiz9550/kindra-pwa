@@ -904,6 +904,12 @@ export interface ReportSnapshot {
   rows: ReportSnapshotRow[];
   /** Totales tal como aparecen impresos en el reporte. */
   reportedTotals: ReportSnapshotTotals;
+  /** Suma de las filas, guardada junto al total oficial. */
+  rowSums?: ReportSnapshotTotals;
+  /** Diferencias entre el total oficial y la suma de filas: discrepancia de la fuente, sin corregir. */
+  sourceDiscrepancies?: { field: keyof ReportSnapshotTotals; official: number | null; rowSum: number | null }[];
+  /** Versión de los datos entregados por el cliente. */
+  revision?: number;
 }
 
 /** Niveles de clasificación de la información (sección 9). */

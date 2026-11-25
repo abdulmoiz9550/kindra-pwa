@@ -99,31 +99,38 @@ test('4 y 12: un CDT físico, un solo registro y pin, dos operadores filtrables 
   assert.equal(new Set(ids).size, ids.length);
   const car = all.facilities.filter((f: any) => f.name === 'Caraballeda');
   assert.equal(car.length, 1);
-  assert.deepEqual(car[0].operators.map((o: any) => o.name).sort(), ['Ministerio de Obras Públicas', 'Miyamoto International']);
+  assert.deepEqual(car[0].operators.map((o: any) => o.name).sort(), ['Operador Contratista', 'Operador Público']);
   assert.equal(car[0].totals.tonnesAccumulated.value, 740358.51);
-  const miy = (await get('/reports/snapshots/view?operator=en_op_miyamoto', t)).json;
-  const mop = (await get('/reports/snapshots/view?operator=en_op_mop', t)).json;
+  const miy = (await get('/reports/snapshots/view?operator=en_cnorte', t)).json;
+  const mop = (await get('/reports/snapshots/view?operator=en_csur', t)).json;
   const part = (v: any) => v.facilities.find((f: any) => f.name === 'Caraballeda').totals.tonnesAccumulated.value;
   assert.equal(Math.round((part(miy) + part(mop)) * 100) / 100, car[0].totals.tonnesAccumulated.value);
   // Miyamoto no es un centro
   assert.equal(db().find('centers', (c) => /miyamoto/i.test(c.name)), undefined);
-  assert.ok(db().get('centers', 'ce_norte')!.operatorEntityIds!.includes('en_op_miyamoto'));
+  for (const id of ['ce_norte', 'ce_sur', 'ce_playa_grande']) assert.deepEqual([db().get('centers', id)!.entityId, db().get('centers', id)!.operatorEntityIds], ['en_cnorte', ['en_csur']]);
+  assert.ok(!JSON.stringify(db().list('entities')).match(/miyamoto|ministerio de obras/i));
+  assert.deepEqual(all.unlinked, []);
+  assert.equal(db().count('centers'), 4);
+  assert.ok(all.facilities.every((f: any) => f.active));
   // Idempotente
   const before = [db().count('centers'), db().count('entities'), db().count('reportSnapshots')];
   ensureReportSnapshots();
   assert.deepEqual([db().count('centers'), db().count('entities'), db().count('reportSnapshots')], before);
 });
 
-test('4 y 15: coordenadas exactas reutilizadas; las que faltan quedan como faltantes', () => {
+test('4 y 15: coordenadas exactas reutilizadas; entregadas por el cliente', () => {
   const f = new Map(snapshotView(null).facilities.map((x) => [x.facilityId, x]));
   assert.deepEqual(f.get('ce_final')!.location, { lat: 10.58962, lng: -67.0022 });
   assert.deepEqual(f.get('ce_playa_grande')!.location, { lat: 10.61039, lng: -67.01919 });
-  assert.equal(f.get('ce_norte')!.coordinates, 'missing');
-  assert.equal(f.get('ce_sur')!.coordinates, 'missing');
+  assert.deepEqual(f.get('ce_norte')!.location, { lat: 10.61911, lng: -66.85436 });
+  assert.deepEqual(f.get('ce_sur')!.location, { lat: 10.61144, lng: -66.83332 });
+  assert.deepEqual(db().get('centers', 'ce_final')!.unloadingPoint, { lat: 10.58703, lng: -67.00575 });
+  for (const id of ['ce_norte', 'ce_sur']) assert.equal(db().get('centers', id)!.sectorId, 'sc_este');
 });
 
 test('3 y 8: diario y acumulado, m³ y t separados; guion ≠ cero; fecha y hora de la fuente', async () => {
   const snap = db().get('reportSnapshots', NOV22_SNAPSHOT_ID)!;
+  assert.deepEqual(snap.sourceDiscrepancies, [{ field: 'm3Today', official: 5606.04, rowSum: 5606.03 }, { field: 'm3Accumulated', official: 1382738.94, rowSum: 1382739.69 }]);
   assert.equal(snap.reportedAt, '2026-11-22T18:00:00-04:00');
   const row = snap.rows.find((r) => r.label === 'Playa Escondida')!;
   assert.equal(row.m3Today, null);
@@ -139,7 +146,7 @@ test('3 y 8: diario y acumulado, m³ y t separados; guion ≠ cero; fecha y hora
   assert.equal(v.consistency.m3Today.reported, 5606.04);
   assert.equal(v.consistency.m3Today.difference, 0.01);
   assert.equal(v.consistency.tonnesAccumulated.reported, 1521013.66);
-  const onlyDash = snapshotView(null, { operatorId: 'en_op_mop' });
+  const onlyDash = snapshotView(null, { operatorId: 'en_csur' });
   assert.equal(onlyDash.totals.m3Today.value, null);
   // Valorización: nunca suma t con m³
   const b = (unit: 't' | 'm3') => ({ outputs: { unit, aggregate: 10, metal: 0, specialDisposal: 0, rejects: 10 } }) as never;
@@ -151,7 +158,7 @@ test('6: el centro ve solo su sitio y la entidad solo lo suyo, aunque pidan otra
   const c = (await get('/reports/snapshots/view?facility=ce_final', tok('centro', 'center'))).json;
   assert.equal(c.scope, 'facility');
   assert.ok(c.facilities.every((f: any) => f.facilityId === 'ce_norte' || f.rows.length === 0));
-  const e = (await get('/reports/snapshots/view?operator=en_op_miyamoto', tok('admin-ejecutor', 'entity_admin'))).json;
+  const e = (await get('/reports/snapshots/view?operator=en_cnorte', tok('admin-ejecutor', 'entity_admin'))).json;
   assert.ok(e.facilities.every((f: any) => f.rows.length === 0));
 });
 
@@ -308,7 +315,7 @@ test('17, 21 y 30: solicitud → un solo conductor → recolección → centro c
   const ce = tok('centro', 'center');
   assert.equal((await post(`/center/trips/${tripId}/arrive`, ce, { photoId: photo(), operatorEntityId: 'en_tec', receivedQuantity: 5, receivedUnit: 'm3' })).status, 400);
   const dispatched = db().get('trips', tripId)!.estimatedVolumeM3!;
-  const arr = await post(`/center/trips/${tripId}/arrive`, ce, { photoId: photo(), operatorEntityId: 'en_op_miyamoto', receivedQuantity: dispatched - 1, receivedUnit: 'm3', condition: 'Mezclado' });
+  const arr = await post(`/center/trips/${tripId}/arrive`, ce, { photoId: photo(), operatorEntityId: 'en_cnorte', receivedQuantity: dispatched - 1, receivedUnit: 'm3', condition: 'Mezclado' });
   assert.equal(arr.status, 200);
   assert.equal(arr.json.reception.quantityCheck.difference, -1);
   assert.ok(arr.json.reception.quantityCheck.flagged);
@@ -321,11 +328,10 @@ test('17, 21 y 30: solicitud → un solo conductor → recolección → centro c
   assert.equal((await get('/requests/impact?from=2027-01-01', winner)).json.completed, 0);
 
   // Actividad registrada: por operador, con detalle
-  const a = (await get('/reports/activity?operator=en_op_miyamoto', tok('supervisor', 'supervisor'))).json;
-  assert.equal(a.totals.loads, 1);
+  const a = (await get('/reports/activity?operator=en_cnorte', tok('supervisor', 'supervisor'))).json;
+  assert.equal(a.records.filter((r: any) => r.tripId === tripId).length, 1);
   assert.equal(a.totals.m3, dispatched - 1);
   assert.equal(a.totals.tonnes, null);
-  assert.equal(a.records[0].tripId, tripId);
 
   // Incidencia y reasignación
   const o2 = mk();

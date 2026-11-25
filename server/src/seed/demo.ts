@@ -118,7 +118,7 @@ export async function seedDemo(): Promise<SeedSummary> {
   // Santa Eduvigis: ubicación = Parque Tecnológico Ambiental; punto de descarga = terraza donde se confirman las llegadas.
   const cFinal = cen('ce_final', 'Santa Eduvigis (Parque Tecnológico Ambiental)', 'SEDUV', 'CDF', sD.id, eFinal.id, { lat: 10.58962, lng: -67.0022 });
   store.update('centers', cFinal.id, { unloadingPoint: { lat: 10.58703, lng: -67.00575 } });
-  const cGrande = cen('ce_playa_grande', 'Playa Grande, Calle 6', 'PGC6', 'CDT', sC.id, eFinal.id, { lat: 10.61039, lng: -67.01919 });
+  const cGrande = cen('ce_playa_grande', 'Playa Grande', 'PGC6', 'CDT', sC.id, eFinal.id, { lat: 10.61039, lng: -67.01919 });
   // Un sitio puede recibir viajes registrados por más de una entidad operadora.
   store.update('centers', cNorte.id, { operatorEntityIds: [eSur.id] });
 

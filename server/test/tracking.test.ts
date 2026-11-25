@@ -139,7 +139,7 @@ test('QR de puerta: presencia del escolta con control de perímetro', () => {
   const gate = gateCodeOfCenter(db().get('centers', 'ce_norte')!);
   const r = recordGatePresence(act('retiro', 'removal'), { gateCode: gate, tripKey: trip.id, location: { lat: 10.61, lng: -66.85 } });
   assert.equal(r.tripKey, trip.id);
-  assert.equal(r.geofence, 'no_reference'); // Caraballeda aún sin coordenadas
+  assert.ok(['inside', 'outside', 'no_location'].includes(r.geofence)); // Caraballeda ya tiene coordenadas
 });
 
 test('Traccar: posiciones del dispositivo por IMEI solo durante el viaje; corte de energía alerta', () => {

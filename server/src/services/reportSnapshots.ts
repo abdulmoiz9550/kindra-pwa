@@ -13,13 +13,25 @@ import { notFound } from '../core/errors';
  * - Se conserva la fecha y hora de la fuente: son cifras reportadas, no datos en vivo.
  */
 
-export const OPERATOR_MOP_ID = 'en_op_mop';
-export const OPERATOR_MIYAMOTO_ID = 'en_op_miyamoto';
+/** Operadores genéricos por tipo: los reales se registran desde Administración, nunca en el código. */
+export const OPERATOR_PUBLIC_ID = 'en_csur';
+export const OPERATOR_CONTRACTOR_ID = 'en_cnorte';
 
 const OPERATORS: Pick<Entity, 'id' | 'name' | 'description' | 'legalType'>[] = [
-  { id: OPERATOR_MOP_ID, name: 'Ministerio de Obras Públicas', description: 'Operador estatal que registra material en centros de disposición temporal (reporte operativo del 22 de noviembre de 2026).', legalType: 'public_institution' },
-  { id: OPERATOR_MIYAMOTO_ID, name: 'Miyamoto International', description: 'Operador asociado a los CDT estatales de Caraballeda y Playa Escondida. No es un centro físico aparte.', legalType: 'company' },
+  { id: OPERATOR_PUBLIC_ID, name: 'Operador Público', description: 'Operador público que registra material en centros de disposición.', legalType: 'public_institution' },
+  { id: OPERATOR_CONTRACTOR_ID, name: 'Operador Contratista', description: 'Operador contratista que registra material en centros de disposición.', legalType: 'company' },
 ];
+
+/** Sitios confirmados por el cliente (reemplazan las secciones 1 y 4 de los datos v0.3). Coordenadas exactas. */
+const CONFIRMED_SITES: { id: string; name: string; type: 'CDT' | 'CDF'; sectorId: string; location: GeoPoint; unloadingPoint?: GeoPoint; twoOperators: boolean }[] = [
+  { id: 'ce_norte', name: 'Caraballeda', type: 'CDT', sectorId: 'sc_este', location: { lat: 10.61911, lng: -66.85436 }, twoOperators: true },
+  { id: 'ce_sur', name: 'Playa Escondida', type: 'CDT', sectorId: 'sc_este', location: { lat: 10.61144, lng: -66.83332 }, twoOperators: true },
+  { id: 'ce_playa_grande', name: 'Playa Grande', type: 'CDT', sectorId: 'sc_oeste', location: { lat: 10.61039, lng: -67.01919 }, twoOperators: true },
+  { id: 'ce_final', name: 'Santa Eduvigis (Parque Tecnológico Ambiental)', type: 'CDF', sectorId: 'sc_oeste', location: { lat: 10.58962, lng: -67.0022 }, unloadingPoint: { lat: 10.58703, lng: -67.00575 }, twoOperators: false },
+];
+
+/** Cambia cuando el cliente entrega datos nuevos: se aplica una sola vez y respeta lo que la administración edite después. */
+const REVISION = 2;
 
 export const NOV22_SNAPSHOT_ID = 'rs_2026-11-22_1800';
 
@@ -35,6 +47,7 @@ function nov22Snapshot(): ReportSnapshot {
     reportedAt: '2026-11-22T18:00:00-04:00',
     importedAt: nowIso(),
     importedBy: null,
+    revision: REVISION,
     note: 'Cifras reportadas a esa fecha y hora. No son datos en vivo ni metas permanentes de la plataforma. Un guion (—) significa que el reporte no trae cifra diaria para esa fila.',
     indicators: [
       { key: 'target_tonnes', label: 'Meta de vestigios a trasladar', value: 2100000, unit: 't' },
@@ -42,55 +55,58 @@ function nov22Snapshot(): ReportSnapshot {
       { key: 'pending_tonnes', label: 'Vestigios pendientes por procesar o trasladar', value: 578986.34, unit: 't' },
       { key: 'progress_percent', label: 'Avance general', value: 72.43, unit: '%' },
       { key: 'cleared_fronts', label: 'Frentes despejados', value: 221, unit: 'frentes', breakdown: [{ label: 'Oeste (Catia La Mar)', value: 105 }, { label: 'Este (Caraballeda)', value: 116 }] },
-      { key: 'active_fronts_east', label: 'Frentes activos — Este / Caraballeda', value: null, unit: 'frentes', breakdown: [{ label: 'Gobierno Bolivariano', value: 6 }, { label: 'Miyamoto International', value: 96 }] },
-      { key: 'active_fronts_west', label: 'Frentes activos — Oeste / Catia La Mar', value: null, unit: 'frentes', breakdown: [{ label: 'Gobierno Bolivariano', value: 86 }] },
+      { key: 'active_fronts_east', label: 'Frentes activos — Este / Caraballeda', value: null, unit: 'frentes', breakdown: [{ label: 'Operador Público', value: 6 }, { label: 'Operador Contratista', value: 96 }] },
+      { key: 'active_fronts_west', label: 'Frentes activos — Oeste / Catia La Mar', value: null, unit: 'frentes', breakdown: [{ label: 'Operador Público', value: 86 }] },
       { key: 'buildings_demolished', label: 'Edificaciones demolidas', value: 346, unit: 'edificaciones' },
     ],
     rows: [
       row('r1', 'Parque Tecnológico Ambiental Santa Eduvigis', 'ce_final', null, 1178.18, 147227.14, 1296.0, 161949.85),
-      row('r2', 'Caraballeda — Ministerio de Obras Públicas', 'ce_norte', OPERATOR_MOP_ID, null, 450473.0, null, 495520.3),
-      row('r3', 'Caraballeda — Miyamoto International', 'ce_norte', OPERATOR_MIYAMOTO_ID, 850.47, 222580.19, 935.52, 244838.21),
-      row('r4', 'Playa Escondida', 'ce_sur', null, null, 204798.19, null, 225278.01),
-      row('r5', 'Playa Escondida — Miyamoto International', 'ce_sur', OPERATOR_MIYAMOTO_ID, 2799.38, 232902.26, 3079.32, 256192.49),
-      row('r6', 'Playa Grande', null, null, null, 72738.82, null, 80012.7, 'Por confirmar si "Playa Grande" es el mismo sitio físico que "Playa Grande, Calle 6". Mientras tanto no se ubica en el mapa.'),
-      row('r7', 'Playa Grande — Calle 6', 'ce_playa_grande', null, 778.0, 52020.09, 855.8, 57222.1),
+      row('r2', 'Caraballeda (operador público)', 'ce_norte', OPERATOR_PUBLIC_ID, null, 450473.0, null, 495520.3),
+      row('r3', 'Caraballeda (operador contratista)', 'ce_norte', OPERATOR_CONTRACTOR_ID, 850.47, 222580.19, 935.52, 244838.21),
+      row('r4', 'Playa Escondida', 'ce_sur', OPERATOR_PUBLIC_ID, null, 204798.19, null, 225278.01),
+      row('r5', 'Playa Escondida (operador contratista)', 'ce_sur', OPERATOR_CONTRACTOR_ID, 2799.38, 232902.26, 3079.32, 256192.49),
+      row('r6', 'Playa Grande', 'ce_playa_grande', OPERATOR_PUBLIC_ID, null, 72738.82, null, 80012.7),
+      row('r7', 'Playa Grande - Calle 6', 'ce_playa_grande', OPERATOR_CONTRACTOR_ID, 778.0, 52020.09, 855.8, 57222.1),
     ],
     reportedTotals: { m3Today: 5606.04, m3Accumulated: 1382738.94, tonnesToday: 6166.64, tonnesAccumulated: 1521013.66 },
   };
 }
 
-/** Crea los operadores y la instantánea del 22 de noviembre si faltan. Idempotente: no toca nada existente. */
+/** Crea lo que falte y aplica una sola vez los sitios y operadores confirmados por el cliente. */
 export function ensureReportSnapshots(): void {
   const store = db();
+  if ((store.get('reportSnapshots', NOV22_SNAPSHOT_ID)?.revision ?? 0) >= REVISION) return;
   for (const op of OPERATORS) {
     if (store.get('entities', op.id)) continue;
-    store.put('entities', {
-      ...op,
-      type: 'center',
-      logoUrl: null,
-      active: true,
-      taxId: null,
-      spaceId: DEFAULT_SPACE_ID,
-      publicationPolicy: { officialFigures: { mode: 'public' }, discrepancies: { mode: 'public' }, photos: { mode: 'public' }, observations: { mode: 'public' } },
-    } as Entity);
+    store.put('entities', { ...op, type: 'center', logoUrl: null, active: true, taxId: null, spaceId: DEFAULT_SPACE_ID, publicationPolicy: { officialFigures: { mode: 'public' }, discrepancies: { mode: 'public' }, photos: { mode: 'public' }, observations: { mode: 'public' } } } as Entity);
   }
-  if (store.get('reportSnapshots', NOV22_SNAPSHOT_ID)) return;
+  // Un registro por sitio físico. No se crea ningún centro: solo se completan los existentes.
+  for (const site of CONFIRMED_SITES) {
+    const center = store.get('centers', site.id);
+    if (!center) continue;
+    const links = site.twoOperators ? { entityId: OPERATOR_CONTRACTOR_ID, operatorEntityIds: [OPERATOR_PUBLIC_ID] } : {};
+    store.update('centers', site.id, { name: site.name, type: site.type, location: site.location, ...(site.unloadingPoint ? { unloadingPoint: site.unloadingPoint } : {}), ...(store.get('sectors', site.sectorId) ? { sectorId: site.sectorId } : {}), ...links });
+  }
+  // Las organizaciones con nombre propio de la versión anterior se retiran; si ya tienen registros, quedan inactivas.
+  for (const id of ['en_op_mop', 'en_op_miyamoto']) {
+    if (!store.get('entities', id)) continue;
+    const used = store.find('receptions', (r) => r.operatorEntityId === id) || store.find('users', (u) => u.entityId === id);
+    if (used) store.update('entities', id, { active: false });
+    else store.remove('entities', id);
+  }
   const snap = nov22Snapshot();
-  // Filas cuyo centro no existe en esta instalación quedan sin vincular (nunca se inventa un sitio).
   for (const r of snap.rows) {
     if (r.facilityId && !store.get('centers', r.facilityId)) {
       r.facilityPending = `El centro "${r.facilityId}" no existe en esta instalación.`;
       r.facilityId = null;
     }
   }
+  // Total oficial tal como se imprimió y suma de filas: se guardan ambos y la diferencia queda marcada.
+  const sums = totalsOf(snap.rows);
+  snap.rowSums = { m3Today: sums.m3Today.value, m3Accumulated: sums.m3Accumulated.value, tonnesToday: sums.tonnesToday.value, tonnesAccumulated: sums.tonnesAccumulated.value };
+  snap.sourceDiscrepancies = (Object.keys(snap.reportedTotals) as (keyof ReportSnapshotTotals)[]).filter((k) => snap.reportedTotals[k] !== snap.rowSums![k]).map((k) => ({ field: k, official: snap.reportedTotals[k], rowSum: snap.rowSums![k] }));
   store.put('reportSnapshots', snap);
-  // Los operadores del reporte quedan asociados al centro físico existente; no se crea ningún centro ni coordenada.
-  for (const r of snap.rows) {
-    const c = r.facilityId ? store.get('centers', r.facilityId) : undefined;
-    if (!c || !r.operatorEntityId || c.entityId === r.operatorEntityId || (c.operatorEntityIds || []).includes(r.operatorEntityId)) continue;
-    store.update('centers', c.id, { operatorEntityIds: [...(c.operatorEntityIds || []), r.operatorEntityId] });
-  }
-  appendEvent({ type: 'report_snapshot_imported', objectType: 'system', objectId: 'report_snapshots', actor: SYSTEM_ACTOR, data: { snapshotId: snap.id, reportedAt: snap.reportedAt, rows: snap.rows.length, source: snap.source }, silent: true });
+  appendEvent({ type: 'report_snapshot_imported', objectType: 'system', objectId: 'report_snapshots', actor: SYSTEM_ACTOR, data: { snapshotId: snap.id, revision: REVISION, reportedAt: snap.reportedAt, rows: snap.rows.length, source: snap.source, sourceDiscrepancies: snap.sourceDiscrepancies }, silent: true });
 }
 
 /** Suma que respeta los vacíos: si ninguna fila trae cifra, el total es null (no cero). */
@@ -147,6 +163,8 @@ export function snapshotView(id: string | null, filters: SnapshotFilters = {}) {
       location,
       coordinates: location ? ('exact' as const) : ('missing' as const),
       operators: [...new Set(snap.rows.filter((r) => r.facilityId === fid).map((r) => r.operatorEntityId))].map((o) => ({ id: o, name: opName(o) })),
+      /** Activo si alguno de sus operadores reporta material del día. */
+      active: snap.rows.some((r) => r.facilityId === fid && ((r.m3Today ?? 0) > 0 || (r.tonnesToday ?? 0) > 0)),
       rows: own.map((r) => ({ ...r, operatorName: opName(r.operatorEntityId) })),
       totals: totalsOf(own),
     };

@@ -3,6 +3,7 @@ import type { Business, Role, User, Entity, Center, Sector, Photo, VerificationS
 import { ROLES, ROLE_LABELS, INSTITUTIONAL_ROLES } from '@kindra/shared';
 import { Card, Button, Field, Input, Select, Badge, Modal, Spinner, Tabs } from '../../components/ui';
 import { Section, useAdminList, useAdminAction } from './shared';
+import { useFeature } from '../../lib/config';
 
 type UserRow = Omit<User, 'passwordHash'>;
 
@@ -33,6 +34,7 @@ export default function Users() {
   const users = useAdminList<UserRow>('users');
   const entities = useAdminList<Entity>('entities');
   const businesses = useAdminList<Business>('businesses');
+  const groupsOn = useFeature('community_groups');
   const centers = useAdminList<Center>('centers');
   const sectors = useAdminList<Sector>('sectors');
   const photos = useAdminList<Photo>('photos?moderation=all');
@@ -163,7 +165,7 @@ export default function Users() {
             <fieldset className="mb-4">
               <legend className="label">Roles</legend>
               <div className="flex flex-wrap gap-2">
-                {ROLES.map((r) => (
+                {ROLES.filter((r) => groupsOn || (r !== 'community' && r !== 'coastal')).map((r) => (
                   <label key={r} className={`chip cursor-pointer ${editing.roles.includes(r) ? 'chip-active' : ''}`}>
                     <input type="checkbox" className="sr-only" checked={editing.roles.includes(r)} onChange={() => toggleRole(r)} /> {ROLE_LABELS[r]}
                   </label>

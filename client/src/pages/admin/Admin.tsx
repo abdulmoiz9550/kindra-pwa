@@ -29,7 +29,7 @@ const NAV = [
   { to: 'usuarios', label: 'Usuarios' },
   { to: 'modulos', label: 'Módulos' },
   { to: 'operadores', label: 'Operadores' },
-  { to: 'participacion', label: 'Comunidades y comercios' },
+  { to: 'participacion', label: 'Comercios' },
   { to: 'sectores', label: 'Sectores' },
   { to: 'centros', label: 'Centros' },
   { to: 'vehiculos', label: 'Vehículos' },

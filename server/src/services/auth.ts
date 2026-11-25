@@ -52,9 +52,12 @@ export function toPublicUser(user: User, activeRole: Role, mfa = false): PublicU
   };
 }
 
+/** Comunidades y grupos costeros no se ofrecen mientras estén ocultos. */
+const roleVisible = (r: Role) => (r !== 'community' && r !== 'coastal') || isFeatureOn('community_groups');
+
 function defaultRole(user: User): Role {
   const order: Role[] = ['admin', 'entity_admin', 'coordinator', 'removal', 'driver', 'center', 'processing', 'evaluator', 'supervisor', 'destination', 'business', 'community', 'coastal', 'householder', 'monitor', 'citizen'];
-  for (const r of order) if (user.roles.includes(r)) return r;
+  for (const r of order) if (user.roles.includes(r) && roleVisible(r)) return r;
   return 'citizen';
 }
 
@@ -133,7 +136,7 @@ export function loginWithPreregCode(code: string): { token: string; user: Public
 }
 
 export function switchActiveRole(user: User, role: Role, mfa = false): { token: string; user: PublicUser } {
-  if (!user.roles.includes(role)) throw forbidden('No tienes ese rol activado.');
+  if (!user.roles.includes(role) || !roleVisible(role)) throw forbidden('No tienes ese rol activado.');
   if (INSTITUTIONAL_ROLES.includes(role) || role === 'monitor') {
     if (user.verificationStatus !== 'verified') throw forbidden('Este rol requiere completar la verificación de identidad.');
   }
@@ -153,6 +156,7 @@ export function sessionAfterEnable(user: User, activeRole: Role): { token: strin
 /** 19.3: cambio rápido entre usuarios de prueba, uno por rol. Solo en modo demo. */
 export function demoSwitch(role: Role): { token: string; user: PublicUser } {
   if (!getConfig().demoMode) throw forbidden('El cambio rápido de rol solo está disponible en modo demostración.');
+  if (!roleVisible(role)) throw forbidden('Ese perfil no está disponible.');
   const user = db().find('users', (u) => !!u.isDemo && u.roles.includes(role) && u.active);
   if (!user) throw notFound(`No hay usuario de prueba para el rol ${role}.`);
   return { token: issueToken(user.id, role), user: toPublicUser(user, role) };
@@ -169,7 +173,7 @@ export function listDemoRoles(): { role: Role; alias: string }[] {
   if (!getConfig().demoMode) return [];
   const out: { role: Role; alias: string }[] = [];
   const roles: Role[] = ['citizen', 'monitor', 'coordinator', 'removal', 'center', 'evaluator', 'supervisor', 'destination', 'entity_admin', 'admin', 'driver', 'processing', 'householder', 'community', 'business', 'coastal'];
-  for (const r of roles) {
+  for (const r of roles.filter(roleVisible)) {
     const u = db().find('users', (x) => !!x.isDemo && x.roles.includes(r) && x.active);
     if (u) out.push({ role: r, alias: u.alias });
   }

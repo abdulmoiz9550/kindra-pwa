@@ -21,7 +21,7 @@ type Row = ReportSnapshotRow & { operatorName: string | null };
 interface SnapshotView {
   snapshot: { id: string; title: string; source: string; reportedAt: string; importedAt: string; note: string };
   indicators: ReportIndicator[];
-  facilities: { facilityId: string; name: string; type: string; location: GeoPoint | null; coordinates: 'exact' | 'missing'; operators: { id: string | null; name: string | null }[]; rows: Row[]; totals: Record<Measure, Sum> }[];
+  facilities: { facilityId: string; name: string; type: string; location: GeoPoint | null; coordinates: 'exact' | 'missing'; active: boolean; operators: { id: string | null; name: string | null }[]; rows: Row[]; totals: Record<Measure, Sum> }[];
   unlinked: Row[];
   totals: Record<Measure, Sum>;
   filtered: boolean;
@@ -178,7 +178,7 @@ function Snapshot() {
                 </thead>
                 <tbody>
                   {shown.map((f) => (
-                    <FacilityRows key={f.facilityId} name={f.name} note={f.coordinates === 'missing' ? 'sin coordenadas' : undefined} rows={f.rows} totals={f.totals} />
+                    <FacilityRows key={f.facilityId} active={f.active} name={f.name} note={f.coordinates === 'missing' ? 'sin coordenadas' : undefined} rows={f.rows} totals={f.totals} />
                   ))}
                   {d.unlinked.map((r) => (
                     <tr key={r.id}>
@@ -195,7 +195,7 @@ function Snapshot() {
                   </tr>
                   {!d.filtered && d.scope === 'global' && (
                     <tr>
-                      <td className="text-muted">Total impreso en el reporte</td>
+                      <td className="text-muted">Total oficial del reporte</td>
                       <Figures r={{ m3Today: d.consistency.m3Today.reported, m3Accumulated: d.consistency.m3Accumulated.reported, tonnesToday: d.consistency.tonnesToday.reported, tonnesAccumulated: d.consistency.tonnesAccumulated.reported }} />
                     </tr>
                   )}
@@ -208,8 +208,8 @@ function Snapshot() {
       </Card>
 
       {d.scope === 'global' && !d.filtered && mismatches.length > 0 && (
-        <Alert tone="warn" title="El reporte no cuadra consigo mismo en algún total">
-          {mismatches.map((m) => `${m.label}: impreso ${num(d.consistency[m.value].reported)}, suma de filas ${num(d.consistency[m.value].computed)} (diferencia ${num(d.consistency[m.value].difference)} ${m.unit}).`).join(' ')} Se conservan ambas cifras hasta que la fuente lo aclare.
+        <Alert tone="warn" title="Discrepancia de la fuente">
+          {mismatches.map((m) => `${m.label}: total oficial ${num(d.consistency[m.value].reported)}, suma de filas ${num(d.consistency[m.value].computed)} (diferencia ${num(d.consistency[m.value].difference)} ${m.unit}).`).join(' ')} La cifra oficial no se corrige; se guardan ambas.
         </Alert>
       )}
 
@@ -242,12 +242,12 @@ function TotalFigures({ totals }: { totals: Record<Measure, Sum> }) {
   );
 }
 
-function FacilityRows({ name, note, rows, totals }: { name: string; note?: string; rows: Row[]; totals: Record<Measure, Sum> }) {
+function FacilityRows({ name, active, note, rows, totals }: { name: string; active: boolean; note?: string; rows: Row[]; totals: Record<Measure, Sum> }) {
   return (
     <>
       <tr className="font-semibold">
         <td>
-          {name} {note && <Badge tone="warn" icon={false}>{note}</Badge>}
+          {name} <Badge tone={active ? 'ok' : 'neutral'}>{active ? 'Activo' : 'Sin material hoy'}</Badge> {note && <Badge tone="warn" icon={false}>{note}</Badge>}
         </td>
         {rows.length === 1 ? <Figures r={rows[0]} /> : <TotalFigures totals={totals} />}
       </tr>

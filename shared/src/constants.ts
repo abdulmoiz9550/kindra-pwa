@@ -433,6 +433,7 @@ export const FEATURES: FeatureDefinition[] = [
   // Fase posterior
   { key: 'ai_photo_detection', label: 'Sugerencias de IA sobre fotos', description: 'Apagada por defecto. Al encenderla, la foto elegida se envía al servicio de IA de Google (Gemini). El resultado es solo una sugerencia hasta que una persona autorizada la confirma.', group: 'later_phase', defaultOn: false, available: true },
   // Ocultas en el módulo de escombros (addendum, parte 4)
+  { key: 'community_groups', label: 'Comunidades y grupos costeros', description: 'Ocultos en el Módulo 1 por decisión del cliente.', group: 'hidden', defaultOn: false, available: true, locked: true },
   { key: 'hero_subscription', label: 'Suscripción Kindra Hero', description: 'Nivel de pago. Este módulo es un servicio de interés público.', group: 'hidden', defaultOn: false, available: false },
   { key: 'kindra_gift', label: 'Kindra Gift', description: 'Monetización, no aplica a escombros.', group: 'hidden', defaultOn: false, available: false },
   { key: 'ad_spaces', label: 'Espacios de publicidad', description: 'No es apropiado en un módulo público posterior a un desastre.', group: 'hidden', defaultOn: false, available: false },

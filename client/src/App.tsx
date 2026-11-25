@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { REPORT_ROLES } from '@kindra/shared';
 import { Layout } from './components/Layout';
+import { useFeature } from './lib/config';
 import { RequireAccount, RequireRole } from './components/RequireRole';
 import { Spinner } from './components/ui';
 import './lib/offlineActions';
@@ -55,6 +56,7 @@ const GroupReview = lazy(() => import('./pages/panels/GroupReview'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
 export default function App() {
+  const groupsOn = useFeature('community_groups');
   return (
     <Layout>
       <Suspense fallback={<Spinner label="Cargando…" />}>
@@ -76,12 +78,12 @@ export default function App() {
           <Route path="/conductor/*" element={<RequireRole roles={['driver']}><Driver /></RequireRole>} />
           <Route path="/hogar/*" element={<RequireRole roles={['householder']}><Household /></RequireRole>} />
           <Route path="/comercio/*" element={<RequireRole roles={['business']}><BusinessArea /></RequireRole>} />
-          <Route path="/comunidad/*" element={<RequireRole roles={['community']}><GroupArea kind="community" /></RequireRole>} />
-          <Route path="/costero/*" element={<RequireRole roles={['coastal']}><GroupArea kind="coastal" /></RequireRole>} />
-          <Route path="/grupos" element={<RequireAccount><GroupsDirectory /></RequireAccount>} />
+          {groupsOn && <Route path="/comunidad/*" element={<RequireRole roles={['community']}><GroupArea kind="community" /></RequireRole>} />}
+          {groupsOn && <Route path="/costero/*" element={<RequireRole roles={['coastal']}><GroupArea kind="coastal" /></RequireRole>} />}
+          {groupsOn && <Route path="/grupos" element={<RequireAccount><GroupsDirectory /></RequireAccount>} />}
           <Route path="/panel/procesamiento" element={<RequireRole roles={['processing']}><Processing /></RequireRole>} />
           <Route path="/panel/solicitudes" element={<RequireRole roles={['coordinator', 'entity_admin', 'removal', 'center', 'admin']}><RequestsPanel /></RequireRole>} />
-          <Route path="/panel/grupos" element={<RequireRole roles={['coordinator']}><GroupReview /></RequireRole>} />
+          {groupsOn && <Route path="/panel/grupos" element={<RequireRole roles={['coordinator']}><GroupReview /></RequireRole>} />}
           <Route path="/panel/reportes" element={<RequireRole roles={REPORT_ROLES}><Reports /></RequireRole>} />
           <Route path="/solicitar-informacion" element={<InfoRequestPage />} />
           <Route path="/panel/escolta" element={<RequireRole roles={['removal', 'center', 'driver']}><Escort /></RequireRole>} />

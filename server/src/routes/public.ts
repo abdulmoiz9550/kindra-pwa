@@ -44,7 +44,7 @@ publicRouter.get('/config', (_req, res) => {
     labels: { useTypes: USE_TYPE_LABELS, sizes: SIZE_LABELS, urgencies: URGENCY_LABELS, subcategories: SUBCATEGORY_LABELS, rejectionReasons: REJECTION_REASON_LABELS, structureTypes: STRUCTURE_TYPE_LABELS, causes: CAUSE_LABELS, roles: ROLE_LABELS },
     provisionalFlags: cfg.provisionalFlags,
     // Solo el estado efectivo (encendida o no); nunca la lista de funciones ocultas.
-    features: Object.fromEntries(FEATURES.filter((f) => f.group === 'debris' || (['oil_module', 'ai_photo_detection'].includes(f.key) && featureOn(cfg.features, f.key))).map((f) => [f.key, featureOn(cfg.features, f.key)])),
+    features: Object.fromEntries(FEATURES.filter((f) => f.group === 'debris' || (['oil_module', 'ai_photo_detection', 'community_groups'].includes(f.key) && featureOn(cfg.features, f.key))).map((f) => [f.key, featureOn(cfg.features, f.key)])),
   });
 });
 

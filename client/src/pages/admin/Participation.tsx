@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { Business, Center, Entity, Group, ModuleDefinition, Sector } from '@kindra/shared';
 import { fmtDateTime, fmtNum } from '../../lib/format';
-import { usePublicConfig } from '../../lib/config';
+import { useFeature, usePublicConfig } from '../../lib/config';
 import { Alert, Badge, Button, Card, EmptyState, Field, Input, Modal, Select, Spinner, Tabs, Textarea } from '../../components/ui';
 import { Section, useAdminAction, useAdminList } from './shared';
 
@@ -10,10 +10,11 @@ type GroupRow = Group & { members: number; leaders: string[]; impact: { validate
 
 /** Supervisión de comunidades, grupos costeros y comercios (v4.0, 25.6). */
 export default function Participation() {
-  const [tab, setTab] = useState<'groups' | 'businesses'>('groups');
+  const groupsOn = useFeature('community_groups');
+  const [tab, setTab] = useState<'groups' | 'businesses'>('businesses');
   return (
-    <Section title="Comunidades y comercios" subtitle="Registro y supervisión de comunidades, grupos costeros y puntos de acopio.">
-      <Tabs value={tab} onChange={setTab} items={[{ value: 'groups', label: 'Comunidades y grupos' }, { value: 'businesses', label: 'Comercios' }]} />
+    <Section title="Comercios" subtitle="Registro y supervisión de puntos de acopio.">
+      {groupsOn && <Tabs value={tab} onChange={setTab} items={[{ value: 'businesses', label: 'Comercios' }, { value: 'groups', label: 'Comunidades y grupos' }]} />}
       <div className="mt-3">{tab === 'groups' ? <Groups /> : <Businesses />}</div>
     </Section>
   );
