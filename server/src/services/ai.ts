@@ -8,6 +8,7 @@ import { appendEvent, type Actor } from '../core/events';
 import { newId, nowIso } from '../core/ids';
 import { conflict, HttpError, notFound } from '../core/errors';
 import { assertFeature } from './features';
+import { ensureLocalUpload } from './photoStore';
 import { askGemini, geminiReady, GeminiError } from './gemini';
 
 /**
@@ -69,7 +70,7 @@ export async function suggestFromPhoto(actor: Actor, photoId: string, call: Visi
   const file = path.join(env.uploadDir, path.basename(photo.url));
   const mediaType = MEDIA[path.extname(file).toLowerCase()];
   if (!mediaType) throw new HttpError(400, 'Este tipo de archivo no se puede analizar.', 'ai_media');
-  if (!fs.existsSync(file)) throw notFound('El archivo de la foto no está disponible.');
+  if (!(await ensureLocalUpload(photo.url))) throw notFound('El archivo de la foto no está disponible.');
   const { text, model } = await call({ mediaType, data: fs.readFileSync(file).toString('base64') });
   let parsed: z.infer<typeof Result>;
   try {

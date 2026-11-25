@@ -20,6 +20,7 @@ import { referralSummary } from '../services/referrals';
 import { assertFeature } from '../services/features';
 
 import { logExport } from '../services/governance';
+import { persistUpload } from '../services/photoStore';
 
 export const citizenRouter = Router();
 
@@ -28,9 +29,10 @@ const geo = z.object({ lat: z.number(), lng: z.number() }).nullable().optional()
 // ---------------------------------------------------------------- fotos
 citizenRouter.post(
   '/photos',
-  wrap((req, res) => {
+  wrap(async (req, res) => {
     const body = z.object({ dataUrl: z.string(), kind: z.string().default('origin'), location: geo, takenAt: z.string().nullable().optional() }).parse(req.body);
     const photo = savePhoto({ dataUrl: body.dataUrl, kind: body.kind as never, uploadedBy: req.auth?.user.id ?? null, location: body.location ?? null, takenAt: body.takenAt ?? null });
+    await persistUpload(photo.url);
     res.status(201).json(photo);
   }),
 );

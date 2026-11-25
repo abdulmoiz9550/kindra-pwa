@@ -25,6 +25,7 @@ import { listInfoRequests, actOnInfoRequest, securityLog, listRecovery, resolveR
 import { listBackups, createBackup, verifyBackupFile } from '../services/backup';
 import { adminGroups, upsertGroup, upsertBusiness, businessBody } from '../services/profiles';
 import { nowIso } from '../core/ids';
+import { photoStoreName } from '../services/photoStore';
 
 export const adminRouter = Router();
 // Administrador principal de Kindra: rol admin + verificación de identidad + verificación en dos pasos.
@@ -73,6 +74,7 @@ adminRouter.get('/overview', (_req, res) => {
       spaces: store.count('spaces'),
     },
     persistence: store.persistence.name,
+    photoStore: photoStoreName(),
     sseClients: clientCount(),
   });
 });

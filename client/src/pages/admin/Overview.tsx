@@ -5,6 +5,7 @@ import { Section, useAdminGet } from './shared';
 interface OverviewData {
   counts: Record<string, number>;
   persistence: string;
+  photoStore?: string;
   sseClients: number;
 }
 
@@ -43,7 +44,7 @@ export default function Overview() {
             ))}
           </div>
           <p className="text-xs text-muted mt-4">
-            Persistencia: {d.persistence === 'memory' ? 'memoria (modo de pruebas; se activa PostgreSQL solo con variables de entorno)' : 'PostgreSQL'} · {d.sseClients} {d.sseClients === 1 ? 'pantalla conectada' : 'pantallas conectadas'} en vivo.
+            Persistencia: {d.persistence === 'memory' ? 'memoria (modo de pruebas; se activa PostgreSQL solo con variables de entorno)' : 'PostgreSQL'} · fotos: {({ 'supabase-storage': 'Supabase Storage', 'supabase-database': 'base de datos de Supabase' } as Record<string, string>)[d.photoStore || ''] || 'disco del servidor'} · {d.sseClients} {d.sseClients === 1 ? 'pantalla conectada' : 'pantallas conectadas'} en vivo.
           </p>
           <div className="mt-4 flex flex-wrap gap-2 text-sm">
             {(d.counts.photosPending || 0) > 0 && (

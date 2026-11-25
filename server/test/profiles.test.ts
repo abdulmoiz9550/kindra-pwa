@@ -263,6 +263,7 @@ test('IA: apagada por defecto; encendida solo sugiere y una persona decide', asy
   fs.writeFileSync(file, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64'));
   try {
     registerPhoto({ id: 'ph_ia', url: '/uploads/prueba-ia.png', kind: 'reception', moderation: 'pending', uploadedAt: new Date().toISOString(), uploadedBy: actor.id });
+    updateConfig({ features: { ...(db().get('config', 'main')!.features || {}), ai_photo_detection: false } });
     assert.equal((await post('/ai/photo', ce, { photoId: 'ph_ia' })).status, 403); // apagada
     updateConfig({ features: { ...(db().get('config', 'main')!.features || {}), ai_photo_detection: true } });
     assert.equal((await post('/ai/photo', tok('centro-sur', 'center'), { photoId: 'ph_ia' })).status, 403); // foto ajena

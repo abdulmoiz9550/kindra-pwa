@@ -25,6 +25,9 @@ export class PostgresPersistence implements Persistence {
       await this.pool.query(sql);
       console.log('[persistence] esquema de PostgreSQL aplicado');
     }
+    // Fotos: solo las lee este servidor (la seguridad por filas cierra el acceso por la API pública de Supabase).
+    await this.pool.query('CREATE TABLE IF NOT EXISTS photo_files (name TEXT PRIMARY KEY, mime TEXT NOT NULL, data BYTEA NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now())');
+    await this.pool.query('ALTER TABLE photo_files ENABLE ROW LEVEL SECURITY');
   }
 
   async load(): Promise<LoadedState> {
@@ -61,6 +64,15 @@ export class PostgresPersistence implements Persistence {
         e.hash, e.inconsistentTime, JSON.stringify(e),
       ],
     );
+  }
+
+  async saveFile(name: string, mime: string, data: Buffer): Promise<void> {
+    await this.pool.query('INSERT INTO photo_files (name, mime, data) VALUES ($1, $2, $3) ON CONFLICT (name) DO UPDATE SET mime = EXCLUDED.mime, data = EXCLUDED.data', [name, mime, data]);
+  }
+
+  async loadFile(name: string): Promise<Buffer | null> {
+    const r = await this.pool.query<{ data: Buffer }>('SELECT data FROM photo_files WHERE name = $1', [name]);
+    return r.rows[0]?.data ?? null;
   }
 
   async clearAll(): Promise<void> {

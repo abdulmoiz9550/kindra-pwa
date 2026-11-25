@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { env } from './config/env';
 import { authenticate, errorHandler } from './middleware/auth';
+import { restoreMissingUpload } from './services/photoStore';
 import { isUploadPath, requireSignedUpload, signUpload, unsignUpload } from './services/uploads';
 import { publicRouter } from './routes/public';
 import { authRouter } from './routes/auth';
@@ -56,7 +57,7 @@ export function createApp() {
   app.use('/api', citizenRouter);
 
   fs.mkdirSync(env.uploadDir, { recursive: true });
-  app.use('/uploads', requireSignedUpload, express.static(env.uploadDir, { setHeaders: (res) => res.setHeader('Cache-Control', 'private, max-age=43200') }));
+  app.use('/uploads', requireSignedUpload, restoreMissingUpload, express.static(env.uploadDir, { setHeaders: (res) => res.setHeader('Cache-Control', 'private, max-age=43200') }));
 
   // Producción: sirve la PWA compilada.
   if (fs.existsSync(env.clientDist)) {

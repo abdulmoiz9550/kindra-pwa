@@ -18,6 +18,12 @@ function num(v: string | undefined, def: number): number {
   return Number.isFinite(n) && v !== undefined && v !== '' ? n : def;
 }
 
+/** La dirección del proyecto sale del usuario de la conexión (postgres.<proyecto>). */
+function supabaseUrlFrom(url: string | undefined): string {
+  const ref = /postgres\.([a-z0-9]{15,30})[:@]/.exec(url || '')?.[1] ?? /@db\.([a-z0-9]{15,30})\.supabase\.co/.exec(url || '')?.[1];
+  return ref ? `https://${ref}.supabase.co` : '';
+}
+
 export const env = {
   port: num(process.env.PORT, 4000),
   jwtSecret: process.env.JWT_SECRET || 'kindra-dev-secret-change-me',
@@ -31,6 +37,9 @@ export const env = {
   uploadDir: path.resolve(serverRoot, process.env.UPLOAD_DIR || './data/uploads'),
   dataDir: path.resolve(serverRoot, './data'),
   publicBaseUrl: (process.env.PUBLIC_BASE_URL || 'http://localhost:5173').replace(/\/$/, ''),
+  // Supabase Storage (opcional): sin la clave de servicio, las fotos se guardan en la base de Supabase.
+  supabaseUrl: (process.env.SUPABASE_URL || supabaseUrlFrom(process.env.DATABASE_URL)).replace(/\/$/, ''),
+  supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '',
   geminiApiKey: process.env.GEMINI_API_KEY || '',
   geminiModel: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
   jobsIntervalSeconds: num(process.env.JOBS_INTERVAL_SECONDS, 60),

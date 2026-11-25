@@ -3,7 +3,9 @@ import { Db, setDb } from './core/db';
 import { MemoryPersistence } from './persistence/memory';
 import { PostgresPersistence, defaultSchemaPath } from './persistence/postgres';
 import type { Persistence } from './persistence/types';
-import { ensureDefaults } from './services/config';
+import { ensureDefaults, getConfig, updateConfig } from './services/config';
+import { geminiReady } from './services/gemini';
+import { photoStoreName } from './services/photoStore';
 import { replayAll } from './core/events';
 import { seedDemo } from './seed/demo';
 import { ensureReportSnapshots } from './services/reportSnapshots';
@@ -31,6 +33,7 @@ export async function initPlatform(opts: BootOptions = {}): Promise<Db> {
   setDb(db);
   await db.load();
   log(`[kindra] persistencia: ${persistence.name}${persistence.name === 'memory' && env.persistFile ? ' (archivo data/db.json)' : ''}`);
+  log(`[kindra] fotos: ${photoStoreName()}`);
   ensureDefaults();
   const replayed = replayAll();
   log(`[kindra] proyecciones reconstruidas desde ${replayed} eventos`);
@@ -40,5 +43,7 @@ export async function initPlatform(opts: BootOptions = {}): Promise<Db> {
     log(`[kindra] datos simulados cargados: ${summary.origins} orígenes, ${summary.trips} viajes, ${summary.batches} lotes, ${summary.events} eventos`);
   }
   ensureReportSnapshots();
+  // Sugerencias de IA sobre fotos: encendidas una sola vez al autorizarse Gemini; después manda Administración → Funciones.
+  if (geminiReady() && !getConfig().provisionalFlags.aiPhotosEnabled) updateConfig({ features: { ...getConfig().features, ai_photo_detection: true }, provisionalFlags: { ...getConfig().provisionalFlags, aiPhotosEnabled: true } });
   return db;
 }
