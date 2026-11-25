@@ -1,3 +1,4 @@
+import { DEFAULT_HELP } from './helpTexts';
 import type { AppConfig } from '@kindra/shared';
 import { DEFAULT_FEATURES } from '@kindra/shared';
 import { DEFAULT_TRANSITIONS } from './transitions';
@@ -43,6 +44,7 @@ export const DEFAULT_CONFIG: AppConfig = {
     { key: 'embajador', name: 'Embajador Kindra', threshold: 300 },
   ],
   complaintChannelUrl: '',
+  help: DEFAULT_HELP,
   hazardChecklist: [
     { key: 'fiber_cement', label: 'Aspecto de fibrocemento o lámina corrugada', provisional: true },
     { key: 'chemical_containers', label: 'Presencia de envases químicos', provisional: true },

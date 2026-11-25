@@ -232,11 +232,12 @@ export default function Aura() {
         }}
       >
         <div className="flex items-end gap-2">
-          <input className="input flex-1" value={text} onChange={(e) => setText(e.target.value)} placeholder="Escribe aquí…" aria-label="Mensaje para AURA" disabled={busy} />
+          <input className="input flex-1" value={text} onChange={(e) => setText(e.target.value)} placeholder="Escribe aquí…" aria-label="Mensaje para AURA" aria-describedby="aura-privacy" disabled={busy} />
           <Button type="submit" aria-label="Enviar" disabled={busy || !text.trim()}>
             <Send size={18} />
           </Button>
         </div>
+        <p id="aura-privacy" className="text-[11px] text-muted mt-1">Si AURA no entiende tu mensaje, lo envía a Google Gemini. No escribas datos personales. <Link className="underline" to="/ayuda">Privacidad</Link></p>
         <div className="mt-2 flex flex-wrap gap-2 text-sm">
           <button type="button" className="chip" onClick={() => fileRef.current?.click()} disabled={busy}>
             <Camera size={16} className="mr-1" /> Foto

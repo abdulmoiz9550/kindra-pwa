@@ -233,7 +233,7 @@ Effort in working days, to be confirmed after approval.
 2. Approval document for the points rules; whether a driver payment scheme exists; the oil module definition.
 3. Retention periods and legal grounds for disclosure.
 4. Email or SMS provider for password recovery; hosting for backups and images; separate test site.
-5. May photos be sent to Google Gemini?
+5. Google Gemini for cargo photos and AURA messages: approved by the project owner on 26 Nov 2026 and disclosed in the privacy notice and the chat.
 6. Which Playa Grande row is public and which is contractor; operator of Santa Eduvigis.
 7. Client review of the screens in section 4.
 
@@ -245,4 +245,4 @@ Effort in working days, to be confirmed after approval.
 - Gobierno: calidad de datos, calendario de revisiones y conservación (pendiente hasta tener referencia de aprobación).
 - Administrador de entidad: instalaciones, trazabilidad y auditoría. Conductor: foto, vehículo, área, soporte, cumplimiento de horario.
 - Módulos por usuario, ingreso con correo, comprobantes, `/noticias`, `/ayuda`, ruta de navegación y detalle desde los gráficos.
-- Sin construir: Eco Challenges (faltan campañas aprobadas). Textos legales y de privacidad: los publica el cliente.
+- Sin construir: Eco Challenges (faltan campañas aprobadas). Los textos «Acerca de» y de privacidad están publicados (redactados por el equipo); falta la revisión legal y el contacto de soporte.
