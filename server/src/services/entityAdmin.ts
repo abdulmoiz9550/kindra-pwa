@@ -41,6 +41,9 @@ export interface EntityUserInput {
   centerId?: string | null;
   password?: string;
   active?: boolean;
+  email?: string | null;
+  vehicleId?: string | null;
+  operationalArea?: string | null;
 }
 
 /**
@@ -62,6 +65,7 @@ export function upsertEntityUser(actor: Actor, input: EntityUserInput): Omit<Use
     const center = input.centerId ? store.get('centers', input.centerId) : undefined;
     if (!center || center.entityId !== entityId) throw badRequest('Elige un centro que pertenezca a tu entidad.');
   }
+  if (input.vehicleId && store.get('vehicles', input.vehicleId)?.entityId !== entityId) throw badRequest('Elige un vehículo de tu entidad.');
   // Se conservan los roles que solo Kindra puede activar.
   const kept = (existing?.roles || []).filter((r) => KINDRA_ONLY_ROLES.includes(r));
   const payload: UserInput = {
@@ -75,6 +79,9 @@ export function upsertEntityUser(actor: Actor, input: EntityUserInput): Omit<Use
     sectorId: existing?.sectorId ?? null,
     password: input.password,
     active: input.active,
+    email: input.email,
+    vehicleId: input.vehicleId,
+    operationalArea: input.operationalArea,
     spaceId: existing?.spaceId ?? store.get('entities', entityId)?.spaceId ?? null,
   };
   const saved = upsertUser(payload, { id: actor.id!, kind: 'entity_admin', entityId });

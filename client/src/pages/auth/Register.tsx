@@ -15,7 +15,7 @@ export default function Register() {
   const { data: cfg } = usePublicConfig();
   const referralsOn = useFeature('referrals');
   const [params] = useSearchParams();
-  const [form, setForm] = useState({ alias: '', password: '', phone: '', name: '', sectorId: '', referralCode: (params.get('ref') || '').toUpperCase() });
+  const [form, setForm] = useState({ alias: '', password: '', phone: '', email: '', name: '', sectorId: '', referralCode: (params.get('ref') || '').toUpperCase() });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm({ ...form, [k]: e.target.value });
@@ -25,7 +25,7 @@ export default function Register() {
     setBusy(true);
     setError(null);
     try {
-      const s = await api.post<{ token: string; user: PublicUser }>('/auth/register', { alias: form.alias, password: form.password, phone: form.phone || undefined, name: form.name || undefined, sectorId: form.sectorId || null, referralCode: referralsOn && form.referralCode.trim() ? form.referralCode.trim() : null });
+      const s = await api.post<{ token: string; user: PublicUser }>('/auth/register', { alias: form.alias, password: form.password, phone: form.phone || undefined, email: form.email || null, name: form.name || undefined, sectorId: form.sectorId || null, referralCode: referralsOn && form.referralCode.trim() ? form.referralCode.trim() : null });
       setSession(s);
       qc.clear();
       navigate('/mis-reportes');
@@ -49,6 +49,9 @@ export default function Register() {
           </Field>
           <Field label="Teléfono" hint="Opcional. Sirve para entrar con él.">
             <Input type="tel" value={form.phone} onChange={set('phone')} autoComplete="tel" />
+          </Field>
+          <Field label="Correo" hint="Opcional. Sirve para entrar con él.">
+            <Input type="email" value={form.email} onChange={set('email')} autoComplete="email" />
           </Field>
           <Field label="Nombre" hint="Opcional. Solo para llamarte así en los avisos.">
             <Input value={form.name} onChange={set('name')} autoComplete="name" />

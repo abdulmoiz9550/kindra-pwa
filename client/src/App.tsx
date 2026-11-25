@@ -53,6 +53,8 @@ const GroupsDirectory = lazy(() => import('./pages/GroupArea').then((m) => ({ de
 const Processing = lazy(() => import('./pages/panels/Processing'));
 const RequestsPanel = lazy(() => import('./pages/panels/RequestsPanel'));
 const GroupReview = lazy(() => import('./pages/panels/GroupReview'));
+const NewsPage = lazy(() => import('./components/News'));
+const HelpPage = lazy(() => import('./components/News').then((m) => ({ default: m.HelpPage })));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
 export default function App() {
@@ -89,6 +91,8 @@ export default function App() {
           <Route path="/panel/escolta" element={<RequireRole roles={['removal', 'center', 'driver']}><Escort /></RequireRole>} />
           <Route path="/panel/control" element={<RequireRole roles={['center', 'destination', 'coordinator']}><Checkpoint /></RequireRole>} />
           <Route path="/notificaciones" element={<Notifications />} />
+          <Route path="/noticias" element={<NewsPage />} />
+          <Route path="/ayuda" element={<HelpPage />} />
           <Route path="/ajustes" element={<Settings />} />
           <Route path="/ingresar" element={<Login />} />
           <Route path="/registro" element={<Register />} />

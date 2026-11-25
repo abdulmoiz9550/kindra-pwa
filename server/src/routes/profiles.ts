@@ -29,12 +29,14 @@ profilesRouter.put(
   '/account',
   wrap((req, res) => {
     const u = req.auth!.user;
-    const body = z.object({ name: z.string().max(80).nullable().optional(), phone: z.string().max(30).nullable().optional(), preferences: z.object({ mutedKinds: z.array(z.string()).max(20), available: z.boolean(), address: z.string().max(200).nullable() }).optional() }).parse(req.body);
+    const body = z.object({ name: z.string().max(80).nullable().optional(), phone: z.string().max(30).nullable().optional(), email: z.string().email().nullable().optional(), profilePhotoId: z.string().nullable().optional(), preferences: z.object({ mutedKinds: z.array(z.string()).max(20), available: z.boolean(), address: z.string().max(200).nullable() }).optional() }).parse(req.body);
     const changesName = body.name !== undefined && (body.name || undefined) !== u.name;
     // Los datos que respaldaron la verificación de identidad solo los cambia la administración.
     if (changesName && u.verificationStatus === 'verified') throw forbidden('Tu nombre está verificado. Pide el cambio a la administración.');
     if (body.preferences?.mutedKinds.some((k) => !MUTABLE_NOTIFICATIONS.some((m) => m.kind === k))) throw badRequest('Ese tipo de aviso no se puede silenciar.');
-    const next = db().update('users', u.id, { ...(body.name !== undefined ? { name: body.name?.trim() || undefined } : {}), ...(body.phone !== undefined ? { phone: body.phone?.trim() || undefined } : {}), ...(body.preferences ? { preferences: body.preferences } : {}) });
+    if (body.email && db().find('users', (x) => x.email === body.email!.trim().toLowerCase() && x.id !== u.id)) throw badRequest('Ese correo no se puede usar.');
+    if (body.profilePhotoId && db().get('photos', body.profilePhotoId)?.uploadedBy !== u.id) throw badRequest('La foto no es tuya.');
+    const next = db().update('users', u.id, { ...(body.email !== undefined ? { email: body.email?.trim().toLowerCase() || null } : {}), ...(body.profilePhotoId !== undefined ? { profilePhotoId: body.profilePhotoId } : {}), ...(body.name !== undefined ? { name: body.name?.trim() || undefined } : {}), ...(body.phone !== undefined ? { phone: body.phone?.trim() || undefined } : {}), ...(body.preferences ? { preferences: body.preferences } : {}) });
     logAccountChange(u.id, u.id, 'profile_updated', null, Object.keys(body).join(','));
     res.json({ user: toPublicUser(next, req.auth!.role, req.auth!.mfa) });
   }),

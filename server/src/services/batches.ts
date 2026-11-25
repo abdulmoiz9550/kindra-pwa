@@ -190,6 +190,7 @@ export function verifyQuality(batchId: string, actor: Actor, input: QualityInput
   const cfg = getConfig();
   assertChecklist(input.checklist, cfg.qualityChecklist.map((c) => c.key));
   if (!input.justification?.trim()) throw badRequest('La justificación escrita es obligatoria.');
+  if (db().find('correctionRequests', (c) => c.batchId === batch.id && c.status === 'open')) throw conflict('El lote tiene una corrección pendiente. Espera a que el centro la atienda.', 'correction_open');
   assertTransition('batch', 'quality_verified', batch.state, { actor, batch, resolvedTo: input.result });
   const verification: QualityVerification = {
     id: newId('qv'),
@@ -320,6 +321,8 @@ export function batchView(b: Batch) {
     pendingHazard: receptions.filter((r) => r.subcategory === 'possible_hazardous' && !r.hazardDecision).length,
     unclassified: receptions.filter((r) => !r.subcategory).length,
     separateProcessing: hasProcessingStaff(b.centerId),
+    corrected: store.eventsOfChain(`batch:${b.id}`).some((e) => e.type === 'correction'),
+    openCorrection: store.find('correctionRequests', (c) => c.batchId === b.id && c.status === 'open') ?? null,
   };
 }
 

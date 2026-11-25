@@ -25,6 +25,7 @@ import { listInfoRequests, actOnInfoRequest, securityLog, listRecovery, resolveR
 import { listBackups, createBackup, verifyBackupFile } from '../services/backup';
 import { adminGroups, upsertGroup, upsertBusiness, businessBody } from '../services/profiles';
 import { nowIso } from '../core/ids';
+import { adminOverview, assignReport, citizenQueue, dataQuality, listNews, logReview, reviewStatus, traceability, upsertNews } from '../services/ops';
 import { photoStoreName } from '../services/photoStore';
 
 export const adminRouter = Router();
@@ -122,6 +123,10 @@ adminRouter.post(
         verificationStatus: z.enum(['not_required', 'pending', 'verified', 'rejected']).optional(),
         spaceId: z.string().nullable().optional(),
         businessId: z.string().nullable().optional(),
+        email: z.string().email().nullable().optional(),
+        modules: z.array(z.string()).nullable().optional(),
+        vehicleId: z.string().nullable().optional(),
+        operationalArea: z.string().max(160).nullable().optional(),
         appointmentDocumentRef: z.string().max(200).nullable().optional(),
         appointmentPhotoId: z.string().nullable().optional(),
       })
@@ -475,5 +480,51 @@ adminRouter.post(
   '/businesses',
   wrap((req, res) => {
     res.json(upsertBusiness(req.auth!.actor, businessBody.extend({ id: z.string().optional(), active: z.boolean() }).parse(req.body)));
+  }),
+);
+
+// ---------------------------------------------------------------- resumen, trazabilidad, reportes, contenido y revisiones (v4.0)
+
+const entityOf = (q: unknown) => (typeof q === 'string' && q && db().get('entities', q) ? q : null);
+adminRouter.get('/dashboard', (req, res) => res.json(adminOverview(entityOf(req.query.entity))));
+adminRouter.get('/traceability', (req, res) => res.json(traceability(entityOf(req.query.entity))));
+adminRouter.get('/data-quality', (_req, res) => res.json(dataQuality()));
+adminRouter.get('/citizen-reports', (_req, res) => res.json(citizenQueue()));
+adminRouter.post(
+  '/citizen-reports/:id',
+  wrap((req, res) => {
+    const body = z.object({ userId: z.string().nullable().optional(), escalate: z.boolean().optional(), note: z.string().max(400).nullable().optional() }).parse(req.body);
+    res.json(assignReport(req.auth!.actor, String(req.params.id), body));
+  }),
+);
+adminRouter.get('/news', (_req, res) => res.json(listNews(null, true)));
+adminRouter.post(
+  '/news',
+  wrap((req, res) => {
+    const body = z.object({ id: z.string().optional(), kind: z.enum(['news', 'campaign']), title: z.string().min(3).max(160), body: z.string().min(3).max(5000), audience: z.array(z.enum(ROLES as [Role, ...Role[]])), published: z.boolean(), publishedAt: z.string().datetime({ offset: true }) }).parse(req.body);
+    res.json(upsertNews(body));
+  }),
+);
+adminRouter.put(
+  '/help',
+  wrap((req, res) => {
+    const body = z.object({ about: z.string().max(6000), privacy: z.string().max(12000), contact: z.string().max(600) }).parse(req.body);
+    res.json(updateConfig({ help: { ...body, updatedAt: nowIso() } }).help);
+  }),
+);
+adminRouter.put(
+  '/retention/:level',
+  wrap((req, res) => {
+    const level = z.enum(['public', 'restricted', 'confidential', 'critical']).parse(req.params.level);
+    const body = z.object({ period: z.string().min(2).max(120), legalBasis: z.string().min(3).max(400), approvalReference: z.string().min(3).max(200) }).parse(req.body);
+    res.json(updateConfig({ retention: { ...(getConfig().retention || {}), [level]: { ...body, updatedAt: nowIso() } } }).retention);
+  }),
+);
+adminRouter.get('/reviews', (_req, res) => res.json(reviewStatus()));
+adminRouter.post(
+  '/reviews/:key',
+  wrap((req, res) => {
+    const { note } = z.object({ note: z.string().min(3).max(800) }).parse(req.body);
+    res.status(201).json(logReview(req.auth!.actor, String(req.params.key), note));
   }),
 );

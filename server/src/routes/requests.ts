@@ -29,7 +29,7 @@ requestsRouter.get('/context', (req, res) => {
   const { role, user } = req.auth!;
   const staff = ['coordinator', 'entity_admin', 'removal', 'admin'].includes(role);
   res.json({
-    modules: [{ key: 'debris', label: 'Escombros', units: ['m3', 't'] }, ...(isFeatureOn('oil_module') ? [{ key: 'oil', label: 'Aceite de cocina usado', units: ['l'] }] : [])],
+    modules: [{ key: 'debris', label: 'Escombros', units: ['m3', 't'] }, ...(isFeatureOn('oil_module') ? [{ key: 'oil', label: 'Aceite de cocina usado', units: ['l'] }] : [])].filter((m) => !user.modules || user.modules.includes(m.key)),
     vehicles: role === 'driver' ? store.filter('vehicles', (v) => v.active && v.entityId === user.entityId).map((v) => ({ id: v.id, plate: v.plate })) : [],
     centers: staff || role === 'driver' ? store.list('centers').map((c) => ({ id: c.id, name: c.name })) : [],
     operators: staff ? store.filter('entities', (e) => e.type === 'removal' && e.active && (role === 'coordinator' || role === 'admin' || e.id === user.entityId)).map((e) => ({ id: e.id, name: e.name })) : [],
@@ -39,7 +39,7 @@ requestsRouter.get('/context', (req, res) => {
 
 requestsRouter.get('/impact', requireRole('driver', 'householder', 'business'), (req, res) => {
   const d = (v: unknown) => (date.safeParse(v).success ? String(v) : null);
-  res.json(pickupImpact(req.auth!.actor, d(req.query.from), d(req.query.to), typeof req.query.module === 'string' && req.query.module ? req.query.module : null));
+  res.json(pickupImpact(req.auth!.actor, d(req.query.from), d(req.query.to), typeof req.query.module === 'string' && req.query.module ? req.query.module : null, req.query.status === 'received' ? 'received' : 'completed'));
 });
 
 requestsRouter.post(

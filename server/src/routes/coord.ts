@@ -85,6 +85,9 @@ coordRouter.post(
         priority: z.enum(['high', 'medium', 'low']).nullable().optional(),
         photoIds: z.array(z.string()).optional(),
         date: z.string().nullable().optional(),
+        material: z.string().max(160).nullable().optional(),
+        quantity: z.number().positive().nullable().optional(),
+        unit: z.enum(['t', 'm3']).nullable().optional(),
       })
       .parse(req.body);
     res.status(201).json(originView(createInstitutionalOrigin({ ...body, deviceTime: req.deviceTime }, req.auth!.actor), req.auth!.role));

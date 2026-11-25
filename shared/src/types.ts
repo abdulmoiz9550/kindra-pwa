@@ -119,6 +119,13 @@ export interface User {
   proposedRoles?: RoleProposal[];
   /** Verificación en dos pasos (obligatoria para el administrador principal). */
   twoFactor?: TwoFactorState | null;
+  /** Correo para ingresar (confidencial). */
+  email?: string | null;
+  /** Módulos a los que accede. Sin valor = los activos. */
+  modules?: string[] | null;
+  vehicleId?: string | null;
+  operationalArea?: string | null;
+  profilePhotoId?: string | null;
   /** Comercio al que pertenece la cuenta (perfil comercio). */
   businessId?: string | null;
   /** Preferencias personales (v4.0, 17.5). */
@@ -144,6 +151,8 @@ export interface PublicUser extends Omit<User, 'passwordHash'> {
   consecutiveRejections: number;
   suspendedUntil?: string | null;
   entityName?: string | null;
+  vehiclePlate?: string | null;
+  profilePhotoUrl?: string | null;
 }
 
 export interface LevelInfo {
@@ -200,6 +209,10 @@ export interface Origin {
   date: string;
   photoIds: string[];
   subcategory?: Subcategory | null;
+  /** Material, cantidad estimada y unidad al registrar el lote de origen (v4.0, sección 7). */
+  material?: string | null;
+  quantity?: number | null;
+  unit?: OutputUnit | null;
   size: OriginSize;
   urgency?: OriginUrgency | null;
   voiceNoteId?: string | null;
@@ -737,6 +750,10 @@ export interface AppConfig {
   provisionalFlags: Record<string, boolean>;
   /** Funciones activables por el administrador principal (addendum, partes 1 y 4). */
   features: Record<string, boolean>;
+  /** Contenido de Ayuda. Vacío = pendiente de publicación. */
+  help?: { about: string; privacy: string; contact: string; updatedAt: string | null };
+  /** Plazos de conservación aprobados por nivel de clasificación. Sin valor = pendiente. */
+  retention?: Partial<Record<InfoClassification, { period: string; legalBasis: string; approvalReference: string; updatedAt: string } | null>>;
   /** Aprobación formal del esquema de puntos y niveles (v4.0, sección 29). */
   incentives?: { status: 'pending' | 'approved'; reference: string | null; approvedAt: string | null; approvedBy: string | null };
   /** Seguimiento de rutas y puntos de control (addendum v1.3). Umbrales configurables. */
@@ -1167,4 +1184,48 @@ export interface AiSuggestion {
   decidedBy: string | null;
   decidedAt: string | null;
   finalSubcategory: Subcategory | null;
+}
+
+// ---------------------------------------------------------------------------
+// v4.0: correcciones pedidas, noticias, revisiones
+// ---------------------------------------------------------------------------
+
+export interface CorrectionRequest {
+  id: string;
+  batchId: string;
+  note: string;
+  requestedBy: string;
+  createdAt: string;
+  status: 'open' | 'resolved';
+  resolvedBy: string | null;
+  resolvedAt: string | null;
+  resolutionNote: string | null;
+}
+
+export interface NewsItem {
+  id: string;
+  kind: 'news' | 'campaign';
+  title: string;
+  body: string;
+  /** Vacío = para todas las personas. */
+  audience: Role[];
+  published: boolean;
+  publishedAt: string;
+  updatedAt: string;
+}
+
+export interface ReportAssignment {
+  id: string;
+  userId: string | null;
+  escalatedAt: string | null;
+  note: string | null;
+  updatedAt: string;
+}
+
+export interface ReviewLog {
+  id: string;
+  key: string;
+  note: string;
+  userId: string | null;
+  doneAt: string;
 }

@@ -48,6 +48,8 @@ export function toPublicUser(user: User, activeRole: Role, mfa = false): PublicU
     consecutiveRejections: pts.consecutiveRejections,
     suspendedUntil: pts.suspendedUntil,
     entityName: entity?.name ?? null,
+    vehiclePlate: user.vehicleId ? db().get('vehicles', user.vehicleId)?.plate ?? null : null,
+    profilePhotoUrl: user.profilePhotoId ? db().get('photos', user.profilePhotoId)?.url ?? null : null,
     mfa,
   };
 }
@@ -65,7 +67,7 @@ function defaultRole(user: User): Role {
 export function findLoginUser(identifier: string): User | undefined {
   const id = identifier.trim().toLowerCase();
   const digits = id.replace(/\D/g, '');
-  return db().find('users', (u) => u.active && (u.alias.toLowerCase() === id || (digits.length >= 7 && (u.phone || '').replace(/\D/g, '') === digits)));
+  return db().find('users', (u) => u.active && (u.alias.toLowerCase() === id || (!!u.email && u.email === id) || (digits.length >= 7 && (u.phone || '').replace(/\D/g, '') === digits)));
 }
 
 export function login(identifier: string, password: string): { token: string; user: PublicUser } {
@@ -75,11 +77,13 @@ export function login(identifier: string, password: string): { token: string; us
   return { token: issueToken(user.id, role), user: toPublicUser(user, role) };
 }
 
-export function registerCitizen(input: { alias: string; password: string; phone?: string; name?: string; sectorId?: string | null; referralCode?: string | null }): { token: string; user: PublicUser } {
+export function registerCitizen(input: { email?: string | null; alias: string; password: string; phone?: string; name?: string; sectorId?: string | null; referralCode?: string | null }): { token: string; user: PublicUser } {
   const alias = input.alias.trim();
   if (alias.length < 3) throw badRequest('El alias debe tener al menos 3 caracteres.');
+  if (alias.includes('@')) throw badRequest('El alias no puede ser un correo. Usa el campo de correo.');
   if (input.password.length < 6) throw badRequest('La contraseña debe tener al menos 6 caracteres.');
   if (db().find('users', (u) => u.alias.toLowerCase() === alias.toLowerCase())) throw badRequest('Ese alias ya está en uso. Elige otro.');
+  if (input.email && db().find('users', (u) => u.email === input.email!.trim().toLowerCase())) throw badRequest('No se pudo crear la cuenta con esos datos. Prueba con otro correo o ingresa.');
   // Referidos (addendum, parte 2): se guarda quién invitó; los puntos llegan solo cuando el primer reporte se valida.
   let referredBy: string | null = null;
   if (input.referralCode?.trim() && isFeatureOn('referrals')) {
@@ -92,6 +96,7 @@ export function registerCitizen(input: { alias: string; password: string; phone?
     alias,
     name: input.name?.trim() || undefined,
     phone: input.phone?.trim() || undefined,
+    email: input.email?.trim().toLowerCase() || null,
     roles: ['citizen'],
     entityId: null,
     centerId: null,

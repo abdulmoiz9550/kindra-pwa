@@ -12,6 +12,8 @@ import { useNotifications } from '../lib/notifications';
 import { useToasts } from '../lib/toast';
 import { useQueryClient } from '@tanstack/react-query';
 import { pendingReports, onPendingChange } from '../lib/offline';
+import { useModule } from '../lib/module';
+import { Breadcrumbs } from './Breadcrumbs';
 import { BrandBlock, KindraLine, KINDRA_MARK } from './Brand';
 
 export function Layout({ children }: { children: ReactNode }) {
@@ -31,6 +33,7 @@ export function Layout({ children }: { children: ReactNode }) {
       <div className={`flex-1 w-full mx-auto ${showNav ? 'max-w-7xl md:flex' : 'max-w-5xl'}`}>
         {showNav && <Sidebar />}
         <main id="main" className="min-w-0 flex-1 w-full max-w-5xl mx-auto px-4 pt-4 pb-28 md:pb-10">
+          {!isPublicPage && <Breadcrumbs />}
           {children}
         </main>
       </div>
@@ -81,13 +84,19 @@ function Header({ connected }: { connected: boolean }) {
 function SessionContext() {
   const user = useAuth((s) => s.user);
   const oil = useFeature('oil_module');
-  const modules = ['Escombros', ...(oil ? ['Aceite de cocina usado'] : [])];
+  const { module, setModule } = useModule();
+  const modules = [{ key: 'debris', label: 'Escombros' }, ...(oil ? [{ key: 'oil', label: 'Aceite de cocina usado' }] : [])].filter((m) => !user?.modules || user.modules.includes(m.key));
+  // Una elección guardada que ya no está disponible no debe ocultar registros.
+  const stale = !!module && (modules.length < 2 || !modules.some((m) => m.key === module));
+  useEffect(() => {
+    if (user && stale) setModule('');
+  }, [user, stale, setModule]);
   if (!user) return null;
   return (
     <div className="no-print bg-surface border-b border-line text-xs text-ink-2">
       <p className="max-w-7xl mx-auto px-4 py-1.5">
         <strong>{ROLE_LABELS[user.activeRole]}</strong>
-        {user.entityName ? ` · ${user.entityName}` : ''} · {modules.length > 1 ? 'Módulos' : 'Módulo'}: {modules.join(', ')}
+        {user.entityName ? ` · ${user.entityName}` : ''} · Módulo: {modules.length > 1 ? <select className="bg-transparent underline" aria-label="Módulo" value={module} onChange={(e) => setModule(e.target.value)}><option value="">Todos</option>{modules.map((m) => <option key={m.key} value={m.key}>{m.label}</option>)}</select> : modules[0]?.label ?? 'sin acceso'}
       </p>
     </div>
   );
@@ -279,6 +288,7 @@ export function Footer() {
           <Link to="/tablero">Tablero público</Link>
           <Link to="/aprende">Aprende</Link>
           <Link to="/ajustes">Accesibilidad</Link>
+          <Link to="/ayuda">Ayuda y privacidad</Link>
           <Link to="/solicitar-informacion">Solicitar información</Link>
         </nav>
       </div>

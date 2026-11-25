@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { KINDRA_TAGLINE, USE_TYPE_LABELS, SIZE_LABELS, URGENCY_LABELS, SUBCATEGORY_LABELS, REJECTION_REASON_LABELS, STRUCTURE_TYPE_LABELS, CAUSE_LABELS, ROLE_LABELS } from '@kindra/shared';
 import { db } from '../core/db';
 import { wrap, citizenActor } from '../middleware/auth';
+import { listNews } from '../services/ops';
 import { submitInfoRequest, publicInfoRequest } from '../services/governance';
 import { getConfig } from '../services/config';
 import { listDemoRoles } from '../services/auth';
@@ -157,3 +158,9 @@ publicRouter.get(
     res.json(publicInfoRequest(String(req.params.code)));
   }),
 );
+
+publicRouter.get('/noticias', (req, res) => res.json(listNews(req.auth?.role ?? null)));
+publicRouter.get('/ayuda', (_req, res) => {
+  const cfg = getConfig();
+  res.json({ ...(cfg.help || { about: '', privacy: '', contact: '', updatedAt: null }), complaintChannelUrl: cfg.complaintChannelUrl });
+});

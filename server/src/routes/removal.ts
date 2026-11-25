@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { db } from '../core/db';
 import { wrap, requireRole } from '../middleware/auth';
+import { createInstitutionalOrigin } from '../services/origins';
 import { registerDeparture, tripView, findVehicle, estimatedVolume } from '../services/trips';
 import { recordBeforeAfter } from '../services/monitor';
 import { originView } from './helpers';
@@ -67,3 +68,20 @@ removalRouter.post(
     res.json(originView(recordBeforeAfter(String(req.params.id), req.auth!.actor, { ...body, deviceTime: req.deviceTime }), req.auth!.role));
   }),
 );
+
+/** v4.0, 5.3: registro de origen o lote por el personal de recolección. Queda por validar. */
+removalRouter.post(
+  '/origins',
+  wrap((req, res) => {
+    const geo = z.object({ lat: z.number(), lng: z.number() }).nullable().optional();
+    const body = z
+      .object({ location: geo, street: z.string().max(200).nullable().optional(), reference: z.string().max(200).nullable().optional(), sectorId: z.string().nullable().optional(), size: z.enum(['small', 'medium', 'large']), structureType: z.enum(['house', 'multifamily', 'commercial', 'institutional', 'roadway', 'other']), cause: z.enum(['collapse', 'demolition']), buildingReference: z.string().max(200).nullable().optional(), material: z.string().min(2).max(160), quantity: z.number().positive(), unit: z.enum(['t', 'm3']), photoIds: z.array(z.string()).min(1, 'La evidencia fotográfica es obligatoria.').max(3), date: z.string().nullable().optional() })
+      .parse(req.body);
+    res.status(201).json(originView(createInstitutionalOrigin({ ...body, deviceTime: req.deviceTime }, req.auth!.actor), req.auth!.role));
+  }),
+);
+
+/** Lotes registrados por la propia entidad y su estado. */
+removalRouter.get('/origins', (req, res) => {
+  res.json(db().filter('origins', (o) => o.entityId === req.auth!.user.entityId).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)).map((o) => originView(o, req.auth!.role)));
+});

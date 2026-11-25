@@ -168,6 +168,9 @@ export function createCitizenReport(input: CitizenReportInput, actor: Actor): Ci
 }
 
 export interface InstitutionalOriginInput {
+  material?: string | null;
+  quantity?: number | null;
+  unit?: 't' | 'm3' | null;
   location?: GeoPoint | null;
   street?: string | null;
   reference?: string | null;
@@ -186,6 +189,9 @@ export interface InstitutionalOriginInput {
 /** Origen institucional: nace validado (6.1). */
 export function createInstitutionalOrigin(input: InstitutionalOriginInput, actor: Actor): Origin {
   const store = db();
+  if ((input.quantity == null) !== (input.unit == null)) throw badRequest('Indica la cantidad junto con su unidad.');
+  // Lo que registra la entidad de retiro lo valida después la coordinación: nadie valida lo propio.
+  const collector = actor.role === 'removal';
   const sector = deriveSector(input.location) || (input.sectorId ? store.get('sectors', input.sectorId) : undefined);
   if (!sector) throw badRequest('Indica una ubicación dentro de un sector o elige el sector.');
   const now = nowIso();
@@ -200,6 +206,9 @@ export function createInstitutionalOrigin(input: InstitutionalOriginInput, actor
     date: input.date || now,
     photoIds: input.photoIds || [],
     subcategory: input.subcategory ?? null,
+    material: input.material?.trim() || null,
+    quantity: input.quantity ?? null,
+    unit: input.unit ?? null,
     size: input.size,
     urgency: null,
     voiceNoteId: null,
@@ -209,8 +218,8 @@ export function createInstitutionalOrigin(input: InstitutionalOriginInput, actor
     reporterName: store.get('entities', actor.entityId || '')?.name ?? null,
     anonymous: false,
     priority: input.priority ?? null,
-    state: 'validated',
-    validatedAt: now,
+    state: collector ? 'registered' : 'validated',
+    validatedAt: collector ? null : now,
     linkedOriginIds: [],
     linkedReporterKeys: [],
     duplicateOfId: null,
@@ -226,6 +235,10 @@ export function createInstitutionalOrigin(input: InstitutionalOriginInput, actor
     spaceId: spaceOfSector(sector.id),
   };
   appendEvent({ type: 'origin_registered', objectType: 'origin', objectId: origin.id, actor, data: { origin }, deviceTime: input.deviceTime });
+  if (collector) {
+    notifyRole('coordinator', 'origin_to_validate', `Hay un origen por validar: ${origin.code}.`, { link: '/panel/coordinador' });
+    return store.get('origins', origin.id)!;
+  }
   if (input.priority) notifyRole('removal', 'prioritized', pickText('notif_removal_prioritized', { número: 1, sector: sector.name }), { link: '/panel/retiro' });
   announceSectorAssigned(sector.id);
   return store.get('origins', origin.id)!;
@@ -235,7 +248,7 @@ export function createInstitutionalOrigin(input: InstitutionalOriginInput, actor
 
 export function validateOrigin(id: string, actor: Actor, priority?: OriginPriority | null, deviceTime?: string | null): Origin {
   const o = getOriginOrThrow(id);
-  if (o.type !== 'citizen') throw conflict('Los orígenes institucionales nacen validados.');
+  if (o.type !== 'citizen' && o.state !== 'registered') throw conflict('Los orígenes institucionales nacen validados.');
   assertTransition('origin', 'origin_validated', o.state, { actor, origin: o });
   appendEvent({ type: 'origin_validated', objectType: 'origin', objectId: o.id, actor, data: { priority: priority ?? null }, deviceTime });
   const sector = sectorName(o.sectorId);

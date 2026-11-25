@@ -17,6 +17,7 @@ export interface OriginView extends Origin {
   linkedCodes: string[];
   removalResponse: string | null;
   completeness: number;
+  corrected: boolean;
   allowedActions: string[];
   status: { plain: string; label: string; center: string; priority: OriginPriority | null; pendingRemovalConfirmation: boolean; pendingSatisfaction: boolean };
 }
@@ -60,6 +61,8 @@ export interface BatchView extends Batch {
   pendingHazard: number;
   unclassified: number;
   separateProcessing: boolean;
+  corrected: boolean;
+  openCorrection: { id: string; note: string } | null;
 }
 
 export interface WorkView extends Work {

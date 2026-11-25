@@ -44,10 +44,10 @@ function Home() {
     <div className="space-y-4">
       <PageTitle title={`Hola, ${user?.name || user?.alias}`} subtitle="Tu trabajo de hoy." />
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-        <Kpi label="Asignadas para hoy" value={active.filter((r) => r.date === day).length} note={day} />
-        <Kpi label="Esperan una acción tuya" value={active.length} />
+        <Kpi label="Asignadas para hoy" value={active.filter((r) => r.date === day).length} note={day} to="/conductor/solicitudes?tab=mine" />
+        <Kpi label="Esperan una acción tuya" value={active.length} to="/conductor/solicitudes?tab=mine" />
         <Kpi label="Validadas hoy" value={doneToday} note={day} />
-        <Kpi label="Validadas en el piloto" value={mine.filter((r) => r.status === 'completed').length} />
+        <Kpi label="Validadas en el piloto" value={mine.filter((r) => r.status === 'completed').length} to="/conductor/impacto" />
       </div>
       {alerts.length > 0 && <Alert tone="info" title="Avisos">{alerts.map((a) => a.text).join(' ')} <Link className="underline" to="/notificaciones">Ver todos</Link></Alert>}
       {mine.some((r) => r.status === 'issue') && <Alert tone="warn">Tienes una solicitud con incidencia. La coordinación la está revisando.</Alert>}

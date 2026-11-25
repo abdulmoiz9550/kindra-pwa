@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Business, Role, User, Entity, Center, Sector, Photo, VerificationStatus, Space } from '@kindra/shared';
+import type { Business, Vehicle, Role, User, Entity, Center, Sector, Photo, VerificationStatus, Space } from '@kindra/shared';
 import { ROLES, ROLE_LABELS, INSTITUTIONAL_ROLES } from '@kindra/shared';
 import { Card, Button, Field, Input, Select, Badge, Modal, Spinner, Tabs } from '../../components/ui';
 import { Section, useAdminList, useAdminAction } from './shared';
@@ -24,9 +24,13 @@ interface Draft {
   /** El usuario ya era administrador de entidad al abrir el formulario. */
   wasEntityAdmin: boolean;
   businessId: string;
+  email: string;
+  modules: string[] | null;
+  vehicleId: string;
+  operationalArea: string;
 }
 
-const EMPTY: Draft = { alias: '', name: '', phone: '', roles: ['citizen'], entityId: '', centerId: '', sectorId: '', password: '', active: true, verificationStatus: 'not_required', spaceId: '', appointmentDocumentRef: '', wasEntityAdmin: false, businessId: '' };
+const EMPTY: Draft = { alias: '', name: '', phone: '', roles: ['citizen'], entityId: '', centerId: '', sectorId: '', password: '', active: true, verificationStatus: 'not_required', spaceId: '', appointmentDocumentRef: '', wasEntityAdmin: false, businessId: '', email: '', modules: null, vehicleId: '', operationalArea: '' };
 
 const VERIF_LABEL: Record<VerificationStatus, string> = { not_required: 'no requerida', pending: 'pendiente', verified: 'verificado', rejected: 'rechazada' };
 
@@ -36,6 +40,7 @@ export default function Users() {
   const businesses = useAdminList<Business>('businesses');
   const groupsOn = useFeature('community_groups');
   const centers = useAdminList<Center>('centers');
+  const vehicles = useAdminList<Vehicle>('vehicles');
   const sectors = useAdminList<Sector>('sectors');
   const photos = useAdminList<Photo>('photos?moderation=all');
   const spaces = useAdminList<Space>('spaces');
@@ -49,14 +54,14 @@ export default function Users() {
   const edit = (u?: UserRow) =>
     setEditing(
       u
-        ? { id: u.id, alias: u.alias, name: u.name || '', phone: u.phone || '', roles: u.roles, entityId: u.entityId || '', centerId: u.centerId || '', sectorId: u.sectorId || '', password: '', active: u.active, verificationStatus: u.verificationStatus, spaceId: u.spaceId || '', appointmentDocumentRef: u.appointment?.documentRef || '', wasEntityAdmin: u.roles.includes('entity_admin'), businessId: u.businessId || '' }
+        ? { id: u.id, alias: u.alias, name: u.name || '', phone: u.phone || '', roles: u.roles, entityId: u.entityId || '', centerId: u.centerId || '', sectorId: u.sectorId || '', password: '', active: u.active, verificationStatus: u.verificationStatus, spaceId: u.spaceId || '', appointmentDocumentRef: u.appointment?.documentRef || '', wasEntityAdmin: u.roles.includes('entity_admin'), businessId: u.businessId || '', email: u.email || '', modules: u.modules ?? null, vehicleId: u.vehicleId || '', operationalArea: u.operationalArea || '' }
         : { ...EMPTY },
     );
 
   const save = async () => {
     if (!editing) return;
     const { wasEntityAdmin: _w, ...rest } = editing;
-    const body = { ...rest, businessId: editing.businessId || null, entityId: editing.entityId || null, centerId: editing.centerId || null, sectorId: editing.sectorId || null, spaceId: editing.spaceId || null, password: editing.password || undefined, name: editing.name || undefined, phone: editing.phone || undefined, appointmentDocumentRef: editing.appointmentDocumentRef || null };
+    const body = { ...rest, email: editing.email || null, vehicleId: editing.vehicleId || null, operationalArea: editing.operationalArea || null, businessId: editing.businessId || null, entityId: editing.entityId || null, centerId: editing.centerId || null, sectorId: editing.sectorId || null, spaceId: editing.spaceId || null, password: editing.password || undefined, name: editing.name || undefined, phone: editing.phone || undefined, appointmentDocumentRef: editing.appointmentDocumentRef || null };
     const r = await post('users', body, 'Usuario guardado.');
     if (r) setEditing(null);
   };
@@ -203,6 +208,16 @@ export default function Users() {
                   ))}
                 </Select>
               </Field>
+            </div>
+            <div className="grid sm:grid-cols-2 sm:gap-3">
+              <Field label="Correo"><Input type="email" value={editing.email} onChange={(e) => setEditing({ ...editing, email: e.target.value })} /></Field>
+              <fieldset className="mb-4">
+                <legend className="label">Módulos</legend>
+                <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={editing.modules === null} onChange={(e) => setEditing({ ...editing, modules: e.target.checked ? null : ['debris'] })} /> Todos los activos</label>
+                {editing.modules !== null && ([['debris', 'Escombros'], ['oil', 'Aceite de cocina usado']] as const).map(([k, l]) => <label key={k} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={editing.modules!.includes(k)} onChange={(e) => setEditing({ ...editing, modules: e.target.checked ? [...editing.modules!, k] : editing.modules!.filter((x) => x !== k) })} /> {l}</label>)}
+              </fieldset>
+              {editing.roles.includes('driver') && <Field label="Vehículo asignado"><Select value={editing.vehicleId} onChange={(e) => setEditing({ ...editing, vehicleId: e.target.value })}><option value="">Sin asignar</option>{vehicles.data?.filter((v) => !editing.entityId || v.entityId === editing.entityId).map((v) => <option key={v.id} value={v.id}>{v.plate}</option>)}</Select></Field>}
+              {editing.roles.includes('driver') && <Field label="Área operativa"><Input value={editing.operationalArea} onChange={(e) => setEditing({ ...editing, operationalArea: e.target.value })} /></Field>}
             </div>
             {editing.roles.includes('business') && (
               <Field label="Comercio" required>

@@ -12,6 +12,7 @@ import { fmtDateTime, fmtRelative } from '../../lib/format';
 import { Card, Button, Field, Input, Select, Textarea, Alert, EmptyState, Modal, PageTitle, Tabs, Spinner, Badge, OriginStateBadge, KeyValue } from '../../components/ui';
 import { MapView } from '../../components/MapView';
 import { PhotoCapture, type CapturedPhoto } from '../../components/PhotoCapture';
+import { EMPTY_LOT, LotFields, lotBody } from '../../components/OriginForm';
 import { LocationPicker, type LocationValue } from '../../components/LocationPicker';
 import { OriginRow, MapLegend, stateColor, PriorityBadge, useSubmit } from '../../components/panels/shared';
 import type { CoordOverview, OriginView } from '../../components/panels/types';
@@ -384,6 +385,7 @@ function InstitutionalForm({ onDone }: { onDone: () => void }) {
   const { busy, error, run } = useSubmit();
   const [loc, setLoc] = useState<LocationValue>({ location: null, sectorId: null, street: '', reference: '' });
   const [photos, setPhotos] = useState<CapturedPhoto[]>([]);
+  const [lot, setLot] = useState(EMPTY_LOT);
   const [f, setF] = useState({ size: 'large' as OriginSize, subcategory: '' as Subcategory | '', structureType: 'house' as StructureType, cause: 'collapse' as DebrisCause, buildingReference: '', priority: 'medium' as OriginPriority });
   return (
     <Card title="Registrar origen institucional" subtitle="Nace validado y sellado con tu entidad (6.1).">
@@ -418,13 +420,14 @@ function InstitutionalForm({ onDone }: { onDone: () => void }) {
           </Select>
         </Field>
       </div>
+      <LotFields v={lot} onChange={setLot} />
       <h3 className="label mt-2">Ubicación</h3>
       <LocationPicker value={loc} onChange={setLoc} />
       <h3 className="label mt-2">Fotos (opcional)</h3>
       <PhotoCapture kind="origin" photos={photos} onChange={setPhotos} max={3} />
       {error && <Alert tone="bad" className="mt-3">{error}</Alert>}
       <div className="mt-4 flex justify-end">
-        <Button disabled={busy || (!loc.location && !loc.sectorId)} onClick={() => run(async () => { const o = await api.post<OriginView>('/coord/origins/institutional', { location: loc.location, street: loc.street || null, reference: loc.reference || null, sectorId: loc.sectorId, size: f.size, subcategory: f.subcategory || null, structureType: f.structureType, cause: f.cause, buildingReference: f.buildingReference || null, priority: f.priority, photoIds: photos.map((p) => p.id).filter(Boolean) }); toast.success(`Origen institucional ${o.code} registrado.`); onDone(); })}>
+        <Button disabled={busy || (!loc.location && !loc.sectorId)} onClick={() => run(async () => { const o = await api.post<OriginView>('/coord/origins/institutional', { location: loc.location, street: loc.street || null, reference: loc.reference || null, sectorId: loc.sectorId, size: f.size, subcategory: f.subcategory || null, structureType: f.structureType, cause: f.cause, buildingReference: f.buildingReference || null, ...lotBody(lot), priority: f.priority, photoIds: photos.map((p) => p.id).filter(Boolean) }); toast.success(`Origen institucional ${o.code} registrado.`); onDone(); })}>
           {busy ? 'Registrando…' : 'Registrar origen'}
         </Button>
       </div>
@@ -453,6 +456,8 @@ function OriginDetail({ o, onClose, onDone }: { o: OriginView | null; onClose: (
           { k: 'Ubicación', v: o.street ? `${o.street}${o.reference ? ` (${o.reference})` : ''}` : o.location ? `${o.location.lat.toFixed(5)}, ${o.location.lng.toFixed(5)}` : '—' },
           { k: 'Fecha', v: fmtDateTime(o.date) },
           { k: 'Tamaño', v: SIZE_LABELS[o.size] },
+          { k: 'Material', v: o.material || '—' },
+          { k: 'Cantidad estimada', v: o.quantity != null ? `${o.quantity} ${o.unit === 'm3' ? 'm³' : 't'}` : '—' },
           { k: 'Urgencia', v: o.urgency ? URGENCY_LABELS[o.urgency] : '—' },
           { k: 'Reportante', v: o.anonymous ? 'Anónimo' : o.reporterAlias || o.reporterName || '—' },
           { k: 'Subcategoría', v: o.subcategory ? SUBCATEGORY_LABELS[o.subcategory] : '—' },

@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { Role, User, Vehicle, VehicleType } from '@kindra/shared';
-import { ROLE_LABELS, ENTITY_ASSIGNABLE_ROLES, LEGAL_TYPE_LABELS, ENTITY_TYPE_LABELS } from '@kindra/shared';
+import type { EventView, Role, User, Vehicle, VehicleType } from '@kindra/shared';
+import { EVENT_LABELS, ROLE_LABELS, ENTITY_ASSIGNABLE_ROLES, LEGAL_TYPE_LABELS, ENTITY_TYPE_LABELS } from '@kindra/shared';
 import { api, errorMessage } from '../../lib/api';
 import { toast } from '../../lib/toast';
 import { useTab } from '../../lib/useTab';
+import { MapView } from '../../components/MapView';
+import { TraceList, type TraceRow } from '../../components/TraceList';
 import { fmtDateTime } from '../../lib/format';
 import { Alert, Badge, Button, Card, EmptyState, Field, Input, Modal, PageTitle, Select, Spinner, StatTile, Tabs, Textarea } from '../../components/ui';
 
@@ -27,9 +29,12 @@ interface UserDraft {
   centerId: string;
   password: string;
   active: boolean;
+  email: string;
+  vehicleId: string;
+  operationalArea: string;
 }
 
-const EMPTY_USER: UserDraft = { alias: '', name: '', phone: '', roles: [], centerId: '', password: '', active: true };
+const EMPTY_USER: UserDraft = { alias: '', name: '', phone: '', roles: [], centerId: '', password: '', active: true, email: '', vehicleId: '', operationalArea: '' };
 const VERIF: Record<string, string> = { not_required: 'no requerida', pending: 'pendiente', verified: 'verificada', rejected: 'rechazada' };
 
 /**
@@ -37,7 +42,7 @@ const VERIF: Record<string, string> = { not_required: 'no requerida', pending: '
  * de su propia entidad. No puede tocar otras entidades, funciones, reglas ni la identidad de la plataforma.
  */
 export default function EntityAdmin() {
-  const [tab, setTab] = useTab<'ops' | 'users' | 'vehicles' | 'documents'>('ops');
+  const [tab, setTab] = useTab<'ops' | 'users' | 'facilities' | 'trace' | 'audit' | 'vehicles' | 'documents'>('ops');
   const overview = useQuery({ queryKey: ['entity-admin', 'overview'], queryFn: () => api.get<Overview>('/entity-admin/overview') });
   if (overview.isLoading) return <Spinner />;
   if (overview.error || !overview.data) return <Alert tone="bad">{overview.error ? errorMessage(overview.error) : 'No se pudo cargar el panel.'}</Alert>;
@@ -54,6 +59,9 @@ export default function EntityAdmin() {
         items={[
           { value: 'ops', label: 'Operaciones' },
           { value: 'users', label: 'Usuarios', count: o.counts.users },
+          { value: 'facilities', label: 'Instalaciones', count: o.counts.centers },
+          { value: 'trace', label: 'Trazabilidad' },
+          { value: 'audit', label: 'Auditoría' },
           { value: 'vehicles', label: 'Vehículos', count: o.counts.vehicles },
           { value: 'documents', label: 'Documentos y evidencias' },
         ]}
@@ -61,11 +69,45 @@ export default function EntityAdmin() {
       <div className="mt-3">
         {tab === 'ops' && <Operations o={o} />}
         {tab === 'users' && <EntityUsers centers={o.centers} />}
+        {tab === 'facilities' && <EntityFacilities />}
+        {tab === 'trace' && <EntityTrace />}
+        {tab === 'audit' && <EntityAudit />}
         {tab === 'vehicles' && <EntityVehicles />}
         {tab === 'documents' && <EntityDocuments />}
       </div>
     </div>
   );
+}
+
+function EntityFacilities() {
+  const q = useQuery({ queryKey: ['entity-admin', 'facilities'], queryFn: () => api.get<{ id: string; name: string; type: string; location: { lat: number; lng: number } | null; sectorName: string | null }[]>('/entity-admin/facilities') });
+  if (q.isLoading) return <Spinner />;
+  if (q.error || !q.data) return <Alert tone="bad">{errorMessage(q.error)}</Alert>;
+  const pts = q.data.filter((c) => c.location);
+  return (
+    <Card title="Instalaciones" subtitle="Coordenadas verificadas por Kindra.">
+      {q.data.length === 0 ? <EmptyState title="Tu entidad no tiene instalaciones asignadas" /> : (
+        <>
+          {pts.length > 0 && <MapView height={260} points={pts.map((c) => ({ id: c.id, lat: c.location!.lat, lng: c.location!.lng, color: 'var(--brand-teal)', label: c.name }))} />}
+          <ul className="divide-y divide-line text-sm mt-2">{q.data.map((c) => <li key={c.id} className="py-2"><strong>{c.name}</strong> · {c.type} · {c.sectorName}<span className="block text-xs text-muted">{c.location ? `${c.location.lat}, ${c.location.lng}` : 'Sin coordenadas'}</span></li>)}</ul>
+        </>
+      )}
+    </Card>
+  );
+}
+
+function EntityTrace() {
+  const q = useQuery({ queryKey: ['entity-admin', 'trace'], queryFn: () => api.get<TraceRow[]>('/entity-admin/traceability') });
+  if (q.isLoading) return <Spinner />;
+  if (q.error || !q.data) return <Alert tone="bad">{errorMessage(q.error)}</Alert>;
+  return <TraceList rows={q.data} links={false} />;
+}
+
+function EntityAudit() {
+  const q = useQuery({ queryKey: ['entity-admin', 'audit'], queryFn: () => api.get<EventView[]>('/entity-admin/audit') });
+  if (q.isLoading) return <Spinner />;
+  if (q.error || !q.data) return <Alert tone="bad">{errorMessage(q.error)}</Alert>;
+  return <Card title="Historial de tu entidad" subtitle="Últimos 300 eventos. Nadie puede editarlos ni borrarlos.">{q.data.length === 0 ? <EmptyState title="Sin eventos" /> : <ul className="divide-y divide-line text-sm">{q.data.map((e) => <li key={e.id} className="py-1.5">{EVENT_LABELS[e.type as keyof typeof EVENT_LABELS] || e.type}<span className="block text-xs text-muted">{fmtDateTime(e.serverTime)}</span></li>)}</ul>}</Card>;
 }
 
 /** Documentos y evidencias que subieron las cuentas de la entidad. */
@@ -140,6 +182,7 @@ function Operations({ o }: { o: Overview }) {
 
 function EntityUsers({ centers }: { centers: Overview['centers'] }) {
   const qc = useQueryClient();
+  const vehicles = useQuery({ queryKey: ['entity-admin', 'vehicles'], queryFn: () => api.get<{ vehicles: (Vehicle & { typeName: string | null })[]; types: VehicleType[] }>('/entity-admin/vehicles') });
   const users = useQuery({ queryKey: ['entity-admin', 'users'], queryFn: () => api.get<UserRow[]>('/entity-admin/users') });
   const [editing, setEditing] = useState<UserDraft | null>(null);
   const [proposing, setProposing] = useState<{ user: UserRow; note: string } | null>(null);
@@ -160,7 +203,7 @@ function EntityUsers({ centers }: { centers: Overview['centers'] }) {
   };
   const save = async () => {
     if (!editing) return;
-    const body = { ...editing, roles: editing.roles, centerId: editing.centerId || null, password: editing.password || undefined, name: editing.name || undefined, phone: editing.phone || undefined };
+    const body = { ...editing, email: editing.email || null, vehicleId: editing.vehicleId || null, operationalArea: editing.operationalArea || null, roles: editing.roles, centerId: editing.centerId || null, password: editing.password || undefined, name: editing.name || undefined, phone: editing.phone || undefined };
     if (await run(() => api.post('/entity-admin/users', body), 'Usuario guardado.')) setEditing(null);
   };
   const propose = async () => {
@@ -192,7 +235,7 @@ function EntityUsers({ centers }: { centers: Overview['centers'] }) {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => setEditing({ id: u.id, alias: u.alias, name: u.name || '', phone: u.phone || '', roles: u.roles.filter((r) => ENTITY_ASSIGNABLE_ROLES.includes(r)), centerId: u.centerId || '', password: '', active: u.active })}
+                        onClick={() => setEditing({ id: u.id, alias: u.alias, name: u.name || '', phone: u.phone || '', roles: u.roles.filter((r) => ENTITY_ASSIGNABLE_ROLES.includes(r)), centerId: u.centerId || '', password: '', active: u.active, email: u.email || '', vehicleId: u.vehicleId || '', operationalArea: u.operationalArea || '' })}
                       >
                         Editar
                       </Button>
@@ -247,6 +290,13 @@ function EntityUsers({ centers }: { centers: Overview['centers'] }) {
                 ))}
               </div>
             </fieldset>
+            <Field label="Correo"><Input type="email" value={editing.email} onChange={(e) => setEditing({ ...editing, email: e.target.value })} /></Field>
+            {editing.roles.includes('driver') && (
+              <div className="grid sm:grid-cols-2 sm:gap-3">
+                <Field label="Vehículo asignado"><Select value={editing.vehicleId} onChange={(e) => setEditing({ ...editing, vehicleId: e.target.value })}><option value="">Sin asignar</option>{vehicles.data?.vehicles.map((v) => <option key={v.id} value={v.id}>{v.plate}</option>)}</Select></Field>
+                <Field label="Área operativa"><Input value={editing.operationalArea} onChange={(e) => setEditing({ ...editing, operationalArea: e.target.value })} /></Field>
+              </div>
+            )}
             {editing.roles.includes('center') && (
               <Field label="Centro" required>
                 <Select value={editing.centerId} onChange={(e) => setEditing({ ...editing, centerId: e.target.value })}>

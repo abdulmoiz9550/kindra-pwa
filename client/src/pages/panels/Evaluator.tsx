@@ -8,6 +8,7 @@ import { fmtDate, fmtDateTime, fmtNum, unitLabel } from '../../lib/format';
 import { Card, Button, Field, Input, Textarea, Alert, EmptyState, PageTitle, Tabs, Spinner, Badge, KeyValue } from '../../components/ui';
 import { PhotoCapture, type CapturedPhoto } from '../../components/PhotoCapture';
 import { CompositionBars, BatchHeader, OutputsSummary, Checklist, checklistComplete, useSubmit } from '../../components/panels/shared';
+import { RequestCorrection } from '../../components/Corrections';
 import type { EvalOverview, BatchView, ChecklistItem } from '../../components/panels/types';
 
 type Tab = 'held' | 'verification' | 'decided';
@@ -134,6 +135,7 @@ function QualityForm({ b, checklist, onDone }: { b: BatchView; checklist: Checkl
       <BatchHeader b={b} />
       <p className="text-xs text-muted mt-1">Periodo {fmtDate(b.periodStart)} – {fmtDate(b.periodEnd)} · {b.receptionIds.length} recepciones{b.outputs ? ` · agregado ${fmtNum(b.outputs.aggregate)} ${unitLabel(b.outputs.unit)}` : ''}</p>
       <OutputsSummary b={b} />
+      <RequestCorrection b={b} onDone={onDone} />
       <div className="mt-2"><CompositionBars composition={b.composition} withTable={false} /></div>
       <div className="mt-3"><Checklist items={checklist} value={check} onChange={setCheck} /></div>
       <fieldset className="mt-3">
@@ -167,7 +169,7 @@ function QualityForm({ b, checklist, onDone }: { b: BatchView; checklist: Checkl
         </div>
       </div>
       {error && <Alert tone="bad" className="mb-2">{error}</Alert>}
-      <Button disabled={busy || !ready} onClick={() => run(async () => { await api.post(`/eval/batches/${b.id}/quality`, { checklist: check, result, justification: just.trim(), documentId: docId, tests: tests.map((t) => ({ ...t, laboratory: t.laboratory || null })) }); toast.success(result === 'approved' ? `Lote ${b.code} aprobado. El centro ya puede despacharlo.` : `Lote ${b.code} rechazado. No podrá despacharse a obras.`); onDone(); })}>
+      <Button disabled={busy || !ready || !!b.openCorrection} onClick={() => run(async () => { await api.post(`/eval/batches/${b.id}/quality`, { checklist: check, result, justification: just.trim(), documentId: docId, tests: tests.map((t) => ({ ...t, laboratory: t.laboratory || null })) }); toast.success(result === 'approved' ? `Lote ${b.code} aprobado. El centro ya puede despacharlo.` : `Lote ${b.code} rechazado. No podrá despacharse a obras.`); onDone(); })}>
         {busy ? 'Registrando…' : 'Registrar verificación'}
       </Button>
     </div>

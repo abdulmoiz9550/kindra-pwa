@@ -10,6 +10,7 @@ import { fmtNum, fmtDate, unitLabel, fmtDateTime } from '../../lib/format';
 import { Card, Button, Field, Input, Select, Textarea, Alert, EmptyState, Modal, PageTitle, Tabs, Spinner, Badge, DispatchStateBadge, KeyValue } from '../../components/ui';
 import { PhotoCapture, type CapturedPhoto } from '../../components/PhotoCapture';
 import { QrScanner } from '../../components/panels/QrScanner';
+import { ResolveCorrection } from '../../components/Corrections';
 import { TripRow, CompositionBars, BatchHeader, OutputsSummary, useSubmit } from '../../components/panels/shared';
 import type { CenterOverview, TripView, BatchView } from '../../components/panels/types';
 
@@ -65,6 +66,7 @@ export default function Center() {
           </>
         )}
         {tab === 'batch' && (d.openBatch ? <BatchPanel b={d.openBatch} works={d.works} onDone={refresh} /> : <EmptyState title="No hay un lote abierto" text="Se abre automáticamente con la primera llegada del periodo." />)}
+        {tab === 'batches' && d.batches.filter((b) => b.openCorrection && !b.separateProcessing).map((b) => <ResolveCorrection key={b.openCorrection!.id} b={b} base="center" onDone={refresh} />)}
         {tab === 'batches' && (
           <Card title="Lotes del centro" subtitle="Toca un lote para ver su detalle, salidas, verificación y despachos.">
             {d.batches.length === 0 ? (

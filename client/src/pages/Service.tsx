@@ -11,6 +11,9 @@ import { Alert, Badge, Button, Card, EmptyState, Field, Input, KeyValue, PageTit
 import { PhotoCapture, type CapturedPhoto } from '../components/PhotoCapture';
 import { History, ImpactPanel, Kpi, PickupCard, UNIT_LABEL, today, usePickupAction, usePickups, useRequestContext, type PickupView } from '../components/Requests';
 import { TextModal } from './Driver';
+import { NewsBlock } from '../components/News';
+import { Modal } from '../components/ui';
+import { fmtDateTime, fmtNum } from '../lib/format';
 
 type Who = 'householder' | 'business';
 const BASE: Record<Who, string> = { householder: '/hogar', business: '/comercio' };
@@ -70,14 +73,15 @@ function Home({ who }: { who: Who }) {
     <div className="space-y-4">
       <PageTitle title={who === 'business' ? b.data?.business.name ?? 'Comercio' : `Hola, ${user?.name || user?.alias}`} subtitle={who === 'business' ? 'Tus recolecciones y tu punto de acopio.' : 'Tus solicitudes y la próxima recolección.'} actions={<Link className="btn-primary" to={`${BASE[who]}/solicitar`}>Solicitar</Link>} />
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-        <Kpi label="Solicitudes abiertas" value={open.length} />
+        <Kpi label="Solicitudes abiertas" value={open.length} to={who === 'business' ? '/comercio/agenda' : '/hogar/solicitudes'} />
         <Kpi label="Por programar" value={open.filter((r) => r.status === 'submitted').length} />
         <Kpi label="Con incidencia" value={open.filter((r) => r.status === 'issue').length} />
-        <Kpi label="Completadas y validadas" value={done.length} note="Todo el registro" />
+        <Kpi label="Completadas y validadas" value={done.length} note="Todo el registro" to={`${BASE[who]}/impacto`} />
       </div>
       <Card title="Próxima recolección">
         {next ? <PickupCard r={next} /> : <EmptyState title="No hay una recolección programada" text="Cuando la coordinación programe una, aparecerá aquí con su fecha y horario." />}
       </Card>
+      <NewsBlock />
       {open.some((r) => r.status === 'submitted') && <Card title="Pendientes de programar"><div className="space-y-2">{open.filter((r) => r.status === 'submitted').map((r) => <PickupCard key={r.id} r={r} />)}</div></Card>}
     </div>
   );
@@ -144,12 +148,27 @@ function MyRequests({ who, title }: { who: Who; title: string }) {
       <PageTitle title={title} subtitle="Cada solicitud conserva su código desde que la envías hasta que se cierra." actions={<Link className="btn-primary btn-sm" to={`${BASE[who]}/solicitar`}>Solicitar</Link>} />
       <Tabs value={tab} onChange={setTab} items={[{ value: 'open', label: 'En curso', count: open.length }, { value: 'closed', label: 'Cerradas', count: closed.length }]} />
       <div className="mt-3 grid md:grid-cols-2 gap-3">
-        {list.map((r) => <PickupCard key={r.id} r={r} actions={<><History r={r} />{['submitted', 'new', 'assigned'].includes(r.status) && <Button size="sm" variant="secondary" onClick={() => setCancel(r)}>Cancelar</Button>}</>} />)}
+        {list.map((r) => <PickupCard key={r.id} r={r} actions={<><History r={r} /><Receipt r={r} />{['submitted', 'new', 'assigned'].includes(r.status) && <Button size="sm" variant="secondary" onClick={() => setCancel(r)}>Cancelar</Button>}</>} />)}
       </div>
       {list.length === 0 && <EmptyState title={tab === 'open' ? 'No tienes solicitudes en curso' : 'Todavía no hay solicitudes cerradas'} />}
       {who === 'householder' && <p className="text-sm mt-4">Los avisos de escombro están en <Link className="underline text-primary" to="/mis-reportes">Mis reportes</Link>.</p>}
       <TextModal key={cancel?.id} open={!!cancel} title={`Cancelar ${cancel?.code ?? ''}`} label="Motivo" busy={busy} onClose={() => setCancel(null)} onSend={async (note) => { if (await run(`/${cancel!.id}/cancel`, { note }, 'Solicitud cancelada.')) setCancel(null); }} />
     </div>
+  );
+}
+
+/** Comprobante imprimible de una recolección recibida y validada. */
+function Receipt({ r }: { r: PickupView }) {
+  const [open, setOpen] = useState(false);
+  if (r.status !== 'completed' || !r.received) return null;
+  return (
+    <>
+      <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>Comprobante</Button>
+      <Modal open={open} onClose={() => setOpen(false)} title={`Comprobante ${r.code}`}>
+        <KeyValue items={[{ k: 'Código', v: r.code }, { k: 'Material', v: r.material }, { k: 'Cantidad recibida', v: r.received.quantity === null ? 'sin cantidad registrada' : `${fmtNum(r.received.quantity, 2)} ${UNIT_LABEL[r.received.unit!]}` }, { k: 'Recibido en', v: r.centerName || '—' }, { k: 'Fecha de recepción', v: fmtDateTime(r.received.at) }, { k: 'Validado', v: r.validatedAt ? fmtDateTime(r.validatedAt) : '—' }]} />
+        <Button className="mt-3 no-print" onClick={() => window.print()}>Imprimir</Button>
+      </Modal>
+    </>
   );
 }
 
@@ -163,7 +182,7 @@ function BusinessHistory() {
       <PageTitle title="Historial de recolección" subtitle="Solo los registros de tu comercio." />
       <Card>
         <div className="grid grid-cols-2 gap-x-3"><Field label="Desde"><Input type="date" value={f.from} onChange={(e) => setF({ ...f, from: e.target.value })} /></Field><Field label="Hasta"><Input type="date" value={f.to} onChange={(e) => setF({ ...f, to: e.target.value })} /></Field></div>
-        {rows.length === 0 ? <EmptyState title="Sin recolecciones en este periodo" /> : <div className="space-y-2">{rows.map((r) => <PickupCard key={r.id} r={r} actions={<History r={r} />} />)}</div>}
+        {rows.length === 0 ? <EmptyState title="Sin recolecciones en este periodo" /> : <div className="space-y-2">{rows.map((r) => <PickupCard key={r.id} r={r} actions={<><History r={r} /><Receipt r={r} /></>} />)}</div>}
       </Card>
     </div>
   );

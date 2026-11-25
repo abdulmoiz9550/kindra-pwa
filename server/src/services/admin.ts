@@ -53,6 +53,10 @@ export interface UserInput {
   verificationStatus?: User['verificationStatus'];
   spaceId?: string | null;
   businessId?: string | null;
+  email?: string | null;
+  modules?: string[] | null;
+  vehicleId?: string | null;
+  operationalArea?: string | null;
   /** Referencia del documento de designación (obligatoria para administrador de entidad). */
   appointmentDocumentRef?: string | null;
   appointmentPhotoId?: string | null;
@@ -81,6 +85,8 @@ export function upsertUser(input: UserInput, editor?: UserEditor): User {
   if (alias.length < 3) throw badRequest('El alias debe tener al menos 3 caracteres.');
   const clash = store.find('users', (u) => u.alias.toLowerCase() === alias.toLowerCase() && u.id !== existing?.id);
   if (clash) throw conflict('Ese alias ya está en uso.');
+  if (input.email && store.find('users', (u) => u.email === input.email!.trim().toLowerCase() && u.id !== existing?.id)) throw conflict('Ese correo ya está en uso.');
+  if (input.vehicleId && !store.get('vehicles', input.vehicleId)) throw badRequest('El vehículo no existe.');
   const institutional = input.roles.some((r) => INSTITUTIONAL_ROLES.includes(r));
   if (institutional && !input.entityId) throw badRequest('Un usuario institucional debe pertenecer a una entidad.');
   if ((input.roles.includes('center') || input.roles.includes('processing')) && !input.centerId) throw badRequest('Un usuario de centro o de procesamiento debe tener un centro asignado.');
@@ -114,6 +120,11 @@ export function upsertUser(input: UserInput, editor?: UserEditor): User {
     twoFactor: existing?.twoFactor ?? null,
     businessId: input.businessId !== undefined ? input.businessId : existing?.businessId ?? null,
     preferences: existing?.preferences ?? null,
+    email: input.email !== undefined ? input.email?.trim().toLowerCase() || null : existing?.email ?? null,
+    modules: input.modules !== undefined ? input.modules : existing?.modules ?? null,
+    vehicleId: input.vehicleId !== undefined ? input.vehicleId : existing?.vehicleId ?? null,
+    operationalArea: input.operationalArea !== undefined ? input.operationalArea?.trim() || null : existing?.operationalArea ?? null,
+    profilePhotoId: existing?.profilePhotoId ?? null,
     appointment: becomesEntityAdmin
       ? { documentRef: input.appointmentDocumentRef!.trim(), documentPhotoId: input.appointmentPhotoId ?? null, appointedAt: nowIso(), activatedBy: editor?.id || 'kindra', activatedAt: nowIso() }
       : input.roles.includes('entity_admin')

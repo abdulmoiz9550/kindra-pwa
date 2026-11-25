@@ -7,6 +7,8 @@ import { toast } from '../lib/toast';
 import { fmtDateTime, fmtNum } from '../lib/format';
 import { Alert, Badge, Button, Card, EmptyState, Field, Input, Spinner, type Tone } from './ui';
 import { HBars } from './charts/Bars';
+import { Link } from 'react-router-dom';
+import { useModule } from '../lib/module';
 
 export interface PickupView extends Omit<PickupRequest, 'received' | 'rejections'> {
   sectorName: string | null;
@@ -41,7 +43,8 @@ export const dayOf = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: 'Ame
 export const today = () => dayOf(new Date());
 
 export function usePickups() {
-  return useQuery({ queryKey: ['requests'], queryFn: () => api.get<PickupView[]>('/requests'), refetchInterval: 30_000 });
+  const module = useModule((s) => s.module);
+  return useQuery({ queryKey: ['requests'], queryFn: () => api.get<PickupView[]>('/requests'), refetchInterval: 30_000, select: (l) => (module ? l.filter((r) => r.module === module) : l) });
 }
 export function useRequestContext() {
   return useQuery({ queryKey: ['requests', 'context'], queryFn: () => api.get<RequestContext>('/requests/context') });
@@ -118,6 +121,8 @@ export interface Impact {
   from: string | null;
   to: string | null;
   completed: number;
+  status: string;
+  onTime: { count: number; total: number } | null;
   m3: number | null;
   t: number | null;
   l: number | null;
@@ -127,7 +132,9 @@ export interface Impact {
 
 /** Impacto verificado con rango de fechas. Cada unidad va en su propia serie; nunca se suman. */
 export function ImpactPanel({ title, countLabel }: { title: string; countLabel: string }) {
-  const [f, setF] = useState({ from: '', to: '', module: '' });
+  const [f, setF] = useState({ from: '', to: '', module: '', status: '' });
+  const [month, setMonth] = useState<string | null>(null);
+  const own = usePickups();
   const ctx = useRequestContext();
   const qs = new URLSearchParams(Object.entries(f).filter(([, v]) => v)).toString();
   const q = useQuery({ queryKey: ['requests', 'impact', qs], queryFn: () => api.get<Impact>(`/requests/impact${qs ? `?${qs}` : ''}`), placeholderData: (p) => p });
@@ -141,6 +148,12 @@ export function ImpactPanel({ title, countLabel }: { title: string; countLabel: 
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-3">
           <Field label="Desde"><Input type="date" value={f.from} onChange={(e) => setF({ ...f, from: e.target.value })} /></Field>
           <Field label="Hasta"><Input type="date" value={f.to} onChange={(e) => setF({ ...f, to: e.target.value })} /></Field>
+          <Field label="Estado">
+            <select className="input" value={f.status} onChange={(e) => setF({ ...f, status: e.target.value })}>
+              <option value="">Validadas</option>
+              <option value="received">Recibidas, por validar</option>
+            </select>
+          </Field>
           {(ctx.data?.modules.length ?? 0) > 1 && (
             <Field label="Módulo">
               <select className="input" value={f.module} onChange={(e) => setF({ ...f, module: e.target.value })}>
@@ -151,14 +164,16 @@ export function ImpactPanel({ title, countLabel }: { title: string; countLabel: 
           )}
         </div>
         {d.completed === 0 ? (
-          <EmptyState title="Sin recolecciones validadas en este periodo" text="Aparecen cuando el centro confirma la recepción y la coordinación valida." />
+          <EmptyState title="Sin recolecciones en este periodo" text="Aparecen cuando el centro confirma la recepción y la coordinación valida." />
         ) : (
           <>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
-              <Kpi label={countLabel} value={String(d.completed)} />
+              <Kpi label={d.status === 'received' ? 'Recibidas, por validar' : countLabel} value={String(d.completed)} />
+              {d.onTime && <Kpi label="Recolectadas a tiempo" value={`${Math.round((d.onTime.count / d.onTime.total) * 100)} %`} note={`${d.onTime.count} de ${d.onTime.total}, hasta el fin del horario acordado`} />}
               {units.map((u) => <Kpi key={u} label="Cantidad recibida" value={`${fmtNum(d[u], 2)} ${UNIT_LABEL[u]}`} />)}
             </div>
-            <HBars title={`${countLabel}, por mes`} rows={d.months.map((m) => ({ label: m.month, value: m.completed }))} />
+            <HBars title={`${countLabel}, por mes`} rows={d.months.map((m) => ({ label: m.month, value: m.completed }))} linkRow={(r) => <button type="button" className="underline text-primary" onClick={() => setMonth(month === r.label ? null : r.label)}>{r.label}</button>} />
+            {month && <div className="mt-3 space-y-2"><h3 className="label">Registros de {month}</h3>{(own.data || []).filter((r) => r.date.startsWith(month) && r.status === d.status && (!f.module || r.module === f.module) && (!f.from || r.date >= f.from) && (!f.to || r.date <= f.to)).map((r) => <PickupCard key={r.id} r={r} />)}</div>}
             {units.map((u) => (
               <div key={u} className="mt-4">
                 <HBars title={`Cantidad recibida por mes (${UNIT_LABEL[u]})`} unit={UNIT_LABEL[u]} rows={d.months.map((m) => ({ label: m.month, value: m[u] }))} />
@@ -172,12 +187,13 @@ export function ImpactPanel({ title, countLabel }: { title: string; countLabel: 
   );
 }
 
-export function Kpi({ label, value, note }: { label: string; value: ReactNode; note?: string }) {
-  return (
+export function Kpi({ label, value, note, to }: { label: string; value: ReactNode; note?: string; to?: string }) {
+  const body = (
     <div className="card !p-3">
       <p className="text-xs text-muted">{label}</p>
       <p className="text-xl font-bold mt-1">{value}</p>
       {note && <p className="text-[11px] text-muted mt-1">{note}</p>}
     </div>
   );
+  return to ? <Link to={to} className="block hover:opacity-80">{body}</Link> : body;
 }

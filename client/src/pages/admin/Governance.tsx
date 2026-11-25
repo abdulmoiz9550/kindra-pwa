@@ -3,13 +3,15 @@ import { INFO_CLASSIFICATION_HELP, INFO_CLASSIFICATION_LABELS, INFO_REQUEST_STAT
 import type { InfoClassification, InfoRequest, PublicUser, RiskEntry, Role, SecurityIncident } from '@kindra/shared';
 import { fmtDate, fmtDateTime } from '../../lib/format';
 import { Alert, Badge, Button, Card, EmptyState, Field, Input, Modal, Select, Spinner, Tabs, Textarea } from '../../components/ui';
+import { useTab } from '../../lib/useTab';
+import { DataQuality, Retention, Reviews } from './Operations';
 import { Section, useAdminAction, useAdminGet, useAdminList } from './shared';
 
-type Tab = 'requests' | 'security' | 'recovery' | 'risks' | 'incidents' | 'backups' | 'classification';
+type Tab = 'quality' | 'reviews' | 'requests' | 'security' | 'recovery' | 'risks' | 'incidents' | 'backups' | 'classification';
 
 /** v4.0, secciones 9 a 11: gobierno de datos y seguridad. */
 export default function Governance() {
-  const [tab, setTab] = useState<Tab>('requests');
+  const [tab, setTab] = useTab<Tab>('requests');
   return (
     <Section title="Gobierno de datos y seguridad" subtitle="Solicitudes de información, accesos, riesgos, incidentes y copias. La plataforma registra; las decisiones las toma una persona autorizada.">
       <Tabs
@@ -22,7 +24,9 @@ export default function Governance() {
           { value: 'risks', label: 'Riesgos' },
           { value: 'incidents', label: 'Incidentes' },
           { value: 'backups', label: 'Copias' },
-          { value: 'classification', label: 'Clasificación' },
+          { value: 'quality', label: 'Calidad de datos' },
+          { value: 'reviews', label: 'Revisiones' },
+          { value: 'classification', label: 'Clasificación y conservación' },
         ]}
       />
       <div className="mt-3">
@@ -32,7 +36,9 @@ export default function Governance() {
         {tab === 'risks' && <Risks />}
         {tab === 'incidents' && <Incidents />}
         {tab === 'backups' && <Backups />}
-        {tab === 'classification' && <Classification />}
+        {tab === 'quality' && <DataQuality />}
+        {tab === 'reviews' && <Reviews />}
+        {tab === 'classification' && <><Classification /><Retention /></>}
       </div>
     </Section>
   );

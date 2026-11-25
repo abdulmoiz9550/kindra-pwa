@@ -34,7 +34,7 @@ authRouter.post(
 authRouter.post(
   '/register',
   wrap((req, res) => {
-    const body = z.object({ alias: z.string().min(3), password: z.string().min(6), phone: z.string().optional(), name: z.string().optional(), sectorId: z.string().nullable().optional(), referralCode: z.string().max(20).nullable().optional() }).parse(req.body);
+    const body = z.object({ email: z.string().email().nullable().optional(), alias: z.string().min(3), password: z.string().min(6), phone: z.string().optional(), name: z.string().optional(), sectorId: z.string().nullable().optional(), referralCode: z.string().max(20).nullable().optional() }).parse(req.body);
     res.json(registerCitizen(body));
   }),
 );

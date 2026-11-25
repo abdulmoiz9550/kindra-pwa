@@ -7,6 +7,7 @@ import { api, errorMessage } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { usePublicConfig } from '../../lib/config';
 import { toast } from '../../lib/toast';
+import { useTab } from '../../lib/useTab';
 import { fmtDateTime, fmtNum, unitLabel } from '../../lib/format';
 import { Alert, Badge, Button, Card, EmptyState, Field, Input, PageTitle, Select, Spinner, Tabs } from '../../components/ui';
 import { HBars } from '../../components/charts/Bars';
@@ -59,7 +60,7 @@ const num = (n: number | null | undefined) => (n === null || n === undefined ? '
 
 /** v4.0, secciones 3, 4, 8 y 20: reportes por centro físico y operador. */
 export default function Reports() {
-  const [tab, setTab] = useState<'snapshot' | 'activity'>('snapshot');
+  const [tab, setTab] = useTab<'snapshot' | 'activity'>('snapshot');
   return (
     <div>
       <PageTitle title="Reportes por centro" subtitle="Cifras por centro físico y por operador. Metros cúbicos y toneladas se muestran por separado, igual que el día y el acumulado." />
@@ -166,7 +167,7 @@ function Snapshot() {
           <EmptyState title="Sin filas en este alcance" text="El reporte no trae cifras para tu organización o para este filtro." />
         ) : (
           <>
-            <HBars title={`${MEASURES.find((m) => m.value === measure)!.label} · ${fmtDateTime(d.snapshot.reportedAt)}`} unit={unit} rows={shown.map((f) => ({ label: f.name, value: f.totals[measure].value, display: f.totals[measure].value === null ? 'sin cifra en el reporte' : `${num(f.totals[measure].value)} ${unit}` }))} />
+            <HBars linkRow={(r) => (d.scope === 'facility' ? r.label : <button type="button" className="underline text-primary text-left" onClick={() => { const id = shown.find((x) => x.name === r.label)?.facilityId || ''; setFacility(facility === id ? '' : id); }}>{r.label}</button>)} title={`${MEASURES.find((m) => m.value === measure)!.label} · ${fmtDateTime(d.snapshot.reportedAt)}`} unit={unit} rows={shown.map((f) => ({ label: f.name, value: f.totals[measure].value, display: f.totals[measure].value === null ? 'sin cifra en el reporte' : `${num(f.totals[measure].value)} ${unit}` }))} />
             <div className="overflow-x-auto mt-4">
               <table className="table-plain">
                 <caption className="sr-only">Cifras por centro físico y operador</caption>

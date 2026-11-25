@@ -51,7 +51,9 @@ export function OriginRow({ o, onOpen, extra, selectable, selected, onToggle }: 
           <OriginStateBadge state={o.effectiveState} />
           {o.type === 'institutional' && <Badge tone="info" icon={false}>Institucional</Badge>}
           {o.priority && <PriorityBadge priority={o.priority} />}
+          {o.corrected && <Badge tone="info">Corregido</Badge>}
         </div>
+        {o.material && <p className="text-sm">{o.material}{o.quantity != null ? ` · ${fmtNum(o.quantity, 2)} ${o.unit === 'm3' ? 'm³' : 't'} (estimado)` : ''}</p>}
         <p className="text-sm text-ink-2 truncate">
           {o.sectorName}{o.street ? ` · ${o.street}` : ''}{o.reference ? ` (${o.reference})` : ''}
         </p>
@@ -124,6 +126,8 @@ export function BatchHeader({ b }: { b: BatchView }) {
     <div className="flex flex-wrap items-center gap-2">
       <span className="font-bold">{b.code}</span>
       <BatchStateBadge state={b.state} />
+      {b.corrected && <Badge tone="info">Corregido</Badge>}
+      {b.openCorrection && <Badge tone="warn">Corrección pendiente</Badge>}
       {b.pendingHazard > 0 && <Badge tone="bad">{b.pendingHazard} recepción{b.pendingHazard === 1 ? '' : 'es'} sospechosa{b.pendingHazard === 1 ? '' : 's'} sin decisión</Badge>}
       {b.unclassified > 0 && <Badge tone="warn">{b.unclassified} sin clasificar</Badge>}
       <Link to={`/publico/lote/${b.code}`} className="text-xs text-primary inline-flex items-center gap-1"><ExternalLink size={12} /> página pública</Link>

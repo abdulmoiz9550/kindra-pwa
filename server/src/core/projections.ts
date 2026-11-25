@@ -369,7 +369,7 @@ export function applyEvent(e: KEvent, _opts: { replay?: boolean } = {}): void {
 }
 
 const CORRECTABLE_FIELDS: Record<string, string[]> = {
-  origin: ['street', 'reference', 'size', 'urgency', 'subcategory', 'structureType', 'cause', 'buildingReference', 'reporterName', 'location', 'sectorId', 'date'],
+  origin: ['street', 'reference', 'size', 'urgency', 'subcategory', 'structureType', 'cause', 'buildingReference', 'material', 'quantity', 'unit', 'reporterName', 'location', 'sectorId', 'date'],
   trip: ['originIds', 'estimatedVolumeM3'],
   batch: ['outputs', 'periodStart', 'periodEnd'],
   work: ['name', 'useType', 'locality', 'dateOfUse', 'sectorId'],

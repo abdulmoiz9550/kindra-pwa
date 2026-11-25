@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import { resolveCorrection } from '../services/ops';
 import { db } from '../core/db';
 import { wrap, requireRole } from '../middleware/auth';
 import { confirmArrival, tripView } from '../services/trips';
@@ -96,5 +97,14 @@ centerRouter.post(
     const center = centerOf(req.auth!.actor);
     const body = z.object({ positions: z.number().int().positive(), type: z.enum(['direct', 'indirect']), date: z.string() }).parse(req.body);
     res.status(201).json(recordJobs(req.auth!.actor, { ...body, centerId: center.id, deviceTime: req.deviceTime }));
+  }),
+);
+
+centerRouter.post(
+  '/corrections/:id/resolve',
+  wrap((req, res) => {
+    const n = z.number().min(0);
+    const body = z.object({ note: z.string().min(5).max(500), outputs: z.object({ unit: z.enum(['t', 'm3']), aggregate: n, metal: n, specialDisposal: n, rejects: n, input: z.number().positive().nullable().optional(), method: z.string().max(200).nullable().optional() }) }).parse(req.body);
+    res.json(resolveCorrection(req.auth!.actor, String(req.params.id), body));
   }),
 );

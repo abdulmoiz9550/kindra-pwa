@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Card, Alert, Spinner } from '../../components/ui';
+import { useState } from 'react';
+import { Dashboard, EntityScope } from './Operations';
 import { Section, useAdminGet } from './shared';
 
 interface OverviewData {
@@ -22,18 +24,23 @@ const LABELS: Record<string, string> = {
   events: 'Eventos en la bitácora',
   photosPending: 'Fotos por moderar',
   usersPendingVerification: 'Usuarios por verificar',
+  roleProposals: 'Propuestas de rol',
+  entityAdmins: 'Administradores de entidad',
+  spaces: 'Espacios',
 };
 
 export default function Overview() {
   const q = useAdminGet<OverviewData>('overview');
+  const [entity, setEntity] = useState('');
   if (q.isLoading) return <Spinner />;
   const d = q.data;
   return (
-    <Section title="Resumen" subtitle="Estado general de la plataforma.">
+    <Section title="Resumen" subtitle="Estado general de la plataforma." actions={<EntityScope value={entity} onChange={setEntity} />}>
+      <Dashboard entity={entity} />
       <Alert tone="info" className="mb-4">
         La bitácora de eventos no se puede editar ni borrar; las correcciones se registran como nuevos eventos que referencian al original y exigen un motivo.
       </Alert>
-      {d && (
+      {d && !entity && (
         <>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {Object.entries(d.counts).map(([k, v]) => (

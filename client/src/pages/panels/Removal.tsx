@@ -10,11 +10,12 @@ import { fmtNum } from '../../lib/format';
 import { Card, Button, Field, Select, Alert, EmptyState, Modal, PageTitle, Tabs, Spinner, Badge } from '../../components/ui';
 import { MapView } from '../../components/MapView';
 import { PhotoCapture, type CapturedPhoto } from '../../components/PhotoCapture';
+import { CollectorOrigins } from '../../components/OriginForm';
 import { QrScanner } from '../../components/panels/QrScanner';
 import { OriginRow, TripRow, MapLegend, stateColor, useSubmit } from '../../components/panels/shared';
 import type { RemovalOverview, OriginView, TripView } from '../../components/panels/types';
 
-type Tab = 'origins' | 'map' | 'trips' | 'zones';
+type Tab = 'register' | 'origins' | 'map' | 'trips' | 'zones';
 
 export default function Removal() {
   const qc = useQueryClient();
@@ -46,6 +47,7 @@ export default function Removal() {
         onChange={setTab}
         items={[
           { value: 'origins', label: 'Por retirar', count: d.origins.length },
+          { value: 'register', label: 'Registrar origen' },
           { value: 'map', label: 'Mapa' },
           { value: 'trips', label: 'Mis viajes', count: inTransit },
           { value: 'zones', label: 'Zona pendiente', count: d.pendingZone.length },
@@ -65,6 +67,7 @@ export default function Removal() {
             )}
           </Card>
         )}
+        {tab === 'register' && <CollectorOrigins />}
         {tab === 'map' && <RemovalMap origins={d.origins} selected={selected} onToggle={toggle} />}
         {tab === 'trips' && (
           <Card title="Mis viajes" subtitle="Salidas registradas por tu entidad. La llegada la confirma el centro.">

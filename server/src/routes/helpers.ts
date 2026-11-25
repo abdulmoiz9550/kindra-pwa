@@ -4,6 +4,7 @@ import { db } from '../core/db';
 import { originStatusView } from '../services/origins';
 import { allowedActions } from '../core/transitions';
 import { recordCompleteness } from '../services/record';
+import { isCorrected } from '../services/ops';
 
 /** Vista de origen para paneles institucionales. */
 export function originView(o: Origin, role?: string) {
@@ -34,6 +35,7 @@ export function originView(o: Origin, role?: string) {
     linkedCodes: o.linkedOriginIds.map((id) => store.get('origins', id)?.code).filter(Boolean),
     removalResponse: removalClosure?.citizenResponse ?? null,
     completeness: recordCompleteness(o),
+    corrected: isCorrected('origin', o.id),
     allowedActions: role ? allowedActions('origin', o.state, role) : [],
     status: originStatusView(o),
   };

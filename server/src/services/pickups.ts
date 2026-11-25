@@ -26,6 +26,11 @@ const moduleOf = (key: string) => {
   if (!m || !m.active()) throw forbidden('Ese módulo de residuos no está activo.');
   return m;
 };
+const assertModule = (actor: Actor, key: string) => {
+  const allowed = actor.id ? db().get('users', actor.id)?.modules : null;
+  if (allowed && !allowed.includes(key)) throw forbidden('Tu cuenta no tiene acceso a ese módulo.');
+  return moduleOf(key);
+};
 const requestCode = customAlphabet(CODE_ALPHABET, 5);
 const OPEN: PickupStatus[] = ['submitted', 'new', 'assigned', 'en_route', 'arrived', 'issue'];
 
@@ -87,6 +92,7 @@ export function listPickups(actor: Actor): PickupRequest[] {
   const u = actor.id ? db().get('users', actor.id) : undefined;
   return db()
     .filter('pickupRequests', (r) => {
+      if (u?.modules && !u.modules.includes(r.module)) return false;
       switch (actor.role) {
         case 'admin':
         case 'coordinator':
@@ -128,7 +134,7 @@ export interface CreatePickupInput {
 export function createPickup(actor: Actor, input: CreatePickupInput): PickupRequest {
   const store = db();
   if (!actor.id || !['coordinator', 'entity_admin', 'removal'].includes(actor.role || '')) throw forbidden('Solo coordinación o la entidad de retiro crean solicitudes.');
-  const mod = moduleOf(input.module);
+  const mod = assertModule(actor, input.module);
   if (input.module !== 'debris') throw badRequest('Las solicitudes de ese módulo las crea el hogar o el comercio.');
   if (actor.role !== 'coordinator' && input.operatorEntityId !== actor.entityId) throw forbidden('Solo puedes crear solicitudes para tu entidad.');
   if (!mod.units.includes(input.unit)) throw badRequest(mod.text);
@@ -207,7 +213,7 @@ export interface ServiceRequestInput {
 export function requestService(actor: Actor, input: ServiceRequestInput): PickupRequest {
   const store = db();
   if (!actor.id || (actor.role !== 'householder' && actor.role !== 'business')) throw forbidden('Las solicitudes las crea un hogar o un comercio.');
-  const mod = moduleOf(input.module);
+  const mod = assertModule(actor, input.module);
   if (input.module === 'debris') throw badRequest('Para escombros usa «Avisar de un escombro»: ese reporte ya es la solicitud.');
   const user = store.get('users', actor.id)!;
   const businessId = actor.role === 'business' ? myBusiness(user).id : null;
@@ -226,7 +232,7 @@ export function requestService(actor: Actor, input: ServiceRequestInput): Pickup
 export function schedulePickup(actor: Actor, id: string, input: { operatorEntityId: string; centerId: string; date: string; windowFrom: string; windowTo: string; handlingNotes: string | null }): PickupRequest {
   if (actor.role !== 'coordinator') throw forbidden('La programación es de la coordinación.');
   const r = getOrThrow(id);
-  moduleOf(r.module);
+  assertModule(actor, r.module);
   if (!['submitted', 'new'].includes(r.status)) throw conflict('La solicitud ya está asignada.');
   if (db().get('entities', input.operatorEntityId)?.type !== 'removal') throw badRequest('La entidad de retiro no existe.');
   if (!db().get('centers', input.centerId)) throw badRequest('El centro no existe.');
@@ -272,6 +278,7 @@ export function acceptPickup(actor: Actor, id: string): PickupRequest {
   const r = getOrThrow(id);
   if (actor.role !== 'driver' || !actor.id) throw forbidden('Solo un conductor acepta solicitudes.');
   if (r.operatorEntityId !== actor.entityId) throw forbidden('La solicitud es de otra entidad.');
+  assertModule(actor, r.module);
   if (r.status !== 'new' || r.driverId) throw conflict('Otra persona ya tomó esta solicitud.', 'already_assigned');
   const next = save(actor, r, { status: 'assigned', driverId: actor.id, acceptedAt: nowIso() }, 'accepted');
   tellOwner(next, 'Tu recolección ya tiene conductor asignado.');
@@ -319,7 +326,7 @@ export function collectPickup(actor: Actor, id: string, input: CollectInput): Pi
   assertDriver(actor, r);
   if (r.status !== 'arrived') throw conflict('Confirma primero la llegada al punto.');
   if (!(input.quantity > 0)) throw badRequest('Indica la cantidad recolectada.');
-  const mod = moduleOf(r.module);
+  const mod = assertModule(actor, r.module);
   if (!mod.units.includes(input.unit)) throw badRequest(mod.text);
   if (!input.photoId || !db().get('photos', input.photoId)) throw badRequest('La evidencia fotográfica es obligatoria.');
   const vehicle = db().get('vehicles', input.vehicleId);
@@ -361,11 +368,11 @@ export function managePickup(actor: Actor, id: string, action: 'reassign' | 'can
 }
 
 /** Impacto propio: solo solicitudes validadas, cantidad recibida por unidad; sin equivalencias ambientales. */
-export function pickupImpact(actor: Actor, from: string | null, to: string | null, module: string | null = null) {
+export function pickupImpact(actor: Actor, from: string | null, to: string | null, module: string | null = null, status: 'completed' | 'received' = 'completed') {
   const store = db();
   const u = actor.id ? store.get('users', actor.id) : undefined;
   const own = (r: PickupRequest) => (actor.role === 'driver' ? r.driverId === actor.id : actor.role === 'business' ? !!r.businessId && r.businessId === u?.businessId : r.requesterUserId === actor.id);
-  const done = store.filter('pickupRequests', (r) => own(r) && r.status === 'completed' && (!module || r.module === module) && (!from || r.date >= from) && (!to || r.date <= to));
+  const done = store.filter('pickupRequests', (r) => own(r) && effectiveStatus(r) === status && (!module || r.module === module) && (!from || r.date >= from) && (!to || r.date <= to));
   const byMonth = new Map<string, { month: string; completed: number; m3: number | null; t: number | null; l: number | null }>();
   for (const r of done) {
     const month = r.date.slice(0, 7);
@@ -380,5 +387,8 @@ export function pickupImpact(actor: Actor, from: string | null, to: string | nul
   }
   const months = [...byMonth.values()].sort((a, b) => (a.month < b.month ? -1 : 1));
   const sum = (k: 'm3' | 't' | 'l') => (months.some((m) => m[k] !== null) ? Math.round(months.reduce((s, m) => s + (m[k] ?? 0), 0) * 100) / 100 : null);
-  return { from, to, completed: done.length, m3: sum('m3'), t: sum('t'), l: sum('l'), months, source: 'Solicitudes validadas con recepción confirmada por el centro' };
+  // A tiempo: recolectada hasta el final de la ventana acordada (hora de Venezuela).
+  const timed = done.filter((r) => r.collected);
+  const onTime = timed.filter((r) => Date.parse(r.collected!.at) <= Date.parse(`${r.date}T${r.windowTo}:00-04:00`)).length;
+  return { from, to, status, onTime: timed.length ? { count: onTime, total: timed.length } : null, completed: done.length, m3: sum('m3'), t: sum('t'), l: sum('l'), months, source: status === 'received' ? 'Solicitudes con recepción confirmada por el centro, pendientes de validar' : 'Solicitudes validadas con recepción confirmada por el centro' };
 }

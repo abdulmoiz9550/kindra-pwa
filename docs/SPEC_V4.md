@@ -236,3 +236,13 @@ Effort in working days, to be confirmed after approval.
 5. May photos be sent to Google Gemini?
 6. Which Playa Grande row is public and which is contractor; operator of Santa Eduvigis.
 7. Client review of the screens in section 4.
+
+## Cierre de pendientes (26 nov 2026)
+
+- Origen: material, cantidad y unidad. El retiro registra lotes; los valida la coordinación.
+- El evaluador pide correcciones. El lote no se verifica hasta que el centro corrige; el valor anterior queda en la bitácora y el registro muestra «Corregido».
+- Administración: resumen con alertas, aprobaciones, módulos y calidad de datos, vista global o por organización, trazabilidad, cola de reportes ciudadanos, noticias y ayuda.
+- Gobierno: calidad de datos, calendario de revisiones y conservación (pendiente hasta tener referencia de aprobación).
+- Administrador de entidad: instalaciones, trazabilidad y auditoría. Conductor: foto, vehículo, área, soporte, cumplimiento de horario.
+- Módulos por usuario, ingreso con correo, comprobantes, `/noticias`, `/ayuda`, ruta de navegación y detalle desde los gráficos.
+- Sin construir: Eco Challenges (faltan campañas aprobadas). Textos legales y de privacidad: los publica el cliente.

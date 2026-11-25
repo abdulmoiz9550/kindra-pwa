@@ -266,6 +266,8 @@ export const EVENT_TYPES = [
   'group_action',
   'business_action',
   'ai_suggestion',
+  'correction_requested',
+  'report_assigned',
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -334,6 +336,8 @@ export const EVENT_LABELS: Record<EventType, string> = {
   group_action: 'Actividad de comunidad o grupo',
   business_action: 'Punto de acopio de comercio',
   ai_suggestion: 'Sugerencia de IA',
+  correction_requested: 'Corrección pedida por el evaluador',
+  report_assigned: 'Reporte asignado o escalado',
 };
 
 /** Roles con permiso de exportación (sección 9 y 20). Cada exportación queda registrada. */
@@ -548,4 +552,20 @@ export const MUTABLE_NOTIFICATIONS: { kind: string; label: string }[] = [
   { kind: 'sector_announcement', label: 'Avisos comunitarios del sector' },
   { kind: 'level_reached', label: 'Cambios de nivel' },
   { kind: 'pickup_new', label: 'Solicitudes disponibles' },
+];
+
+/** Estado de corrección (v4.0, sección 8): el registro tiene una corrección con su valor anterior guardado. */
+export const CORRECTED_LABEL = 'Corregido';
+
+/** Calendario de revisiones (v4.0, sección 11). */
+export const REVIEW_SCHEDULE: { key: string; label: string; scope: string }[] = [
+  { key: 'daily', label: 'Diaria', scope: 'Registros nuevos, campos faltantes, duplicados, sincronización y errores de procesamiento.' },
+  { key: 'weekly', label: 'Semanal', scope: 'Reportes ciudadanos, actividad inusual, correcciones, inicios fallidos y discrepancias sin resolver.' },
+  { key: 'monthly', label: 'Mensual', scope: 'Accesos de usuarios, copias completas, prueba de restauración, calidad de datos y exportaciones.' },
+  { key: 'quarterly', label: 'Trimestral', scope: 'Seguridad y vulnerabilidades, registro de riesgos, permisos y tendencia de incidentes.' },
+  { key: 'incident', label: 'Después de un incidente', scope: 'Contención, preservación de evidencia, revisión de accesos, recuperación y acciones correctivas.' },
+  { key: 'month3', label: 'Control del piloto: mes 3', scope: 'Revisión formal.' },
+  { key: 'month6', label: 'Control del piloto: mes 6', scope: 'Revisión formal.' },
+  { key: 'month9', label: 'Control del piloto: mes 9', scope: 'Revisión formal.' },
+  { key: 'month12', label: 'Control del piloto: mes 12', scope: 'Revisión formal.' },
 ];

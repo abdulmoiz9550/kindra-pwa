@@ -92,6 +92,7 @@ const MENUS: Record<Role, NavItem[]> = {
     i('/panel/retiro?tab=trips', 'Mis viajes', Truck),
     i('/panel/solicitudes', 'Solicitudes', ClipboardList),
     i('/panel/escolta', 'Escolta', Navigation),
+    i('/panel/retiro?tab=register', 'Registrar origen', FileText),
     i('/panel/retiro?tab=map', 'Mapa', MapIcon),
     i('/panel/retiro?tab=zones', 'Zona pendiente', MapPin),
   ],
@@ -158,6 +159,9 @@ const MENUS: Record<Role, NavItem[]> = {
     i('/panel/entidad?tab=users', 'Usuarios', Users),
     i('/panel/solicitudes', 'Solicitudes', ClipboardList),
     i('/panel/reportes', 'Reportes', BarChart3),
+    i('/panel/entidad?tab=facilities', 'Instalaciones', MapPin),
+    i('/panel/entidad?tab=trace', 'Trazabilidad', Search),
+    i('/panel/entidad?tab=audit', 'Auditoría', History),
     i('/panel/entidad?tab=vehicles', 'Vehículos', Truck),
     i('/panel/entidad?tab=documents', 'Documentos y evidencias', FileText),
   ],
@@ -165,6 +169,8 @@ const MENUS: Record<Role, NavItem[]> = {
     i('/admin', 'Resumen', Home, { end: true }),
     i('/admin/usuarios', 'Usuarios', Users),
     i('/panel/reportes', 'Reportes', BarChart3),
+    i('/admin/trazabilidad', 'Trazabilidad', Search),
+    i('/admin/reportes', 'Reportes ciudadanos', FileText),
     i('/admin/gobierno', 'Gobierno de datos', ShieldCheck),
     i('/admin/entidades', 'Organizaciones', Building2),
     i('/admin/modulos', 'Módulos', Layers),
@@ -180,6 +186,7 @@ const MENUS: Record<Role, NavItem[]> = {
     i('/admin/puertas', 'Puertas y rastreo', ScanLine),
     i('/admin/configuracion', 'Configuración', Settings),
     i('/admin/estados', 'Estados', Database),
+    i('/admin/contenido', 'Noticias y ayuda', Inbox),
     i('/admin/textos', 'Textos de AURA', MessageCircle),
     i('/admin/lecciones', 'Lecciones', BookOpen),
     i('/admin/fotos', 'Moderación de fotos', FileText),
@@ -189,7 +196,7 @@ const MENUS: Record<Role, NavItem[]> = {
   ],
 };
 
-const COMMON: NavItem[] = [i('/notificaciones', 'Notificaciones', Bell), i('/ajustes', 'Accesibilidad', Settings)];
+const COMMON: NavItem[] = [i('/notificaciones', 'Notificaciones', Bell), i('/noticias', 'Noticias y campañas', Leaf), i('/ayuda', 'Ayuda', HelpCircle), i('/ajustes', 'Accesibilidad', Settings)];
 
 export function menuFor(role: Role | null): NavItem[] {
   return role ? MENUS[role] : citizen;

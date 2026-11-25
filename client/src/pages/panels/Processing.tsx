@@ -8,6 +8,7 @@ import { fmtNum, unitLabel } from '../../lib/format';
 import { Alert, Badge, Button, Card, EmptyState, Field, Input, PageTitle, Select, Spinner } from '../../components/ui';
 import { PhotoCapture, type CapturedPhoto } from '../../components/PhotoCapture';
 import { BatchHeader, OutputsSummary, useSubmit } from '../../components/panels/shared';
+import { ResolveCorrection } from '../../components/Corrections';
 import { Kpi } from '../../components/Requests';
 import type { BatchView } from '../../components/panels/types';
 
@@ -35,6 +36,7 @@ export default function Processing() {
           <Kpi label="Balances por revisar" value={d.flagged} note="Entrada distinta de salidas" />
         </div>
       )}
+      {(tab === 'home' || tab === 'queue') && d.history.filter((b) => b.openCorrection).map((b) => <ResolveCorrection key={b.openCorrection!.id} b={b} base="processing" onDone={refresh} />)}
       {(tab === 'home' || tab === 'queue') && (
         <Card title="Lotes de tu centro">
           {d.queue.length === 0 ? <EmptyState title="No hay lotes en cola" /> : <div className="space-y-3">{d.queue.map((b) => <Lot key={b.id} b={b} onDone={refresh} />)}</div>}
