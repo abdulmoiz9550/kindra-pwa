@@ -34,7 +34,7 @@ Status codes are the ones in spec section 1: **1** working and verified, **2** p
 | Evidence image access (9) | 2 | 1 | – | Signed links that expire, given only inside an authorized response |
 | Sign-in, denied access and role-change log (10) | 4 | 1 | – | Visible only to the main administrator |
 | Password visibility and recovery (24) | 4 | 2 | Medium | Handled by the administrator; no email/SMS service |
-| Automated backups, tested restore (10) | 2 | 2 | High | Built and tested; backups and images need storage that survives redeploys |
+| Automated backups, tested restore (10) | 2 | 2 | High | Built and tested; photos are kept in Supabase; backups still need storage that survives redeploys |
 | Demo and production separation (10, 28) | 2 | 2 | High | Same installation, demo mode is on |
 | Incidents and risk register (10, 11) | 4 | 1 | – | Register starts empty; entries belong to the owner |
 | Driver module (17) | 4 | 1 | – | Five sections, offline capture |
@@ -177,7 +177,7 @@ Santa Eduvigis keeps its existing classification as a separate final-disposal si
 | Gap | Severity | What it needs |
 |---|---|---|
 | Demo mode lets anyone enter as any test role | High | Switch off before real use; separate demo installation |
-| Backups and images on a disk that redeploys may erase | High | Persistent or external storage |
+| Backups on a disk that redeploys may erase | High | Persistent or external storage |
 | `JWT_SECRET` has a development default | High | Confirm it is set in production |
 | Lockout counts are kept in memory and reset on restart | Low | Shared store if scaled to several servers |
 | Two-step only for the main administrator | Medium | Decide for other roles |
@@ -214,7 +214,7 @@ Test accounts (password `demo1234`): `ciudadano`, `contralora`, `coordinador`, `
 - Automatic: set `BACKUP_INTERVAL_HOURS=24`. Off by default; keeps the last 14.
 - Test: "Test restore" in the same page, or `npm run restore -w server -- file.json`. Loads into a temporary database and recalculates every seal.
 - Recover: the same command with `--apply`, only onto an empty PostgreSQL database.
-- Backups hold critical data and cannot be downloaded from the app. Uploaded images are not included and need their own copy.
+- Backups hold critical data and cannot be downloaded from the app. Photos are kept in Supabase and are not part of these files.
 
 ## 10. Plan
 
