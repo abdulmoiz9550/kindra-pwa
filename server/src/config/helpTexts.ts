@@ -24,7 +24,7 @@ const privacy = `Este aviso explica qué datos usa Kindra, para qué los usa y q
 Para retirar los escombros, dar seguimiento a cada reporte y carga, avisarte de los cambios, evitar registros falsos o repetidos, proteger las cuentas y elaborar cifras del proyecto. No vendemos tus datos ni los usamos para publicidad.
 
 3. Qué es público
-En las páginas públicas se ven el sector, el estado de los reportes, los lotes y las obras, y las fotos que pasaron por moderación. De las personas se muestran, como máximo, el alias y el nivel. La dirección exacta, el nombre, el teléfono y el correo no son públicos.
+En las páginas públicas se ven el sector, el estado de los reportes, los lotes y las obras, y las fotos que pasaron por moderación. De las personas se muestran el alias y el nivel. Si alguien escanea tu tarjeta Kindra, ve además tu rol, tu entidad, si tu identidad está verificada y desde cuándo participas. La dirección exacta, el nombre, el teléfono y el correo no son públicos.
 
 4. Quién puede ver tus datos
 Solo las personas autorizadas, según su rol y su entidad, y solo lo que necesitan para su trabajo. Las descargas de datos y los accesos quedan registrados.
