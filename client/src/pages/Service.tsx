@@ -110,7 +110,7 @@ function RequestForm({ who }: { who: Who }) {
       <PageTitle title={who === 'business' ? 'Solicitar recolección' : 'Solicitar'} subtitle="Elige qué necesitas que se recoja." />
       <Card title="Escombros" subtitle="Se solicita con un aviso: queda registrado con su código y puedes seguirlo.">
         <div className="flex flex-wrap gap-2">
-          <Link className="btn-primary" to="/avisar">Avisar de un escombro</Link>
+          <Link className="btn-primary" to="/avisar">Reportar Escombro</Link>
           <Link className="btn-secondary" to="/mis-reportes">Ver mis avisos</Link>
         </div>
       </Card>

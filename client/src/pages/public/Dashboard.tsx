@@ -12,6 +12,7 @@ import { Card, Spinner, Alert, StatTile, HelpTip, SourceNote, ProgressBar, Empty
 import { MapView } from '../../components/MapView';
 import { PublicHeader } from '../../components/PublicHeader';
 import { HBars, StatusBars, TableToggle } from '../../components/charts/Bars';
+import { FacilitiesMap, OpenDataCard, SectorLights, usePortal } from './Portal';
 
 interface DashboardData {
   generatedAt: string;
@@ -86,6 +87,8 @@ export default function Dashboard() {
 
       {q.isLoading && <Spinner label="Cargando el tablero…" />}
       {q.error && <Alert tone="bad">No se pudo cargar el tablero. Inténtalo de nuevo en un momento.</Alert>}
+
+      <PortalTop />
 
       {d && (
         <div className="space-y-4">
@@ -416,5 +419,20 @@ function OfficialFigures() {
         {q.data.indicators.map((i) => <div key={i.key}><p className="text-xs text-muted">{i.label}</p>{i.value !== null && <p className="text-lg font-bold">{i.value.toLocaleString('es-VE')} {i.unit}</p>}{i.breakdown?.map((b) => <p key={b.label} className="text-xs">{b.label}: {b.value}</p>)}</div>)}
       </div>
     </Card>
+  );
+}
+
+/** Addendum v4.2, sección 9: consulta por código, semáforo por sector, mapa de CDT y CDF y datos abiertos. */
+function PortalTop() {
+  const p = usePortal();
+  return (
+    <div className="space-y-4 mb-4">
+      <Card title="Consulta por código" subtitle="Escribe el código de tu reporte o de un lote para ver su estado público y sus fechas.">
+        <Link className="btn-primary" to="/consultar">Consultar un código</Link>
+      </Card>
+      {p.data && <SectorLights data={p.data} />}
+      {p.data && <FacilitiesMap data={p.data} />}
+      <OpenDataCard />
+    </div>
   );
 }

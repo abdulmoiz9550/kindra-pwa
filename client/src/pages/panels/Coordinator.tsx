@@ -215,6 +215,8 @@ function QuickActions({ o, onDone, onOpen }: { o: OriginView; onDone: () => void
   const { busy, error, run } = useSubmit();
   const [reject, setReject] = useState(false);
   const [dup, setDup] = useState(false);
+  const [lot, setLot] = useState(false);
+  const [lotCode, setLotCode] = useState('');
   const [reason, setReason] = useState<RejectionReason | ''>('');
   const [note, setNote] = useState('');
   const [mainCode, setMainCode] = useState(o.possibleDuplicateCode || '');
@@ -243,7 +245,7 @@ function QuickActions({ o, onDone, onOpen }: { o: OriginView; onDone: () => void
       )}
       {can('origin_marked_duplicate') && (
         <Button size="sm" variant="secondary" disabled={busy} onClick={() => setDup(true)}>
-          Es duplicado
+          Marcar Duplicado
         </Button>
       )}
       {o.photos[0] && !o.photos[0].unreadable && o.state === 'registered' && (
@@ -251,10 +253,20 @@ function QuickActions({ o, onDone, onOpen }: { o: OriginView; onDone: () => void
           Foto ilegible
         </Button>
       )}
+      {o.type === 'citizen' && !['registered', 'rejected', 'duplicate'].includes(o.state) && (
+        <Button size="sm" variant="secondary" disabled={busy} onClick={() => setLot(true)}>
+          Asignar a lote
+        </Button>
+      )}
       <Button size="sm" variant="ghost" onClick={onOpen}>
         Detalle
       </Button>
       {error && <Alert tone="bad" className="w-full">{error}</Alert>}
+      <Modal open={lot} onClose={() => setLot(false)} title={`Asignar ${o.code} a un lote`}>
+        <p className="text-sm text-muted mb-2">Escribe el código del lote de origen (por ejemplo LG-CB-000123). Un reporte puede ir a más de un lote.{o.lotCodes?.length ? ` Ya está en: ${o.lotCodes.join(', ')}.` : ''}</p>
+        <Field label="Código del lote" required><Input value={lotCode} onChange={(e) => setLotCode(e.target.value.toUpperCase())} placeholder="LG-CB-000123" className="font-mono" /></Field>
+        <Button disabled={busy || lotCode.trim().length < 5} onClick={() => run(async () => { await api.post(`/coord/origins/${o.id}/link-lot`, { lotCode: lotCode.trim() }); toast.success(`${o.code} asignado al lote ${lotCode.trim()}.`); setLot(false); setLotCode(''); onDone(); })}>Asignar</Button>
+      </Modal>
       <Modal open={reject} onClose={() => setReject(false)} title={`Rechazar ${o.code}`}>
         <Field label="Motivo (obligatorio)" required>
           <Select value={reason} onChange={(e) => setReason(e.target.value as RejectionReason)}>

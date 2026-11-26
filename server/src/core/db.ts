@@ -21,6 +21,43 @@ export interface AuraSession {
   history: { role: 'user' | 'aura'; text: string; at: string; photoUrl?: string | null }[];
 }
 
+/**
+ * Addendum v4.2, 10.1: memoria de AURA por número de WhatsApp o cuenta de la PWA. Nombre y teléfono van cifrados.
+ * Se borra completa cuando la persona lo pide.
+ */
+export interface AuraProfile {
+  id: string;
+  userId?: string | null;
+  channel: 'whatsapp' | 'pwa';
+  waIdEnc?: string | null;
+  profileNameEnc?: string | null;
+  preferredNameEnc?: string | null;
+  askedName?: boolean;
+  parish?: string | null;
+  usualSectorIds: string[];
+  consent?: { at: string; version: string } | null;
+  lastConversationAt?: string | null;
+  conversations: number;
+  lastTipAt?: number | null;
+  blocked?: boolean;
+  createdAt: string;
+}
+
+/** Conversación pasada a una persona del equipo (10.4, flujo 5). */
+export interface SupportTicket {
+  id: string;
+  profileId?: string | null;
+  userId?: string | null;
+  sessionId: string;
+  channel: 'whatsapp' | 'pwa';
+  nameEnc?: string | null;
+  reason: string;
+  history: { role: 'user' | 'aura' | 'staff'; text: string; at: string }[];
+  status: 'open' | 'closed';
+  createdAt: string;
+  closedAt?: string | null;
+}
+
 export interface Certificate {
   id: string;
   code: string;
@@ -53,6 +90,8 @@ export interface Collections {
   preregistrationCodes: PreregistrationCode;
   notifications: Notification;
   auraSessions: AuraSession;
+  auraProfiles: AuraProfile;
+  supportTickets: SupportTicket;
   certificates: Certificate;
   spaces: Space;
   /** Secretos de verificación en dos pasos (nunca salen del servidor). */
@@ -113,7 +152,7 @@ export const PROJECTION_COLLECTIONS: CollectionName[] = [
 
 const ALL_COLLECTIONS: CollectionName[] = [
   'entities', 'users', 'sectors', 'centers', 'vehicleTypes', 'vehicles', 'lessons', 'auraTexts', 'config', 'photos',
-  'preregistrationCodes', 'notifications', 'auraSessions', 'certificates', 'spaces', 'twoFactorSecrets', 'trackPoints', 'tripRoutes', 'reportSnapshots', 'infoRequests', 'pickupRequests', 'risks', 'incidents', 'recoveryRequests', 'groups', 'memberships', 'groupActivities', 'wasteReports', 'businesses', 'moduleDefinitions', 'aiSuggestions', 'correctionRequests', 'news', 'reportAssignments', 'reviewLogs', 'ecoChallenges', 'courses', ...PROJECTION_COLLECTIONS,
+  'preregistrationCodes', 'notifications', 'auraSessions', 'certificates', 'spaces', 'twoFactorSecrets', 'trackPoints', 'tripRoutes', 'reportSnapshots', 'infoRequests', 'pickupRequests', 'risks', 'incidents', 'recoveryRequests', 'groups', 'memberships', 'groupActivities', 'wasteReports', 'businesses', 'moduleDefinitions', 'aiSuggestions', 'correctionRequests', 'news', 'reportAssignments', 'reviewLogs', 'ecoChallenges', 'courses', 'auraProfiles', 'supportTickets', ...PROJECTION_COLLECTIONS,
 ];
 
 /**

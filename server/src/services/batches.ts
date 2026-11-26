@@ -1,3 +1,4 @@
+import { notifyPublicStage } from './origins';
 import type { Batch, BatchOutputs, Reception, Subcategory, HazardDecision, QualityVerification, QualityTest, Dispatch, DailySummary, JobsRecord, Center } from '@kindra/shared';
 import { db } from '../core/db';
 import { appendEvent, SYSTEM_ACTOR, type Actor } from '../core/events';
@@ -212,6 +213,7 @@ export function verifyQuality(batchId: string, actor: Actor, input: QualityInput
     createdAt: nowIso(),
   };
   appendEvent({ type: 'quality_verified', objectType: 'batch', objectId: batch.id, actor, data: { verification }, deviceTime: input.deviceTime });
+  if (verification.result === 'approved') for (const o of db().filter('origins', (x) => x.batchIds.includes(batch.id))) notifyPublicStage(o, 3);
   return { batch: db().get('batches', batch.id)!, verification };
 }
 

@@ -1,3 +1,5 @@
+import { decryptField } from '../services/secureField';
+import { sendText, whatsappStatus } from '../services/whatsapp';
 import { Router } from 'express';
 import { z } from 'zod';
 import QRCode from 'qrcode';
@@ -564,3 +566,56 @@ adminRouter.put(
     res.json(updateConfig({ publicReport: body }).publicReport);
   }),
 );
+
+// ---------------------------------------------------------------- addendum v4.2: bandeja de soporte de AURA
+adminRouter.get('/support-tickets', (_req, res) => {
+  res.json(
+    db()
+      .list('supportTickets')
+      .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+      .map((t) => {
+        const p = t.profileId ? db().get('auraProfiles', t.profileId) : undefined;
+        return { ...t, name: decryptField(t.nameEnc), nameEnc: undefined, phone: p ? decryptField(p.waIdEnc) : null, blocked: !!p?.blocked };
+      }),
+  );
+});
+adminRouter.post(
+  '/support-tickets/:id/reply',
+  wrap(async (req, res) => {
+    const { text } = z.object({ text: z.string().min(2).max(1000) }).parse(req.body);
+    const store = db();
+    const t = store.get('supportTickets', String(req.params.id));
+    if (!t) throw badRequest('La conversación no existe.');
+    let delivered = false;
+    if (t.channel === 'whatsapp' && t.profileId) {
+      const to = decryptField(store.get('auraProfiles', t.profileId)?.waIdEnc);
+      if (to) delivered = await sendText(to, `Equipo Kindra: ${text}`);
+    }
+    if (t.userId) {
+      notify({ recipientKeys: [`user:${t.userId}`], kind: 'support_reply', text: `Equipo Kindra: ${text}`, link: '/aura' });
+      delivered = true;
+    }
+    const s = store.get('auraSessions', t.sessionId);
+    if (s) store.update('auraSessions', s.id, { history: [...s.history, { role: 'aura' as const, text: `Equipo Kindra: ${text}`, at: nowIso() }].slice(-200) });
+    res.json({ ...store.update('supportTickets', t.id, { history: [...t.history, { role: 'staff', text, at: nowIso() }] }), delivered });
+  }),
+);
+adminRouter.post(
+  '/support-tickets/:id/close',
+  wrap((req, res) => {
+    const t = db().get('supportTickets', String(req.params.id));
+    if (!t) throw badRequest('La conversación no existe.');
+    res.json(db().update('supportTickets', t.id, { status: 'closed', closedAt: nowIso() }));
+  }),
+);
+/** Control de abuso (10.6): bloqueo manual de un número. */
+adminRouter.post(
+  '/aura-profiles/:id/block',
+  wrap((req, res) => {
+    const { blocked } = z.object({ blocked: z.boolean() }).parse(req.body);
+    const p = db().get('auraProfiles', String(req.params.id));
+    if (!p) throw badRequest('El perfil no existe.');
+    res.json({ id: p.id, blocked: db().update('auraProfiles', p.id, { blocked }).blocked });
+  }),
+);
+adminRouter.get('/aura-status', (_req, res) => res.json({ whatsapp: whatsappStatus(), profiles: db().count('auraProfiles'), openTickets: db().filter('supportTickets', (t) => t.status === 'open').length }));

@@ -21,7 +21,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const { connected } = useLiveUpdates();
   const location = useLocation();
   const signedIn = useAuth((x) => !!x.user);
-  const isPublicPage = location.pathname.startsWith('/publico/') || (location.pathname === '/tablero' && !signedIn);
+  const isPublicPage = location.pathname.startsWith('/publico/') || (location.pathname.startsWith('/tablero') && !signedIn);
   const showNav = !isPublicPage;
   return (
     <div className="min-h-screen flex flex-col">

@@ -10,7 +10,8 @@ import { listNotifications, markRead, markAllRead } from '../services/notificati
 import { computePoints, certificateFor } from '../services/points';
 import { listLessons, completeLesson, lessonAsText, listCourses, submitCourseQuiz, courseCompleted } from '../services/lessons';
 import { requestMonitorRole, verifyOnSite, recordBeforeAfter } from '../services/monitor';
-import { handleMessage, sessionView } from '../services/aura';
+import { sessionView } from '../services/aura';
+import { auraReply } from '../services/auraV42';
 import { citizenOriginView } from './helpers';
 import { forbidden, notFound } from '../core/errors';
 import { toPublicUser } from '../services/auth';
@@ -319,7 +320,8 @@ citizenRouter.post(
         voiceNoteId: z.string().nullable().optional(),
       })
       .parse(req.body);
-    const r = await handleMessage({ ...body, deviceTime: req.deviceTime, offlineQueuedAt: req.offlineQueuedAt, clientKey: req.clientKey }, citizenActor(req));
+    // Addendum v4.2, sección 10: el mismo AURA que en WhatsApp, con nombre, memoria y consentimiento.
+    const r = await auraReply({ ...body, deviceTime: req.deviceTime, offlineQueuedAt: req.offlineQueuedAt, clientKey: req.clientKey }, citizenActor(req), { kind: 'pwa' });
     res.json(r);
   }),
 );

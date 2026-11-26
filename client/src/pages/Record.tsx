@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { CitizenTripStatus } from '../components/panels/TrackingWidgets';
 import { CheckCircle2, Circle, Download, QrCode } from 'lucide-react';
 import type { TraceabilityRecord, SatisfactionAnswer } from '@kindra/shared';
-import { effectiveOriginState, SATISFACTION_LABELS, BATCH_STATE_LABELS, TRIP_STATE_LABELS, USE_TYPE_LABELS } from '@kindra/shared';
+import { PUBLIC_LOT_STATES, effectiveOriginState, SATISFACTION_LABELS, BATCH_STATE_LABELS, TRIP_STATE_LABELS, USE_TYPE_LABELS } from '@kindra/shared';
 import { api, errorMessage } from '../lib/api';
 import { getToken } from '../lib/auth';
 import { toast } from '../lib/toast';
@@ -73,6 +73,7 @@ export default function RecordPage() {
   return (
     <div className="max-w-2xl mx-auto">
       <PageTitle title={`Ficha ${o.code}`} subtitle={`${r.sectorName} · reportado ${fmtDateTime(o.createdAt)}`} actions={<OriginStateBadge state={state} />} />
+      {r.reportStatus && <ReportStatusCard s={r.reportStatus} />}
       <CitizenTripStatus code={o.code} />
       {r.isPublicVersion && (
         <Alert tone="info" className="mb-3">
@@ -87,18 +88,18 @@ export default function RecordPage() {
       )}
 
       {removal && removal.citizenResponse === 'no_response' && (
-        <Card className="mb-3 border-primary" title="El escombro figura como retirado">
-          <p className="text-sm text-ink-2 mb-3">¿Puedes confirmar si de verdad quedó despejado? Si no es así, dilo y lo revisan.</p>
+        <Card className="mb-3 border-primary" title="Cierre Propuesto">
+          <p className="text-sm text-ink-2 mb-3">El Ente de Retiro marcó el punto como despejado. Confirma si de verdad quedó limpio, o disputa el cierre si el escombro sigue ahí o quedó incompleto: el caso se reabre y lo revisa un Contralor Comunitario.{r.reportStatus?.confirmBy ? ` Tienes hasta el ${fmtDateTime(r.reportStatus.confirmBy)}.` : ''}</p>
           <Textarea value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Comentario (opcional)" aria-label="Comentario" />
           <div className="mt-2 flex flex-wrap gap-2">
             <Button onClick={() => respondRemoval('confirmed')} disabled={busy}>
-              Sí, quedó despejado
+              Confirmar
             </Button>
             {o.anonymous ? (
               <p className="text-xs text-muted self-center">Los reportes sin cuenta no pueden abrir una disputa. Si el escombro sigue ahí, repórtalo de nuevo.</p>
             ) : (
               <Button variant="secondary" onClick={() => respondRemoval('disputed')} disabled={busy}>
-                No, sigue ahí
+                Disputar
               </Button>
             )}
           </div>
@@ -205,5 +206,23 @@ export default function RecordPage() {
         </div>
       </Card>
     </div>
+  );
+}
+
+/** Addendum v4.2, secciones 4 y 7: estado del reporte y los 4 estados públicos del lote. */
+export function ReportStatusCard({ s }: { s: NonNullable<TraceabilityRecord['reportStatus']> }) {
+  return (
+    <Card className="mb-3" title={`Estado: ${s.label}`} subtitle={s.reason ? `Motivo: ${s.reason}` : s.lotCodes.length ? `Lote${s.lotCodes.length > 1 ? 's' : ''} ${s.lotCodes.join(', ')}` : undefined}>
+      <ol className="grid grid-cols-4 gap-1 text-center text-xs" aria-label="Estados públicos del lote">
+        {PUBLIC_LOT_STATES.map((label, i) => {
+          const done = s.publicStage > i;
+          return (
+            <li key={label} className={`rounded-md border px-1 py-2 ${done ? 'border-ok bg-ok-soft font-semibold' : 'border-line text-muted'}`}>
+              <span aria-hidden>{done ? '✓' : i + 1}</span> {label}
+            </li>
+          );
+        })}
+      </ol>
+    </Card>
   );
 }

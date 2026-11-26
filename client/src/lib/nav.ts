@@ -192,6 +192,7 @@ const MENUS: Record<Role, NavItem[]> = {
     i('/admin/estados', 'Estados', Database),
     i('/admin/retos', 'Retos ecológicos', Leaf),
     i('/admin/contenido', 'Noticias y ayuda', Inbox),
+    i('/admin/conversaciones', 'Conversaciones de AURA y ajustes', Inbox),
     i('/admin/textos', 'Textos de AURA', MessageCircle),
     i('/admin/lecciones', 'Lecciones', BookOpen),
     i('/admin/fotos', 'Moderación de fotos', FileText),

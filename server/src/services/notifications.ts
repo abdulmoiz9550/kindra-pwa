@@ -1,3 +1,4 @@
+import { whatsappNotify } from './waNotify';
 import type { Notification, Origin, Role } from '@kindra/shared';
 import { fillTemplate, FORBIDDEN_EXPRESSIONS } from '@kindra/shared';
 import { db } from '../core/db';
@@ -64,6 +65,7 @@ export function notify(input: NotifyInput): Notification[] {
 export function notifyOrigin(origin: Origin, kind: string, text: string, link?: string | null): Notification[] {
   const keys = [...reporterKeys(origin), ...origin.linkedReporterKeys];
   const sector = db().get('sectors', origin.sectorId);
+  whatsappNotify(origin, kind);
   return notify({ recipientKeys: keys, kind, text, link: link ?? `/reporte/${origin.code}`, originCode: origin.code, sectorName: sector?.name ?? null });
 }
 

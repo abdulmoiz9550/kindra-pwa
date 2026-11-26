@@ -1,3 +1,5 @@
+import { logExport } from '../services/governance';
+import { openData, openDataCsv, parishPage, publicFacilities, publicLookup, sectorProgressAll } from '../services/portal';
 import { Router } from 'express';
 import { z } from 'zod';
 import { KINDRA_TAGLINE, USE_TYPE_LABELS, SIZE_LABELS, URGENCY_LABELS, SUBCATEGORY_LABELS, REJECTION_REASON_LABELS, STRUCTURE_TYPE_LABELS, CAUSE_LABELS, ROLE_LABELS } from '@kindra/shared';
@@ -138,6 +140,25 @@ publicRouter.get('/reportes/:code/estado', (req, res) => {
   const status = originStatusView(o);
   const messages = listNotifications([`origin:${o.code}`]).map((n) => ({ id: n.id, text: n.text, kind: n.kind, createdAt: n.createdAt, link: n.link }));
   res.json({ status, messages, publicRecordUrl: `${env.publicBaseUrl}/publico/ficha/${o.code}` });
+});
+
+// ---------------------------------------------------------------- addendum v4.2, sección 9: portal público
+publicRouter.get('/consulta/:code', (req, res) => res.json(publicLookup(String(req.params.code))));
+publicRouter.get('/portal', (req, res) => res.json({ ...sectorProgressAll(typeof req.query.parroquia === 'string' ? req.query.parroquia : null), facilities: publicFacilities() }));
+publicRouter.get('/parroquias/:code', (req, res) => res.json(parishPage(String(req.params.code))));
+publicRouter.get('/datos-abiertos.json', (req, res) => {
+  logExport(req.auth?.actor ?? { id: null, role: 'citizen', entityId: null }, 'open_data', 0, { format: 'json' });
+  res.setHeader('Content-Disposition', 'attachment; filename="kindra-datos-abiertos.json"');
+  res.json(openData());
+});
+publicRouter.get('/datos-abiertos.csv', (req, res) => {
+  logExport(req.auth?.actor ?? { id: null, role: 'citizen', entityId: null }, 'open_data', 0, { format: 'csv' });
+  res.setHeader('Content-Disposition', 'attachment; filename="kindra-datos-abiertos.csv"');
+  res.type('text/csv; charset=utf-8').send('﻿' + openDataCsv());
+});
+publicRouter.get('/datos-abiertos', (_req, res) => {
+  const d = openData();
+  res.json({ title: d.title, cutoff: d.cutoff, license: d.license, dictionary: d.dictionary, rows: d.rows.length });
 });
 
 publicRouter.get('/branding', (_req, res) => {

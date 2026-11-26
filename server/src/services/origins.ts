@@ -1,3 +1,4 @@
+import { encryptField } from './secureField';
 import type {
   Origin, OriginSize, OriginUrgency, GeoPoint, Subcategory, StructureType, DebrisCause, OriginPriority, RejectionReason,
   Closure, SatisfactionAnswer, Sector, Work, Batch, OriginEffectiveState, OriginState, ReportStatusKey,
@@ -88,6 +89,7 @@ export interface CitizenReportInput {
   deviceTime?: string | null;
   offlineQueuedAt?: string | null;
   clientKey?: string | null;
+  channelProfileId?: string | null;
   /** Addendum v4.2, sección 7. */
   phone?: string | null;
   locationAccuracyM?: number | null;
@@ -163,7 +165,9 @@ export function createCitizenReport(input: CitizenReportInput, actor: Actor): Ci
     batchIds: [],
     workIds: [],
     source: input.source,
-    reporterPhone: input.phone?.trim() || null,
+    // Confidencial: se guarda cifrado.
+    reporterPhone: encryptField(input.phone?.trim() || null),
+    channelProfileId: input.channelProfileId ?? null,
     reporterRole: actor.role ?? 'citizen',
     viaMonitor: !!input.viaMonitor && actor.role === 'monitor',
     locationAccuracyM: input.location && input.locationAccuracyM != null ? Math.round(input.locationAccuracyM) : null,
@@ -363,6 +367,8 @@ export function sendRemovalClosure(o: Origin): Closure {
 export interface Responder {
   userId?: string | null;
   byCode?: boolean;
+  /** Perfil de AURA por WhatsApp de quien reportó. */
+  profileId?: string | null;
 }
 
 export function respondRemovalClosure(code: string, response: 'confirmed' | 'disputed', responder: Responder, comment?: string | null, deviceTime?: string | null): { origin: Origin; text: string } {
@@ -379,7 +385,8 @@ export function respondRemovalClosure(code: string, response: 'confirmed' | 'dis
     notifyOrigin(o, 'removal_confirmed', text);
     return { origin: db().get('origins', o.id)!, text };
   }
-  if (o.anonymous || !o.reporterId) throw conflict(pickText('anonymous_cannot_dispute', { código: o.code }), 'anonymous_cannot_dispute');
+  const viaBot = !!responder.profileId && responder.profileId === o.channelProfileId;
+  if (!viaBot && (o.anonymous || !o.reporterId)) throw conflict(pickText('anonymous_cannot_dispute', { código: o.code }), 'anonymous_cannot_dispute');
   assertTransition('origin', 'removal_disputed', o.state, { actor, origin: o });
   const alertText = `Disputa abierta en el reporte ${o.code} (${sectorName(o.sectorId)}): el ciudadano dice que el escombro sigue ahí.`;
   appendEvent({ type: 'removal_disputed', objectType: 'origin', objectId: o.id, actor, data: { closureId: closure.id, comment: comment ?? null, alertText }, deviceTime });
@@ -459,6 +466,7 @@ export function sendFinalClosure(o: Origin, work: Work, batch: Batch): Closure |
     enlace: link,
   });
   notifyOrigin(o, 'final_closure', text, `/reporte/${o.code}`);
+  notifyPublicStage(o, 4);
   notifyOrigin(o, 'satisfaction_question', pickText('satisfaction_question'), `/reporte/${o.code}#satisfaccion`);
   if (o.reporterId) {
     refreshRecognition(o.reporterId);
@@ -687,4 +695,20 @@ export function expireClosures(): number {
     n++;
   }
   return n;
+}
+
+/**
+ * Addendum v4.2, 10.5: aviso cuando el lote pasa a Recibido, Procesado y Ensayado o Destino Final. Llega al reporte y
+ * a los reportes ciudadanos asignados a ese lote.
+ */
+export function notifyPublicStage(o: Origin, stage: number): void {
+  if (stage < 2 || stage > 4) return;
+  const store = db();
+  const label = PUBLIC_LOT_STATES[stage - 1];
+  // En Destino Final el propio reporte ya recibió su aviso de cierre final.
+  const targets = [...(stage === 4 ? [] : [o]), ...store.filter('origins', (x) => (x.lotIds ?? []).includes(o.id))];
+  for (const t of targets) {
+    if (t.type !== 'citizen') continue;
+    notifyOrigin(t, 'status_change', `Tu reporte ${t.code} avanzó: el lote está en «${label}».`);
+  }
 }

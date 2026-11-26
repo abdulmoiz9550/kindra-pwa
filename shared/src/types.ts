@@ -272,6 +272,8 @@ export interface Origin {
   fieldVerification?: { result: 'exists' | 'not_exists' | 'already_cleared'; photoId: string | null; by: string; at: string } | null;
   /** Se venció el plazo para confirmar o disputar el cierre. */
   closedNoConfirmationAt?: string | null;
+  /** Perfil de AURA (WhatsApp) de quien reportó: recibe los avisos y puede confirmar o disputar. */
+  channelProfileId?: string | null;
 }
 
 export interface VehicleType {
@@ -819,6 +821,12 @@ export interface AppConfig {
   levels: LevelConfig[];
   raices: RaicesConfig;
   complaintChannelUrl: string;
+  /** Addendum v4.2, sección 9: licencia de los datos abiertos. Vacía = pendiente de definición. */
+  openDataLicense?: string;
+  /** Addendum v4.2, 10.7: número oficial de emergencias que AURA da ante un riesgo inmediato. */
+  emergencyNumber?: string;
+  /** Addendum v4.2, 10.4: tiempo de respuesta que AURA indica fuera de horario. */
+  supportHours?: string;
   hazardChecklist: { key: string; label: string; provisional: boolean }[];
   qualityChecklist: { key: string; label: string; provisional: boolean }[];
   transitions: TransitionRule[];
@@ -904,6 +912,9 @@ export interface RecordField {
 
 export interface TraceabilityRecord {
   origin: Origin;
+  /** Addendum v4.2: estado del reporte y estado público del lote (1 a 4). */
+  reportStatus?: { key: string; label: string; reason: string | null; lotCodes: string[]; publicStage: number; publicStageLabel: string | null; confirmBy: string | null } | null;
+  publicStage?: number;
   sectorName: string;
   fields: RecordField[];
   completeness: number;

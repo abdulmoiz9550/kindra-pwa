@@ -24,6 +24,7 @@ import { requestsRouter } from './routes/requests';
 import { processingRouter } from './routes/processing';
 import { profilesRouter } from './routes/profiles';
 import { aiRouter } from './routes/ai';
+import { whatsappRouter } from './routes/whatsapp';
 
 export function createApp() {
   const app = express();
@@ -33,6 +34,8 @@ export function createApp() {
   // v4.0, sección 9: las imágenes solo se abren con un enlace firmado y con vencimiento, que se entrega
   // únicamente dentro de una respuesta que ya pasó por los permisos.
   app.set('json replacer', (_k: string, v: unknown) => (isUploadPath(v) ? signUpload(v) : v));
+  // WhatsApp necesita el cuerpo crudo para validar la firma: va antes del parser JSON.
+  app.use('/api/whatsapp', whatsappRouter);
   app.use(express.json({ limit: '6mb', reviver: (_k: string, v: unknown) => (isUploadPath(v) ? unsignUpload(v) : v) }));
   app.use(authenticate);
 

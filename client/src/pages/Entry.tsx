@@ -50,7 +50,7 @@ export default function Entry() {
 
       <div className="space-y-3">
         <Link to="/avisar" className="btn-primary w-full text-lg !py-4">
-          <AlertTriangle size={22} /> Avisar de un escombro
+          <AlertTriangle size={22} /> Reportar Escombro
         </Link>
         <Card>
           <div className="flex flex-col gap-2">

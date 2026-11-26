@@ -1,4 +1,5 @@
 import type { AuraTextEntry } from '@kindra/shared';
+import { AURA_TEXTS_V42 } from './auraTexts42';
 
 /**
  * Textos de AURA (8.5, 8.6) y mensajes a ciudadanos (14, 15) y a entidades (15.2).
@@ -7,6 +8,7 @@ import type { AuraTextEntry } from '@kindra/shared';
  * Editable desde el panel de administración; nada está escrito en código de pantalla.
  */
 export const DEFAULT_AURA_TEXTS: AuraTextEntry[] = [
+  ...AURA_TEXTS_V42,
   {
     key: 'first_contact',
     label: 'Primer contacto',

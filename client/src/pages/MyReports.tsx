@@ -24,6 +24,7 @@ export interface CitizenOrigin {
   anonymous: boolean;
   duplicateOfCode: string | null;
   photoUrl: string | null;
+  reportStatus?: { label: string; reason: string | null; publicStage: number; publicStageLabel: string | null; lotCodes: string[] } | null;
 }
 
 /** 16.3 Mis reportes: cuenta + códigos guardados en este teléfono. */
@@ -40,11 +41,11 @@ export default function MyReports() {
   return (
     <div className="max-w-lg mx-auto">
       <PageTitle
-        title="Mis reportes"
+        title="Reportes"
         subtitle={token ? 'Reportes de tu cuenta y códigos guardados en este teléfono.' : 'Códigos guardados en este teléfono. Con una cuenta también verías tus reportes desde otro dispositivo.'}
         actions={
           <Link to="/avisar">
-            <Button size="sm">Avisar de un escombro</Button>
+            <Button size="sm">Reportar Escombro</Button>
           </Link>
         }
       />
@@ -52,10 +53,10 @@ export default function MyReports() {
       {!loading && list.length === 0 && (
         <EmptyState
           title="Todavía no tienes reportes aquí"
-          text="Cuando avises de un escombro, aparecerá en esta lista con su código y su estado."
+          text="Cuando reportes un escombro, aparecerá en esta lista con su código y su estado."
           action={
             <Link to="/avisar">
-              <Button>Avisar de un escombro</Button>
+              <Button>Reportar Escombro</Button>
             </Link>
           }
         />
@@ -76,9 +77,11 @@ export default function MyReports() {
                     <p className="text-xs text-muted">
                       {o.sectorName || 'Sector'} · {fmtRelative(o.createdAt)}
                     </p>
-                    <div className="mt-1">
-                      <OriginStateBadge state={o.effectiveState} />
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {o.reportStatus ? <Badge tone="info" icon={false}>{o.reportStatus.label}</Badge> : <OriginStateBadge state={o.effectiveState} />}
+                      {o.reportStatus?.publicStageLabel && <Badge tone="ok" icon={false}>Lote: {o.reportStatus.publicStageLabel}</Badge>}
                     </div>
+                    {o.reportStatus?.reason && <p className="text-xs text-muted mt-1">Motivo: {o.reportStatus.reason}</p>}
                     <p className="mt-1 text-sm text-ink-2">{o.plain}</p>
                     {pending && (
                       <div className="mt-2 flex flex-wrap gap-1">

@@ -19,6 +19,7 @@ import Gates from './Gates';
 import Governance from './Governance';
 import { CitizenReports, Content, Traceability } from './Operations';
 import AdminChallenges from './Challenges';
+import AuraInbox from './AuraInbox';
 import Participation, { Modules, Operators } from './Participation';
 import { TwoFactorGate } from './TwoFactorGate';
 import { useFeature } from '../../lib/config';
@@ -78,6 +79,7 @@ export default function Admin() {
             <Route path="trazabilidad" element={<Traceability />} />
             <Route path="reportes" element={<CitizenReports />} />
             <Route path="retos" element={<AdminChallenges />} />
+            <Route path="conversaciones" element={<AuraInbox />} />
             <Route path="contenido" element={<Content />} />
             <Route path="funciones" element={<Features />} />
             <Route path="espacios" element={<Spaces />} />

@@ -8,7 +8,7 @@ import { newId, newTripCode, nowIso } from '../core/ids';
 import { badRequest, conflict, forbidden, notFound } from '../core/errors';
 import { ensureOpenBatch } from './batches';
 import { notifyOrigin, notifyRole, pickText } from './notifications';
-import { sectorName } from './origins';
+import { sectorName, notifyPublicStage } from './origins';
 
 export function findVehicle(ref: { vehicleId?: string | null; vehicleQr?: string | null }): Vehicle {
   const store = db();
@@ -192,6 +192,7 @@ export function confirmArrival(tripId: string, actor: Actor, input: ArrivalInput
     try {
       assertTransition('origin', 'origin_in_batch', o.state === 'disputed' ? o.preDisputeState || 'removed' : o.state, { actor: SYSTEM_ACTOR, origin: o });
       appendEvent({ type: 'origin_in_batch', objectType: 'origin', objectId: o.id, actor: SYSTEM_ACTOR, data: { tripId: trip.id, batchId: batch.id, centerId: trip.centerId } });
+      notifyPublicStage(db().get('origins', o.id)!, 2);
     } catch {
       /* estado no elegible: se ignora */
     }

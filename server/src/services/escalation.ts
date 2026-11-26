@@ -1,3 +1,4 @@
+import { expireClosures } from './origins';
 import type { Alert } from '@kindra/shared';
 import { db } from '../core/db';
 import { appendEvent, SYSTEM_ACTOR } from '../core/events';
@@ -99,6 +100,8 @@ export function startScheduler(intervalSeconds: number): void {
   timer = setInterval(() => {
     try {
       runEscalations();
+      // Addendum v4.2, sección 7: sin respuesta en el plazo, el cierre queda «Cerrado sin Confirmación».
+      expireClosures();
     } catch (err) {
       console.error('[jobs] error en escalamientos:', (err as Error).message);
     }

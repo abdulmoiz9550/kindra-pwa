@@ -1,3 +1,4 @@
+import { publicLotStage, reportStatus } from './origins';
 import type { Origin, TraceabilityRecord, RecordField, EventView, KEvent, Trip, Batch, Work, Closure, Photo } from '@kindra/shared';
 import { EVENT_LABELS, SUBCATEGORY_LABELS, USE_TYPE_LABELS, SIZE_LABELS, SATISFACTION_LABELS, type EventType } from '@kindra/shared';
 import { db } from '../core/db';
@@ -182,10 +183,10 @@ export function buildRecord(o: Origin, opts: { publicVersion: boolean; hideRepor
     .map((v) => (opts.hideReporter ? maskReporter(v) : v));
 
   const publicOrigin: Origin = pub
-    ? { ...o, location: null, street: null, reference: null, reporterId: null, reporterName: null, voiceNoteId: null, linkedReporterKeys: [] }
+    ? { ...o, location: null, street: null, reference: null, reporterId: null, reporterName: null, voiceNoteId: null, linkedReporterKeys: [], reporterPhone: null, reporterRole: null, confirmedLocation: null, locationAccuracyM: null }
     : opts.hideReporter
-      ? { ...o, reporterId: null, reporterName: null, linkedReporterKeys: [] }
-      : o;
+      ? { ...o, reporterId: null, reporterName: null, linkedReporterKeys: [], reporterPhone: null }
+      : { ...o, reporterPhone: null };
 
   const photoIds = [...o.photoIds, ...(o.afterPhotoId ? [o.afterPhotoId] : []), ...(o.verifiedOnSitePhotoId ? [o.verifiedOnSitePhotoId] : []), ...(o.disputeEvidencePhotoId ? [o.disputeEvidencePhotoId] : [])];
   const photos: Photo[] = photosByIds(photoIds, pub);
@@ -197,7 +198,10 @@ export function buildRecord(o: Origin, opts: { publicVersion: boolean; hideRepor
     completeness: fields.filter((f) => f.complete).length,
     history,
     chains,
-    trips: pub ? trips.map((t) => ({ ...t, departure: { ...t.departure, userId: '', location: null }, arrival: t.arrival ? { ...t.arrival, userId: '', location: null } : null })) : trips,
+    // Addendum v4.2, sección 12: la ubicación del vehículo nunca sale en la ficha.
+    trips: trips.map((t) => ({ ...t, departure: { ...t.departure, ...(pub ? { userId: '' } : {}), location: null }, arrival: t.arrival ? { ...t.arrival, ...(pub ? { userId: '' } : {}), location: null } : null })),
+    reportStatus: o.type === 'citizen' ? reportStatus(o) : null,
+    publicStage: publicLotStage(o),
     batches,
     works,
     closures,

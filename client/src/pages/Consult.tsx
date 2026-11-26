@@ -7,17 +7,25 @@ import { api, ApiError, errorMessage } from '../lib/api';
 import { saveCode, savedCodes } from '../lib/storage';
 import { useSavedCodes } from '../lib/notifications';
 import { fmtDateTime } from '../lib/format';
-import { Alert, Button, Card, Field, Input, OriginStateBadge, PageTitle, Spinner } from '../components/ui';
+import { Alert, Badge, Button, Card, Field, Input, OriginStateBadge, PageTitle, Spinner } from '../components/ui';
+import { PUBLIC_LOT_STATES } from '@kindra/shared';
 
 interface Estado {
   status: { code: string; sector: string; state: OriginEffectiveState; label: string; plain: string; center: string; createdAt: string; pendingRemovalConfirmation: boolean; pendingSatisfaction: boolean; mainCode?: string | null };
   messages: { id: string; text: string; kind: string; createdAt: string; link: string | null }[];
 }
 
-function normalize(v: string): string {
-  const t = v.toUpperCase().replace(/\s+/g, '').replace(/^LG-?/, '');
-  return t ? `LG-${t.slice(0, 4)}` : '';
+/** Acepta R-CB-004512 y LG-CB-000123 (addendum v4.2) y los códigos anteriores LG-4821, en cualquier caja. */
+export function normalizeCode(v: string): string {
+  const t = v.toUpperCase().replace(/\s+/g, '');
+  if (/^LG-[A-Z0-9]{4}$/.test(t)) return t;
+  const m = /^(R|LG)-?([A-Z]{2})-?(\d{1,6})$/.exec(t);
+  if (m) return `${m[1]}-${m[2]}-${m[3].padStart(6, '0')}`;
+  const old = /^LG-?([A-Z0-9]{4})$/.exec(t);
+  return old ? `LG-${old[1]}` : '';
 }
+
+interface Lookup { code: string; kind: 'report' | 'lot'; sector: string; status: { label: string; reason: string | null } | null; lotCodes: string[]; publicStage: number; publicStageLabel: string | null; timeline: { label: string; at: string }[]; cutoff: string }
 
 /** 16.1 "Consultar mi reporte" por código. */
 export default function Consult() {
@@ -25,6 +33,7 @@ export default function Consult() {
   const [code, setCode] = useState<string | null>(null);
   useSavedCodes();
   const q = useQuery({ queryKey: ['public', 'estado', code], queryFn: () => api.get<Estado>(`/public/reportes/${code}/estado`), enabled: !!code, retry: false });
+  const lk = useQuery({ queryKey: ['public', 'consulta', code], queryFn: () => api.get<Lookup>(`/public/consulta/${code}`), enabled: !!code, retry: false });
   const notFound = q.error instanceof ApiError && q.error.status === 404;
   useEffect(() => {
     if (q.data && code && !savedCodes().find((c) => c.code === code)) saveCode(code, q.data.status.sector);
@@ -32,17 +41,17 @@ export default function Consult() {
 
   return (
     <div className="max-w-lg mx-auto">
-      <PageTitle title="Consultar mi reporte" subtitle="Escribe el código que recibiste al reportar. Tiene la forma LG-4821." />
+      <PageTitle title="Seguimiento" subtitle="Escribe el código de tu reporte (R-CB-004512) o de un lote (LG-CB-000123). No hace falta cuenta." />
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          const c = normalize(input);
-          if (c.length === 7) setCode(c);
+          const c = normalizeCode(input);
+          if (c) setCode(c);
         }}
       >
-        <Field label="Código del reporte">
+        <Field label="Código del reporte o del lote">
           <div className="flex gap-2">
-            <Input value={input} onChange={(e) => setInput(e.target.value.toUpperCase())} placeholder="LG-4821" autoCapitalize="characters" className="font-mono tracking-widest text-lg" />
+            <Input value={input} onChange={(e) => setInput(e.target.value.toUpperCase())} placeholder="R-CB-004512" autoCapitalize="characters" className="font-mono tracking-widest text-lg" />
             <Button type="submit" aria-label="Buscar">
               <Search size={18} />
             </Button>
@@ -53,14 +62,24 @@ export default function Consult() {
       {q.isFetching && <Spinner label="Buscando…" />}
       {notFound && (
         <Alert tone="warn" title="No encontramos ese código">
-          No hay ningún reporte registrado con el código {code}. Revisa que esté bien escrito: dos letras, un guion y cuatro caracteres.
+          No hay ningún reporte registrado con el código {code}. Revisa que esté bien escrito, por ejemplo R-CB-004512.
         </Alert>
       )}
       {q.error && !notFound && <Alert tone="bad">{errorMessage(q.error)}</Alert>}
 
       {q.data && (
-        <Card className="mt-2" title={q.data.status.code} subtitle={`${q.data.status.sector} · reportado ${fmtDateTime(q.data.status.createdAt)}`} actions={<OriginStateBadge state={q.data.status.state} />}>
+        <Card className="mt-2" title={q.data.status.code} subtitle={`${q.data.status.sector} · ${fmtDateTime(q.data.status.createdAt)}`} actions={lk.data?.status ? <Badge tone="info" icon={false}>{lk.data.status.label}</Badge> : <OriginStateBadge state={q.data.status.state} />}>
           <p className="text-base">{q.data.status.plain}</p>
+          {lk.data && (
+            <div className="mt-3">
+              <ol className="grid grid-cols-4 gap-1 text-center text-xs" aria-label="Estados públicos">
+                {PUBLIC_LOT_STATES.map((label, i) => <li key={label} className={`rounded-md border px-1 py-2 ${lk.data!.publicStage > i ? 'border-ok bg-ok-soft font-semibold' : 'border-line text-muted'}`}>{label}</li>)}
+              </ol>
+              {lk.data.lotCodes.length > 0 && <p className="text-sm mt-2">Lote{lk.data.lotCodes.length > 1 ? 's' : ''}: {lk.data.lotCodes.join(', ')}</p>}
+              <ul className="mt-2 text-sm space-y-0.5">{lk.data.timeline.map((t, i) => <li key={i}>{fmtDateTime(t.at)} · {t.label}</li>)}</ul>
+              <p className="text-xs text-muted mt-1">Corte: {fmtDateTime(lk.data.cutoff)}</p>
+            </div>
+          )}
           {q.data.status.mainCode && (
             <p className="text-sm text-muted mt-1">
               Este aviso se sumó al reporte <Link to={`/reporte/${q.data.status.mainCode}`} className="underline">{q.data.status.mainCode}</Link>.

@@ -56,6 +56,8 @@ const GroupReview = lazy(() => import('./pages/panels/GroupReview'));
 const NewsPage = lazy(() => import('./components/News'));
 const HelpPage = lazy(() => import('./components/News').then((m) => ({ default: m.HelpPage })));
 const Challenges = lazy(() => import('./pages/Challenges'));
+const Contralor = lazy(() => import('./pages/Contralor'));
+const ParishPage = lazy(() => import('./pages/public/Portal'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
 export default function App() {
@@ -93,6 +95,7 @@ export default function App() {
           <Route path="/solicitar-informacion" element={<InfoRequestPage />} />
           <Route path="/panel/escolta" element={<RequireRole roles={['removal', 'center', 'driver']}><Escort /></RequireRole>} />
           <Route path="/panel/control" element={<RequireRole roles={['center', 'destination', 'coordinator']}><Checkpoint /></RequireRole>} />
+          <Route path="/contralor" element={<RequireRole roles={['monitor']}><Contralor /></RequireRole>} />
           <Route path="/notificaciones" element={<Notifications />} />
           {ecoOn && <Route path="/retos" element={<RequireAccount><Challenges /></RequireAccount>} />}
           <Route path="/noticias" element={<NewsPage />} />
@@ -102,6 +105,7 @@ export default function App() {
           <Route path="/registro" element={<Register />} />
           <Route path="/verificacion" element={<Verification />} />
           <Route path="/tablero" element={<Dashboard />} />
+          <Route path="/tablero/parroquia/:code" element={<ParishPage />} />
           <Route path="/publico/tablero" element={<Navigate to="/tablero" replace />} />
           <Route path="/publico/lote/:code" element={<BatchPage />} />
           <Route path="/publico/obra/:code" element={<WorkPage />} />

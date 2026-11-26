@@ -1,3 +1,4 @@
+import { decryptField } from '../services/secureField';
 import type { Origin } from '@kindra/shared';
 import { effectiveOriginState, ORIGIN_STATE_LABELS } from '@kindra/shared';
 import { db } from '../core/db';
@@ -22,7 +23,7 @@ export function originView(o: Origin, role?: string) {
     ...o,
     ...(hideReporter ? { reporterId: null, reporterName: null, linkedReporterKeys: [] } : {}),
     // El teléfono de quien reporta es confidencial: solo la coordinación lo ve para contactar.
-    reporterPhone: role === 'coordinator' ? o.reporterPhone ?? null : null,
+    reporterPhone: role === 'coordinator' ? decryptField(o.reporterPhone) : null,
     ...(hideLocation ? { location: null, confirmedLocation: null, street: null } : {}),
     reportStatus: o.type === 'citizen' ? reportStatus(o) : null,
     lotCodes: (o.lotIds ?? []).map((id) => store.get('origins', id)?.code).filter(Boolean),

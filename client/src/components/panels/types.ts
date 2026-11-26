@@ -1,6 +1,8 @@
 import type { Origin, OriginEffectiveState, Trip, Batch, Reception, Dispatch, Work, HazardDecision, QualityVerification, Alert, Observation, EventView, OriginPriority } from '@kindra/shared';
 
 export interface OriginView extends Origin {
+  lotCodes?: string[];
+  reportStatus?: { key: string; label: string; reason: string | null; publicStage: number; publicStageLabel: string | null; lotCodes: string[] } | null;
   sectorName: string | null;
   sectorAuthorized: boolean;
   effectiveState: OriginEffectiveState;
