@@ -88,6 +88,7 @@ export default function Dashboard() {
       {q.isLoading && <Spinner label="Cargando el tablero…" />}
       {q.error && <Alert tone="bad">No se pudo cargar el tablero. Inténtalo de nuevo en un momento.</Alert>}
 
+      {cfg?.whatsapp === 'down' && <Alert tone="warn" className="mb-3">WhatsApp no responde en este momento: reporta y consulta en la PWA de Kindra.</Alert>}
       <PortalTop />
 
       {d && (

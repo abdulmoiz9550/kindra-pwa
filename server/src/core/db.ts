@@ -152,7 +152,7 @@ export const PROJECTION_COLLECTIONS: CollectionName[] = [
   'movements', 'declaredStops',
 ];
 
-const ALL_COLLECTIONS: CollectionName[] = [
+export const ALL_COLLECTIONS: CollectionName[] = [
   'entities', 'users', 'sectors', 'centers', 'vehicleTypes', 'vehicles', 'lessons', 'auraTexts', 'config', 'photos',
   'preregistrationCodes', 'notifications', 'auraSessions', 'certificates', 'spaces', 'twoFactorSecrets', 'trackPoints', 'tripRoutes', 'reportSnapshots', 'infoRequests', 'pickupRequests', 'risks', 'incidents', 'recoveryRequests', 'groups', 'memberships', 'groupActivities', 'wasteReports', 'businesses', 'moduleDefinitions', 'aiSuggestions', 'correctionRequests', 'news', 'reportAssignments', 'reviewLogs', 'ecoChallenges', 'courses', 'auraProfiles', 'supportTickets', 'reconDiscrepancies', ...PROJECTION_COLLECTIONS,
 ];

@@ -1,3 +1,5 @@
+import { logExport } from '../services/governance';
+import { collectionCsv, exportCollections, fullExport } from '../services/portability';
 import { decryptField } from '../services/secureField';
 import { sendText, whatsappStatus } from '../services/whatsapp';
 import { Router } from 'express';
@@ -123,6 +125,7 @@ adminRouter.post(
         entityId: z.string().nullable().optional(),
         centerId: z.string().nullable().optional(),
         sectorId: z.string().nullable().optional(),
+        monitorSectorIds: z.array(z.string()).max(50).optional(),
         password: z.string().min(6).optional(),
         active: z.boolean().optional(),
         verificationStatus: z.enum(['not_required', 'pending', 'verified', 'rejected']).optional(),
@@ -628,3 +631,19 @@ adminRouter.post(
   }),
 );
 adminRouter.get('/aura-status', (_req, res) => res.json({ whatsapp: whatsappStatus(), profiles: db().count('auraProfiles'), openTickets: db().filter('supportTickets', (t) => t.status === 'open').length }));
+
+// ---------------------------------------------------------------- addendum v4.2, sección 13: portabilidad
+adminRouter.get('/export/collections', (_req, res) => res.json(exportCollections()));
+adminRouter.get('/export/full.json', (req, res) => {
+  const cols = exportCollections();
+  const out = fullExport(cols);
+  logExport(req.auth!.actor, 'full_export', Object.values(out.data).reduce((n, r) => n + r.length, 0), { format: 'json' });
+  res.setHeader('Content-Disposition', `attachment; filename="kindra-exportacion-${out.exportedAt.slice(0, 10)}.json"`);
+  res.json(out);
+});
+adminRouter.get('/export/:collection.csv', (req, res) => {
+  const csv = collectionCsv(String(req.params.collection));
+  logExport(req.auth!.actor, 'full_export', csv.split('\n').length - 1, { format: 'csv', collection: req.params.collection });
+  res.setHeader('Content-Disposition', `attachment; filename="kindra-${req.params.collection}.csv"`);
+  res.type('text/csv; charset=utf-8').send('﻿' + csv);
+});

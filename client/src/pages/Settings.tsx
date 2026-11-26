@@ -1,12 +1,24 @@
+import { useFeature } from '../lib/config';
+import { useLang } from '../lib/i18n';
 import { useA11y } from '../lib/a11y';
 import { Card, PageTitle } from '../components/ui';
 
 /** 18.3: alto contraste, variantes para daltonismo, tamaño de texto y movimiento reducido. Persisten en el dispositivo. */
 export default function Settings() {
   const s = useA11y();
+  const english = useFeature('english_language');
+  const { lang, setLang } = useLang();
   return (
     <div className="max-w-lg mx-auto">
       <PageTitle title="Accesibilidad" subtitle="Ajusta la pantalla a lo que te resulte más cómodo. Se guarda en este teléfono." />
+      {english && (
+        <Card className="mb-3" title="Idioma / Language">
+          <div className="flex gap-2">
+            <button type="button" className={`chip ${lang === 'es' ? 'chip-active' : ''}`} aria-pressed={lang === 'es'} onClick={() => setLang('es')}>Español</button>
+            <button type="button" className={`chip ${lang === 'en' ? 'chip-active' : ''}`} aria-pressed={lang === 'en'} onClick={() => setLang('en')}>English</button>
+          </div>
+        </Card>
+      )}
       <Card>
         <Toggle label="Alto contraste" hint="Texto negro sobre fondo blanco y bordes marcados." checked={s.highContrast} onChange={(v) => s.set({ highContrast: v })} />
         <Toggle label="Colores para daltonismo" hint="El semáforo usa azul, naranja y marrón, siempre acompañados de icono y texto." checked={s.colorblind} onChange={(v) => s.set({ colorblind: v })} />

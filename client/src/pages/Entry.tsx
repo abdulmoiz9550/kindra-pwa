@@ -4,7 +4,7 @@ import { AlertTriangle, BarChart3, MessageCircle, Search, LayoutDashboard } from
 import { ROLE_HOME, ROLE_LABELS } from '@kindra/shared';
 import { usePublicConfig } from '../lib/config';
 import { useAuth } from '../lib/auth';
-import { Button, Card, Select } from '../components/ui';
+import { Alert, Button, Card, Select } from '../components/ui';
 import { EntityBadge, KindraLine, KINDRA_ICON } from '../components/Brand';
 
 /** 16.1 Pantalla de entrada: una acción clara, sin pedir datos personales. */
@@ -17,6 +17,7 @@ export default function Entry() {
 
   return (
     <div className="max-w-lg mx-auto">
+      {cfg?.whatsapp === 'down' && <Alert tone="warn" className="mb-3" title="WhatsApp no responde en este momento">Puedes reportar y consultar aquí mismo, en la PWA de Kindra.</Alert>}
       <section className="hero mb-5">
         <div className="flex items-center gap-3">
           <img src={KINDRA_ICON} alt="Kindra" className="h-14 w-14 rounded-2xl shadow-lg shrink-0" />

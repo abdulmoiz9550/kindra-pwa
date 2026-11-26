@@ -70,8 +70,8 @@ const RULES: { intent: V42Intent; re: RegExp }[] = [
   { intent: 'off_topic', re: /(?<!\p{L})(luz|electricidad|agua potable|tuber[ií]a|pago|dinero|bono|c[eé]dula|pasaporte|gas dom[eé]stico|internet|f[uú]tbol|pol[ií]tica|receta)(?!\p{L})/iu },
 ];
 const EMOTION_RE = /(enferm|preocupad|preocupa|miedo|asustad|angusti|molest|rabia|harta|harto|cansad[oa] de|triste|desesperad|no aguanto)/i;
-const YES_RE = /^\s*(s[ií]|dale|ok|okey|claro|va|de acuerdo|est[aá] bien|me parece|acepto|1)\b/i;
-const NO_RE = /^\s*(no|nop|para nada|no acepto|prefiero que no|2)\b/i;
+const YES_RE = /^\s*(s[ií]|dale|ok|okey|claro|va|de acuerdo|est[aá] bien|me parece|acepto|1)(?!\p{L})/iu;
+const NO_RE = /^\s*(no|nop|para nada|no acepto|prefiero que no|2)(?!\p{L})/iu;
 
 function classify(text: string): V42Intent {
   const t = text.trim();

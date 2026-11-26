@@ -43,6 +43,7 @@ export interface UserInput {
   id?: string;
   alias: string;
   name?: string;
+  monitorSectorIds?: string[];
   phone?: string;
   roles: Role[];
   entityId?: string | null;
@@ -105,6 +106,7 @@ export function upsertUser(input: UserInput, editor?: UserEditor): User {
     entityId: input.entityId ?? null,
     centerId: input.centerId ?? null,
     sectorId: input.sectorId ?? existing?.sectorId ?? null,
+    monitorSectorIds: input.monitorSectorIds ?? existing?.monitorSectorIds ?? [],
     passwordHash: input.password ? hashPassword(input.password) : existing?.passwordHash,
     verificationStatus: input.verificationStatus ?? existing?.verificationStatus ?? (institutional ? 'pending' : 'not_required'),
     selfiePhotoId: existing?.selfiePhotoId ?? null,

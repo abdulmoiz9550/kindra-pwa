@@ -13,7 +13,9 @@
     <title>Kindra – Escombros La Guaira</title>
   </head>
   <body>
-    <div id="root"></div>
+    <!-- Addendum v4.2, sección 11: pantalla de inicio con la K animada mientras carga la aplicación. -->
+    <div id="root"><div style="min-height:100vh;display:grid;place-items:center;background:#04303f"><img src="/brand/kindra-mark.png" alt="Kindra" width="96" height="96" style="animation:kpulse 1.4s ease-in-out infinite" /></div></div>
+    <style>@keyframes kpulse{0%,100%{transform:scale(.92);opacity:.75}50%{transform:scale(1.05);opacity:1}}@media (prefers-reduced-motion:reduce){img{animation:none!important}}</style>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

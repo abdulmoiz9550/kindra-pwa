@@ -16,6 +16,7 @@ interface Draft {
   entityId: string;
   centerId: string;
   sectorId: string;
+  monitorSectorIds?: string[];
   password: string;
   active: boolean;
   verificationStatus: VerificationStatus;
@@ -54,7 +55,7 @@ export default function Users() {
   const edit = (u?: UserRow) =>
     setEditing(
       u
-        ? { id: u.id, alias: u.alias, name: u.name || '', phone: u.phone || '', roles: u.roles, entityId: u.entityId || '', centerId: u.centerId || '', sectorId: u.sectorId || '', password: '', active: u.active, verificationStatus: u.verificationStatus, spaceId: u.spaceId || '', appointmentDocumentRef: u.appointment?.documentRef || '', wasEntityAdmin: u.roles.includes('entity_admin'), businessId: u.businessId || '', email: u.email || '', modules: u.modules ?? null, vehicleId: u.vehicleId || '', operationalArea: u.operationalArea || '' }
+        ? { id: u.id, alias: u.alias, name: u.name || '', phone: u.phone || '', roles: u.roles, entityId: u.entityId || '', centerId: u.centerId || '', sectorId: u.sectorId || '', monitorSectorIds: u.monitorSectorIds ?? [], password: '', active: u.active, verificationStatus: u.verificationStatus, spaceId: u.spaceId || '', appointmentDocumentRef: u.appointment?.documentRef || '', wasEntityAdmin: u.roles.includes('entity_admin'), businessId: u.businessId || '', email: u.email || '', modules: u.modules ?? null, vehicleId: u.vehicleId || '', operationalArea: u.operationalArea || '' }
         : { ...EMPTY },
     );
 
@@ -198,6 +199,12 @@ export default function Users() {
                   ))}
                 </Select>
               </Field>
+              {editing.roles.includes('monitor') && (
+                <fieldset className="mb-3">
+                  <legend className="label">Sectores que verifica como Contralor Comunitario</legend>
+                  <div className="flex flex-wrap gap-2">{(sectors.data || []).map((s) => <button key={s.id} type="button" aria-pressed={(editing.monitorSectorIds ?? []).includes(s.id)} className={`chip ${(editing.monitorSectorIds ?? []).includes(s.id) ? 'chip-active' : ''}`} onClick={() => setEditing({ ...editing, monitorSectorIds: (editing.monitorSectorIds ?? []).includes(s.id) ? (editing.monitorSectorIds ?? []).filter((x) => x !== s.id) : [...(editing.monitorSectorIds ?? []), s.id] })}>{s.parish ? `${s.parish} · ` : ''}{s.name}</button>)}</div>
+                </fieldset>
+              )}
               <Field label="Sector de residencia">
                 <Select value={editing.sectorId} onChange={(e) => setEditing({ ...editing, sectorId: e.target.value })}>
                   <option value="">Sin sector</option>

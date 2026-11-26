@@ -15,6 +15,7 @@ import { pendingReports, onPendingChange } from '../lib/offline';
 import { useModule } from '../lib/module';
 import { Breadcrumbs } from './Breadcrumbs';
 import { BrandBlock, KindraLine, KINDRA_MARK } from './Brand';
+import { useT } from '../lib/i18n';
 
 export function Layout({ children }: { children: ReactNode }) {
   const { data: cfg } = usePublicConfig();
@@ -52,6 +53,7 @@ export function Layout({ children }: { children: ReactNode }) {
 }
 
 function Header({ connected }: { connected: boolean }) {
+  const t = useT();
   const { data: cfg } = usePublicConfig();
   const user = useAuth((s) => s.user);
   const { unread } = useNotifications();
@@ -62,7 +64,7 @@ function Header({ connected }: { connected: boolean }) {
           <BrandBlock light size={38} compact />
         </Link>
         <div className="ml-auto flex items-center gap-1">
-          <Link to="/avisar" className="btn-primary btn-sm whitespace-nowrap mr-1">Reportar Escombro</Link>
+          <Link to="/avisar" className="btn-primary btn-sm whitespace-nowrap mr-1">{t('Reportar Escombro')}</Link>
           <span title={connected ? 'Actualización en vivo activa' : 'Sin conexión en vivo'} className={`hidden sm:inline-flex items-center gap-1 text-[11px] mr-1 ${connected ? 'text-white/90' : 'text-white/50'}`} aria-label={connected ? 'En vivo' : 'Sin conexión en vivo'}>
             {connected ? <Wifi size={15} /> : <WifiOff size={15} />}
             <span className="hidden md:inline">{connected ? 'en vivo' : 'sin señal'}</span>
@@ -84,6 +86,7 @@ function Header({ connected }: { connected: boolean }) {
 
 /** v4.0, sección 6: rol, organización y módulo activo siempre a la vista. */
 function SessionContext() {
+  const t = useT();
   const user = useAuth((s) => s.user);
   const oil = useFeature('oil_module');
   const { module, setModule } = useModule();
@@ -97,7 +100,7 @@ function SessionContext() {
   return (
     <div className="no-print bg-surface border-b border-line text-xs text-ink-2">
       <p className="max-w-7xl mx-auto px-4 py-1.5">
-        <strong>{ROLE_LABELS[user.activeRole]}</strong>
+        <strong>{t(ROLE_LABELS[user.activeRole])}</strong>
         {user.entityName ? ` · ${user.entityName}` : ''} · Módulo: {modules.length > 1 ? <select className="bg-transparent underline" aria-label="Módulo" value={module} onChange={(e) => setModule(e.target.value)}><option value="">Todos</option>{modules.map((m) => <option key={m.key} value={m.key}>{m.label}</option>)}</select> : modules[0]?.label ?? 'sin acceso'}
       </p>
     </div>
@@ -172,6 +175,7 @@ function useMenu() {
 }
 
 function Sidebar() {
+  const t = useT();
   const user = useAuth((s) => s.user);
   const { pathname, search } = useLocation();
   const menu = useMenu();
@@ -179,10 +183,10 @@ function Sidebar() {
     const active = isNavActive(it, pathname, search);
     return (
       <li key={it.to}>
-        <Link to={it.to} aria-current={active ? 'page' : undefined} title={it.label} className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm ${active ? 'bg-primary text-primary-ink font-semibold' : 'hover:bg-surface-2'}`}>
+        <Link to={it.to} aria-current={active ? 'page' : undefined} title={t(it.label)} className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm ${active ? 'bg-primary text-primary-ink font-semibold' : 'hover:bg-surface-2'}`}>
           <it.icon size={18} className="shrink-0" aria-hidden />
-          <span className="hidden lg:inline">{it.label}</span>
-          <span className="sr-only lg:hidden">{it.label}</span>
+          <span className="hidden lg:inline">{t(it.label)}</span>
+          <span className="sr-only lg:hidden">{t(it.label)}</span>
         </Link>
       </li>
     );
@@ -201,6 +205,7 @@ function Sidebar() {
 }
 
 function BottomNav() {
+  const t = useT();
   const user = useAuth((s) => s.user);
   const [more, setMore] = useState(false);
   const { pathname, search } = useLocation();
@@ -217,14 +222,14 @@ function BottomNav() {
           <li key={it.to} className="min-w-0">
             <Link to={it.to} aria-current={isNavActive(it, pathname, search) ? 'page' : undefined} className={`flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium ${isNavActive(it, pathname, search) ? 'nav-active' : 'text-muted'}`}>
               <it.icon size={22} aria-hidden />
-              <span className="max-w-full truncate px-0.5">{it.label}</span>
+              <span className="max-w-full truncate px-0.5">{t(it.label)}</span>
             </Link>
           </li>
         ))}
         {!direct && <li>
           <button type="button" className="w-full flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium text-muted" onClick={() => setMore(true)} aria-haspopup="dialog">
             <MoreHorizontal size={22} aria-hidden />
-            Más
+            {t('Más')}
           </button>
         </li>}
       </ul>
@@ -233,7 +238,7 @@ function BottomNav() {
           <div role="dialog" aria-label="Más opciones" className="absolute bottom-0 inset-x-0 max-h-[75vh] overflow-y-auto rounded-t-2xl bg-surface p-4" onClick={(e) => e.stopPropagation()}>
             <ul className="grid grid-cols-2 gap-2 text-sm">
               {[...extra, ...commonMenu].map((it) => (
-                <MoreLink key={it.to} to={it.to} icon={it.icon} label={it.label} onClick={() => setMore(false)} />
+                <MoreLink key={it.to} to={it.to} icon={it.icon} label={t(it.label)} onClick={() => setMore(false)} />
               ))}
               {user && <LogoutButton onDone={() => setMore(false)} />}
             </ul>

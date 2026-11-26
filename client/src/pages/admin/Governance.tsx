@@ -1,3 +1,4 @@
+import { getToken } from '../../lib/auth';
 import { useState } from 'react';
 import { INFO_CLASSIFICATION_HELP, INFO_CLASSIFICATION_LABELS, INFO_REQUEST_STATUS_LABELS, ROLE_LABELS } from '@kindra/shared';
 import type { InfoClassification, InfoRequest, PublicUser, RiskEntry, Role, SecurityIncident } from '@kindra/shared';
@@ -313,6 +314,7 @@ function Backups() {
       <Alert tone="info" className="mb-3">Las copias contienen información crítica: quedan en el servidor y no se descargan desde aquí. “Probar restauración” carga la copia en una base temporal y comprueba todos los sellos, sin tocar los datos reales.</Alert>
       <p className="text-sm mb-2">Las copias se guardan cifradas. Prueba de restauración mensual automática: {lastTest.data ? `${lastTest.data.ok ? 'correcta' : 'con fallas'} el ${fmtDateTime(lastTest.data.at)}` : 'todavía no se ha hecho'}.</p>
       <div className="mb-3 flex justify-end"><Button disabled={busy} onClick={() => post('backups', {}, 'Copia creada.')}>Crear copia ahora</Button></div>
+      <FullExport />
       {result && <Alert tone={result.ok ? 'ok' : 'bad'} className="mb-3" title={result.ok ? 'Restauración probada' : 'La restauración falló'}>{result.file}: {result.events} eventos, {result.documents} documentos y {result.chains} cadenas revisadas el {fmtDateTime(result.testedAt)}.</Alert>}
       {!(q.data || []).length ? <EmptyState title="Todavía no hay copias en este servidor" /> : (
         <Card>
@@ -341,6 +343,29 @@ function Classification() {
           </div>
         ))}
       </dl>
+    </Card>
+  );
+}
+
+/** Addendum v4.2, sección 13: exportación completa en formato abierto, con documentación. Queda registrada. */
+function FullExport() {
+  const cols = useAdminGet<string[]>('export/collections');
+  const [col, setCol] = useState('origins');
+  const download = async (path: string, name: string) => {
+    const res = await fetch(`/api/admin/${path}`, { headers: { Authorization: `Bearer ${getToken()}` } });
+    if (!res.ok) return;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(await res.blob());
+    a.download = name;
+    a.click();
+  };
+  return (
+    <Card className="mb-3" title="Exportación completa (portabilidad)" subtitle="Todos los datos en JSON con su documentación, o una colección en CSV. Sin contraseñas ni secretos; cada exportación queda registrada.">
+      <div className="flex flex-wrap items-end gap-2">
+        <Button size="sm" onClick={() => void download('export/full.json', 'kindra-exportacion.json')}>Descargar todo (JSON)</Button>
+        <select className="input !w-auto" value={col} onChange={(e) => setCol(e.target.value)} aria-label="Colección">{(cols.data ?? []).map((c) => <option key={c} value={c}>{c}</option>)}</select>
+        <Button size="sm" variant="secondary" onClick={() => void download(`export/${col}.csv`, `kindra-${col}.csv`)}>Descargar CSV</Button>
+      </div>
     </Card>
   );
 }

@@ -485,6 +485,8 @@ export const FEATURES: FeatureDefinition[] = [
   { key: 'referrals', label: 'Referidos', description: 'Solo suman puntos cuando el primer reporte de la persona invitada se valida, nunca al registrarse.', group: 'debris', defaultOn: true, available: true },
   { key: 'community_announcements', label: 'Avisos comunitarios por sector', description: 'Avisa a los vecinos de un sector cuando hay puntos asignados para retiro.', group: 'debris', defaultOn: true, available: true },
   { key: 'preregistration', label: 'Códigos de pre-registro', description: 'Ingreso con código para personas sin teléfono. Oculto en esta fase.', group: 'debris', defaultOn: false, available: true },
+  // Addendum v4.2, sección 1.2: inglés como segundo idioma, preparado y apagado hasta que se encienda.
+  { key: 'english_language', label: 'Inglés como segundo idioma', description: 'Apagado: toda la PWA en español. Encendido: cada persona puede elegir inglés en Ajustes; lo que no esté traducido se muestra en español.', group: 'debris', defaultOn: false, available: true },
   // Addendum v4.2, sección 13: verificación en dos pasos obligatoria para todas las cuentas institucionales.
   { key: 'institutional_2fa', label: 'Verificación en dos pasos para cuentas institucionales', description: 'Encendida: toda cuenta institucional (coordinación, retiro, conductor, centro, procesamiento, evaluador, supervisor, destino, administradores) entra con contraseña y código de su aplicación de autenticación. Las cuentas de prueba quedan exentas solo en modo demostración.', group: 'debris', defaultOn: true, available: true },
   // Addendum v4.2, sección 12: ubicación continua desde el GPS del camión. Preparada y apagada hasta que se encienda.
