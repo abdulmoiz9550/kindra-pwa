@@ -328,11 +328,11 @@ function EntityUsers({ centers }: { centers: Overview['centers'] }) {
           </div>
         )}
       </Modal>
-      <Modal open={!!proposing} onClose={() => setProposing(null)} title="Proponer evaluador técnico">
+      <Modal open={!!proposing} onClose={() => setProposing(null)} title="Proponer Evaluador Técnico">
         {proposing && (
           <div>
             <p className="text-sm mb-3">
-              Propones a <strong>{proposing.user.alias}</strong> como evaluador técnico. Kindra revisa la propuesta y activa el rol; hasta entonces no puede decidir sobre material peligroso ni verificar calidad.
+              Propones a <strong>{proposing.user.alias}</strong> como Evaluador Técnico. Kindra revisa la propuesta y activa el rol; hasta entonces no puede decidir sobre material peligroso ni verificar calidad.
             </p>
             <Field label="Motivo o credenciales" hint="Opcional. Por ejemplo, profesión y número de colegiatura.">
               <Textarea value={proposing.note} onChange={(e) => setProposing({ ...proposing, note: e.target.value })} />

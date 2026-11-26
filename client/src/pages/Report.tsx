@@ -38,6 +38,9 @@ export default function Report() {
   const [voice, setVoice] = useState<string | null>(null);
   const [name, setName] = useState(user?.name || '');
   const [anonymous, setAnonymous] = useState(false);
+  const [phone, setPhone] = useState('');
+  const [noPhoto, setNoPhoto] = useState(false);
+  const [viaMonitor, setViaMonitor] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<Result | null>(null);
@@ -45,10 +48,13 @@ export default function Report() {
   const [retakeText, setRetakeText] = useState<string | null>(null);
 
   const idx = STEPS.indexOf(step);
-  const canNext = step === 'safety' || (step === 'photo' && photos.length > 0) || (step === 'location' && (!!loc.sectorId || !!loc.location) && (!!loc.location || !!loc.street.trim() || !!loc.reference.trim())) || (step === 'size' && !!size) || (step === 'urgency' && !!urgency) || step === 'extra';
+  const canNext = step === 'safety' || (step === 'photo' && (photos.length > 0 || noPhoto)) || (step === 'location' && !!loc.sectorId) || (step === 'size' && !!size) || (step === 'urgency' && !!urgency) || step === 'extra';
 
   const body = () => ({
     location: loc.location,
+    locationAccuracyM: loc.location ? loc.accuracyM ?? null : null,
+    phone: phone.trim() || null,
+    viaMonitor: user?.activeRole === 'monitor' ? viaMonitor : false,
     street: loc.street.trim() || null,
     reference: loc.reference.trim() || null,
     sectorId: loc.sectorId,
@@ -201,7 +207,7 @@ export default function Report() {
 
   return (
     <div className="max-w-lg mx-auto">
-      <PageTitle title="Avisar de un escombro" subtitle={`Paso ${idx + 1} de ${STEPS.length}`} />
+      <PageTitle title="Reportar Escombro" subtitle={`Paso ${idx + 1} de ${STEPS.length}`} />
       <div className="h-1.5 w-full rounded-full bg-surface-2 mb-4" aria-hidden>
         <div className="h-1.5 rounded-full bg-primary" style={{ width: `${((idx + 1) / STEPS.length) * 100}%` }} />
       </div>
@@ -213,12 +219,17 @@ export default function Report() {
         </Card>
       )}
       {step === 'photo' && (
-        <Card title="Foto del escombro" subtitle="Al menos una. Desde lejos, sin mover nada.">
-          <PhotoCapture kind="origin" photos={photos} onChange={setPhotos} max={3} deferUpload />
+        <Card title="Foto del escombro" subtitle="Desde lejos, sin mover nada. Así el equipo lo ubica más rápido.">
+          <PhotoCapture kind="origin" photos={photos} onChange={(p) => { setPhotos(p); if (p.length) setNoPhoto(false); }} max={3} deferUpload />
+          {!photos.length && (
+            <label className="flex items-center gap-2 text-sm mt-3">
+              <input type="checkbox" className="h-5 w-5" checked={noPhoto} onChange={(e) => setNoPhoto(e.target.checked)} /> No tengo cámara: enviar sin foto (queda «Por Verificar» hasta que lo confirme un Contralor Comunitario)
+            </label>
+          )}
         </Card>
       )}
       {step === 'location' && (
-        <Card title="¿Dónde está?" subtitle="Comparte la ubicación, o dinos la calle y una referencia que la gente de la zona conozca.">
+        <Card title="¿Dónde está?" subtitle="Elige la parroquia y el sector. El punto en el mapa es opcional.">
           <LocationPicker value={loc} onChange={setLoc} />
         </Card>
       )}
@@ -238,16 +249,21 @@ export default function Report() {
             <span className="label">Nota de voz</span>
             <VoiceNoteRecorder value={voice} onChange={setVoice} />
           </div>
-          <Field label="Tu nombre" hint="Solo para llamarte así en los avisos. Puedes dejarlo vacío.">
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Opcional" disabled={anonymous} />
+          <Field label="Teléfono (opcional)" hint="Confidencial. Solo la coordinación lo usa si necesita ubicar el punto.">
+            <Input type="tel" inputMode="tel" value={phone} maxLength={30} onChange={(e) => setPhone(e.target.value)} placeholder="Opcional" disabled={anonymous} />
           </Field>
+          {user?.activeRole === 'monitor' && (
+            <label className="flex items-center gap-2 text-sm mb-2">
+              <input type="checkbox" className="h-5 w-5" checked={viaMonitor} onChange={(e) => setViaMonitor(e.target.checked)} /> Reporto en nombre de un vecino sin teléfono (vía contralor)
+            </label>
+          )}
           {user && (
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={anonymous} onChange={(e) => setAnonymous(e.target.checked)} className="h-5 w-5" />
-              Enviar como anónimo (no suma puntos y no permite disputar el retiro)
+              Enviar como anónimo (no suma Raíces y no permite disputar el retiro)
             </label>
           )}
-          {!user && <p className="text-xs text-muted mt-2">Estás reportando sin cuenta: recibirás avisos por el código. Los reportes sin cuenta no suman puntos ni permiten disputar el retiro.</p>}
+          {!user && <p className="text-xs text-muted mt-2">Estás reportando sin cuenta: recibirás avisos por el código. Los reportes sin cuenta no suman Raíces ni permiten disputar el retiro.</p>}
         </Card>
       )}
 

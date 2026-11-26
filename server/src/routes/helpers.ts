@@ -1,7 +1,7 @@
 import type { Origin } from '@kindra/shared';
 import { effectiveOriginState, ORIGIN_STATE_LABELS } from '@kindra/shared';
 import { db } from '../core/db';
-import { originStatusView } from '../services/origins';
+import { originStatusView, reportStatus } from '../services/origins';
 import { allowedActions } from '../core/transitions';
 import { recordCompleteness } from '../services/record';
 import { isCorrected } from '../services/ops';
@@ -16,9 +16,16 @@ export function originView(o: Origin, role?: string) {
   const lastTrip = o.tripIds.length ? store.get('trips', o.tripIds[o.tripIds.length - 1]) : undefined;
   const removalClosure = store.find('closures', (c) => c.originId === o.id && c.type === 'removal');
   const hideReporter = role === 'supervisor' || role === 'monitor';
+  // Addendum v4.2, sección 7: la ubicación exacta de un reporte ciudadano es dato restringido.
+  const hideLocation = o.type === 'citizen' && !!role && !['coordinator', 'removal', 'driver', 'monitor', 'admin'].includes(role);
   return {
     ...o,
     ...(hideReporter ? { reporterId: null, reporterName: null, linkedReporterKeys: [] } : {}),
+    // El teléfono de quien reporta es confidencial: solo la coordinación lo ve para contactar.
+    reporterPhone: role === 'coordinator' ? o.reporterPhone ?? null : null,
+    ...(hideLocation ? { location: null, confirmedLocation: null, street: null } : {}),
+    reportStatus: o.type === 'citizen' ? reportStatus(o) : null,
+    lotCodes: (o.lotIds ?? []).map((id) => store.get('origins', id)?.code).filter(Boolean),
     sectorName: sector?.name ?? null,
     sectorAuthorized: sector?.authorized ?? true,
     effectiveState: state,
@@ -59,5 +66,7 @@ export function citizenOriginView(o: Origin) {
     anonymous: v.anonymous,
     duplicateOfCode: v.duplicateOfCode,
     photoUrl: v.photos[0]?.url ?? null,
+    reportStatus: v.reportStatus,
+    lotCodes: v.lotCodes,
   };
 }

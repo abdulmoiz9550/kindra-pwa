@@ -61,6 +61,7 @@ const NotFound = lazy(() => import('./pages/NotFound'));
 export default function App() {
   const groupsOn = useFeature('community_groups');
   const ecoOn = useFeature('eco_challenges');
+  const oilOn = useFeature('oil_module');
   return (
     <Layout>
       <Suspense fallback={<Spinner label="Cargando…" />}>
@@ -80,8 +81,8 @@ export default function App() {
           <Route path="/panel/seguimiento" element={<RequireRole roles={['admin', 'coordinator', 'supervisor', 'center']}><TrackingLive /></RequireRole>} />
           <Route path="/panel/viaje/:key" element={<RequireRole roles={['admin', 'coordinator', 'supervisor', 'center', 'removal', 'driver', 'destination']}><TripDetail /></RequireRole>} />
           <Route path="/conductor/*" element={<RequireRole roles={['driver']}><Driver /></RequireRole>} />
-          <Route path="/hogar/*" element={<RequireRole roles={['householder']}><Household /></RequireRole>} />
-          <Route path="/comercio/*" element={<RequireRole roles={['business']}><BusinessArea /></RequireRole>} />
+          {oilOn && <Route path="/hogar/*" element={<RequireRole roles={['householder']}><Household /></RequireRole>} />}
+          {oilOn && <Route path="/comercio/*" element={<RequireRole roles={['business']}><BusinessArea /></RequireRole>} />}
           {groupsOn && <Route path="/comunidad/*" element={<RequireRole roles={['community']}><GroupArea kind="community" /></RequireRole>} />}
           {groupsOn && <Route path="/costero/*" element={<RequireRole roles={['coastal']}><GroupArea kind="coastal" /></RequireRole>} />}
           {groupsOn && <Route path="/grupos" element={<RequireAccount><GroupsDirectory /></RequireAccount>} />}

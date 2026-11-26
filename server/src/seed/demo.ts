@@ -24,7 +24,7 @@ import { newCardCode, newReferralCode } from '../services/referrals';
 import { seedTwoFactor } from '../services/twoFactor';
 
 /**
- * Secreto conocido de la verificación en dos pasos del administrador principal de demostración.
+ * Secreto conocido de la verificación en dos pasos del Administrador Principal de demostración.
  * Solo existe en los datos de prueba; en modo demostración la pantalla muestra además el código vigente.
  */
 export const DEMO_ADMIN_TOTP_SECRET = 'KINDRADEMOJESUS2FA234567';
@@ -149,7 +149,7 @@ export async function seedDemo(): Promise<SeedSummary> {
   const uEval = usr('us_evaluador', 'evaluador', 'Ing. Elena Técnica', ['evaluator'], { entityId: eTec.id });
   const uSup = usr('us_supervisor', 'supervisor', 'Sofía Supervisión', ['supervisor'], { entityId: eSup.id });
   const uObras = usr('us_obras', 'obras', 'Miguel Obras', ['destination'], { entityId: eObras.id });
-  // Administrador principal de Kindra: uno solo, con verificación en dos pasos (addendum, parte 3).
+  // Administrador Principal de Kindra: uno solo, con verificación en dos pasos (addendum, parte 3).
   usr('us_admin', 'admin', 'Jesús (Kindra)', ['admin'], { entityId: eCoord.id });
   seedTwoFactor('us_admin', DEMO_ADMIN_TOTP_SECRET);
   // Administrador de entidad: designado por escrito por el Ente Ejecutor y activado por Kindra.

@@ -279,20 +279,14 @@ test('17, 21 y 30: solicitud → un solo conductor → recolección → centro c
   assert.equal((await post('/requests', coord, body)).status, 409);
   const id = c.json.id;
 
-  // Rechazo con motivo, visible para coordinación
-  assert.equal((await post(`/requests/${id}/reject`, d2, {})).status, 400);
-  assert.equal((await post(`/requests/${id}/reject`, d2, { reason: 'schedule_conflict' })).status, 200);
-  assert.equal((await get('/requests', coord)).json.find((r: any) => r.id === id).rejections[0].reasonLabel, 'Choque de horario');
-  assert.ok(!(await get('/requests', d2)).json.some((r: any) => r.id === id));
-  const mineView = (await get('/requests', d1)).json.find((r: any) => r.id === id);
-  assert.equal(mineView.rejections.length, 0); // no ve el rechazo de otra persona
-
-  // Dos aceptaciones simultáneas: solo una gana
-  const third = issueToken(upsertUser({ alias: 'retiro-tres', password: 'demo1234', roles: ['driver'], entityId: 'en_ejec', verificationStatus: 'verified' }).id, 'driver');
-  const race = await Promise.all([post(`/requests/${id}/accept`, d1), post(`/requests/${id}/accept`, third)]);
-  assert.deepEqual(race.map((r) => r.status).sort(), [200, 409]);
-  const winner = race[0].status === 200 ? d1 : third;
-  const loser = winner === d1 ? third : d1;
+  // Addendum v4.2: en escombros el conductor no acepta ni rechaza; el operador o la coordinación asignan.
+  assert.equal((await post(`/requests/${id}/reject`, d2, { reason: 'schedule_conflict' })).status, 403);
+  assert.equal((await post(`/requests/${id}/accept`, d1)).status, 403);
+  const d1User = db().find('users', (u) => u.alias === 'retiro-uno')!;
+  assert.equal((await post(`/requests/${id}/assign`, d2, { driverId: d1User.id })).status, 403);
+  assert.equal((await post(`/requests/${id}/assign`, coord, { driverId: d1User.id })).status, 200);
+  const winner = d1;
+  const loser = d2;
   assert.ok(!(await get('/requests', loser)).json.some((r: any) => r.id === id));
   assert.equal((await post(`/requests/${id}/status`, loser, { to: 'en_route' })).status, 403);
 
@@ -315,7 +309,9 @@ test('17, 21 y 30: solicitud → un solo conductor → recolección → centro c
   const ce = tok('centro', 'center');
   assert.equal((await post(`/center/trips/${tripId}/arrive`, ce, { photoId: photo(), operatorEntityId: 'en_tec', receivedQuantity: 5, receivedUnit: 'm3' })).status, 400);
   const dispatched = db().get('trips', tripId)!.estimatedVolumeM3!;
-  const arr = await post(`/center/trips/${tripId}/arrive`, ce, { photoId: photo(), operatorEntityId: 'en_cnorte', receivedQuantity: dispatched - 1, receivedUnit: 'm3', condition: 'Mezclado' });
+  // Addendum v4.2, sección 6: toda cantidad lleva su método de medición.
+  assert.equal((await post(`/center/trips/${tripId}/arrive`, ce, { photoId: photo(), operatorEntityId: 'en_cnorte', receivedQuantity: dispatched - 1, receivedUnit: 'm3' })).status, 400);
+  const arr = await post(`/center/trips/${tripId}/arrive`, ce, { photoId: photo(), operatorEntityId: 'en_cnorte', receivedQuantity: dispatched - 1, receivedUnit: 'm3', condition: 'Mezclado', measurementMethod: 'measured_volume' });
   assert.equal(arr.status, 200);
   assert.equal(arr.json.reception.quantityCheck.difference, -1);
   assert.ok(arr.json.reception.quantityCheck.flagged);
@@ -336,7 +332,7 @@ test('17, 21 y 30: solicitud → un solo conductor → recolección → centro c
   // Incidencia y reasignación
   const o2 = mk();
   const c2 = await post('/requests', coord, { ...body, originId: o2.id });
-  await post(`/requests/${c2.json.id}/accept`, d1);
+  await post(`/requests/${c2.json.id}/assign`, coord, { driverId: d1User.id });
   assert.equal((await post(`/requests/${c2.json.id}/issue`, d1, { text: 'Vía cerrada' })).json.status, 'issue');
   assert.equal((await post(`/requests/${c2.json.id}/manage`, coord, { action: 'reassign', note: 'Otra unidad' })).json.status, 'new');
 });

@@ -236,7 +236,7 @@ export function SourceNote({ source, asOf }: { source: string; asOf: string | nu
 export function StatTile({ label, value, unit, source, asOf, explanation, tone }: { label: string; value: string | number; unit?: string; source?: string; asOf?: string | null; explanation?: string; tone?: Tone }) {
   return (
     <div className="card">
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted flex items-center">
+      <p className="text-xs font-semibold tracking-wide text-muted flex items-center">
         {label}
         {explanation && <HelpTip text={explanation} />}
       </p>

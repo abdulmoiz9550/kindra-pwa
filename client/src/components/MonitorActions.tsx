@@ -8,7 +8,7 @@ import { toast } from '../lib/toast';
 import { PhotoCapture, type CapturedPhoto } from './PhotoCapture';
 import { Button, Card, Alert } from './ui';
 
-/** Acciones del contralor comunitario sobre un origen de su sector (4): verificar en sitio y confirmar despeje con foto de después. */
+/** Acciones del Contralor Comunitario sobre un origen de su sector (4): verificar en sitio y confirmar despeje con foto de después. */
 export function MonitorActions({ origin }: { origin: Origin }) {
   const user = useAuth((s) => s.user);
   const qc = useQueryClient();
@@ -33,7 +33,7 @@ export function MonitorActions({ origin }: { origin: Origin }) {
     }
   };
   return (
-    <Card title="Contralor comunitario" subtitle="Tus verificaciones en sitio ayudan a confirmar lo que reportan tus vecinos." className="mb-3">
+    <Card title="Contralor Comunitario" subtitle="Tus verificaciones en sitio ayudan a confirmar lo que reportan tus vecinos." className="mb-3">
       {origin.verifiedOnSiteAt ? (
         <Alert tone="ok">Este origen ya fue verificado en sitio.</Alert>
       ) : (

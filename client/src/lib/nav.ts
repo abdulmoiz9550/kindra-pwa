@@ -17,24 +17,26 @@ export interface NavItem {
  */
 const i = (to: string, label: string, icon: LucideIcon, extra: Partial<NavItem> = {}): NavItem => ({ to, label, icon, ...extra });
 
+// Addendum v4.2, 1.4: menú Inicio, Reportes, Mapa, Seguimiento, Más, Training y Reward.
 const citizen: NavItem[] = [
   i('/', 'Inicio', Home, { end: true }),
+  i('/mis-reportes', 'Reportes', FileText),
+  i('/tablero', 'Mapa', MapIcon),
+  i('/consultar', 'Seguimiento', Search),
+  i('/avisar', 'Reportar Escombro', AlertTriangle),
   i('/aura', 'AURA', MessageCircle),
-  i('/mis-reportes', 'Mis reportes', FileText),
-  i('/tablero', 'Tablero', BarChart3),
-  i('/avisar', 'Avisar de un escombro', AlertTriangle),
-  i('/consultar', 'Consultar un reporte', Search),
-  i('/aprende', 'Formación', BookOpen),
+  i('/aprende', 'Training', BookOpen),
 ];
 
 const MENUS: Record<Role, NavItem[]> = {
   citizen: [...citizen, i('/retos', 'Retos ecológicos', Leaf, { feature: 'eco_challenges' }), i('/recompensas', 'Recompensas', Award), i('/grupos', 'Comunidades y grupos', Users, { feature: 'community_groups' })],
   monitor: [
     i('/', 'Inicio', Home, { end: true }),
-    i('/tablero', 'Avance por sector', BarChart3),
-    i('/mis-reportes', 'Mis reportes', FileText),
-    i('/consultar', 'Consultar un reporte', Search),
-    i('/avisar', 'Avisar de un escombro', AlertTriangle),
+    i('/contralor', 'Verificación', ShieldCheck),
+    i('/mis-reportes', 'Reportes', FileText),
+    i('/tablero', 'Mapa', MapIcon),
+    i('/consultar', 'Seguimiento', Search),
+    i('/avisar', 'Reportar Escombro', AlertTriangle),
     i('/aura', 'AURA', MessageCircle),
     i('/aprende', 'Guías y formación', BookOpen),
     i('/recompensas', 'Recompensas', Award),
@@ -83,7 +85,7 @@ const MENUS: Record<Role, NavItem[]> = {
   ],
   driver: [
     i('/conductor', 'Inicio', Home, { end: true }),
-    i('/conductor/solicitudes', 'Solicitudes', ClipboardList),
+    i('/conductor/asignaciones', 'Asignaciones', ClipboardList),
     i('/conductor/actividad', 'Actividad', History),
     i('/conductor/impacto', 'Impacto', Leaf),
     i('/panel/escolta', 'Mi ruta', Navigation),
@@ -201,8 +203,19 @@ const MENUS: Record<Role, NavItem[]> = {
 
 const COMMON: NavItem[] = [i('/notificaciones', 'Notificaciones', Bell), i('/noticias', 'Noticias y campañas', Leaf), i('/ayuda', 'Ayuda', HelpCircle), i('/ajustes', 'Accesibilidad', Settings)];
 
+/**
+ * Addendum v4.2, sección 3: «Reportar Escombro», Training y Reward en el menú de todos los roles, con esos nombres.
+ * El reporte siempre se hace como ciudadano y no da permisos sobre él.
+ */
+const FIXED: NavItem[] = [i('/avisar', 'Reportar Escombro', AlertTriangle), i('/aprende', 'Training', BookOpen), i('/recompensas', 'Reward', Award)];
+function withFixed(list: NavItem[]): NavItem[] {
+  const out = list.map((x) => FIXED.find((f) => f.to === x.to) ?? x);
+  for (const f of FIXED) if (!out.some((x) => x.to === f.to)) out.push(f);
+  return out;
+}
+
 export function menuFor(role: Role | null): NavItem[] {
-  return role ? MENUS[role] : citizen;
+  return withFixed(role ? MENUS[role] : citizen);
 }
 export const commonMenu = COMMON;
 

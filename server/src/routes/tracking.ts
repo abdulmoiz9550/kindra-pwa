@@ -5,6 +5,8 @@ import { appendEvent } from '../core/events';
 import { newId, nowIso } from '../core/ids';
 import { notFound, unauthorized } from '../core/errors';
 import { wrap, requireAuth, requireRole } from '../middleware/auth';
+import { canSeeVehicleLocation, logVehicleLocationView, withoutLocation } from '../services/tracking';
+import { isFeatureOn } from '../services/features';
 import { activeTrips, assertCanView, assertEscort, etaOf, ingestPoints, openTripOfVehicle, recordGatePresence, trackingIndicators, tripRef, tripTrackView, verifyTrace, analyzeTrip } from '../services/tracking';
 import { registerMovementDeparture, confirmMovementArrival, movementView } from '../services/movements';
 import { handleTraccarForward, traccarEnv } from '../services/traccar';
@@ -23,6 +25,10 @@ trackingRouter.post('/traccar/forward', (req, res) => {
   const { secret } = traccarEnv();
   if (!secret || req.query.secret !== secret) {
     res.status(401).json({ error: 'Secreto de reenvío inválido.' });
+    return;
+  }
+  if (!isFeatureOn('vehicle_tracking_level2')) {
+    res.json({ ignored: true, level2: false });
     return;
   }
   res.json(handleTraccarForward(req.body || {}));
@@ -55,7 +61,7 @@ trackingRouter.get('/config', (_req, res) => res.json(getConfig().tracking));
 
 trackingRouter.get('/my-trips', (req, res) => {
   const me = req.auth!.user.id;
-  res.json(activeTrips((r) => r.departureUserId === me).map((t) => ({ ...t, view: tripTrackView(tripRef(t.key)!) })));
+  res.json(activeTrips((r) => r.departureUserId === me).map((t) => ({ ...t, lastPosition: null, view: withoutLocation(tripTrackView(tripRef(t.key)!)) })));
 });
 
 trackingRouter.post(
@@ -65,6 +71,11 @@ trackingRouter.post(
     if (!ref) throw notFound('El viaje no existe.');
     assertEscort(req.auth!.actor, ref);
     const body = z.object({ points: z.array(z.object({ lat: z.number(), lng: z.number(), at: z.string().nullable().optional(), accuracy: z.number().nullable().optional(), speedKmh: z.number().nullable().optional() })).max(500), delayed: z.boolean().optional() }).parse(req.body);
+    // Nivel 2 apagado: solo cuentan las posiciones de salida y llegada (nivel 1). El resto no se guarda.
+    if (!isFeatureOn('vehicle_tracking_level2')) {
+      res.json({ accepted: 0, ignored: body.points.length, level2: false, state: ref.state });
+      return;
+    }
     res.json({ ...ingestPoints(ref.key, body.points, 'pwa', { delayed: body.delayed || !!req.offlineQueuedAt }), state: ref.state });
   }),
 );
@@ -192,7 +203,14 @@ trackingRouter.get(
 // ---------------------------------------------------------------- vistas internas (roles autorizados)
 trackingRouter.get('/active', requireRole('admin', 'coordinator', 'supervisor', 'center'), (req, res) => {
   const u = req.auth!.user;
-  res.json(req.auth!.role === 'center' ? activeTrips((r) => r.destCenterId === u.centerId) : activeTrips());
+  const list = req.auth!.role === 'center' ? activeTrips((r) => r.destCenterId === u.centerId) : activeTrips();
+  const ok = (vehiclePlate: string | null) => {
+    const v = db().find('vehicles', (x) => x.plate === vehiclePlate);
+    return !!v && canSeeVehicleLocation(u, req.auth!.role, v.id);
+  };
+  const out = list.map((t) => (ok(t.vehiclePlate) ? t : { ...t, lastPosition: null, locationRestricted: true }));
+  logVehicleLocationView(u, req.auth!.role, out.filter((t) => t.lastPosition).map((t) => t.key));
+  res.json(out);
 });
 
 trackingRouter.get('/indicators', requireRole('admin', 'coordinator', 'supervisor'), (_req, res) => res.json(trackingIndicators()));
@@ -202,7 +220,13 @@ trackingRouter.get('/trips/:key', (req, res) => {
   if (!ref) throw notFound('El viaje no existe.');
   if (!req.auth) throw unauthorized();
   assertCanView(req.auth.user, req.auth.role, ref);
-  res.json(tripTrackView(ref));
+  const view = tripTrackView(ref);
+  if (!canSeeVehicleLocation(req.auth.user, req.auth.role, ref.vehicleId)) {
+    res.json(withoutLocation(view));
+    return;
+  }
+  logVehicleLocationView(req.auth.user, req.auth.role, [ref.key]);
+  res.json(view);
 });
 
 trackingRouter.get('/trips/:key/verify', (req, res) => {

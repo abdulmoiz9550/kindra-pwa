@@ -8,7 +8,8 @@ import { useAuth } from '../lib/auth';
 import { usePublicConfig } from '../lib/config';
 import { toast } from '../lib/toast';
 import { Alert, Badge, Button, Card, PageTitle, Spinner } from '../components/ui';
-import type { LessonItem } from './Learn';
+import { offlineTraining, type LessonItem } from './Learn';
+import { sendOrQueue } from '../lib/offlineActions';
 
 interface CompleteResult {
   correct: boolean;
@@ -39,7 +40,7 @@ export default function LessonPage() {
   const user = useAuth((s) => s.user);
   const { data: cfg } = usePublicConfig();
   const qc = useQueryClient();
-  const q = useQuery({ queryKey: ['lessons', token], queryFn: () => api.get<LessonItem[]>('/lessons') });
+  const q = useQuery({ queryKey: ['lessons', token], queryFn: () => api.get<LessonItem[]>('/lessons').catch((e) => { const o = offlineTraining(); if (o) return o.lessons; throw e; }) });
   const lesson = q.data?.find((l) => l.id === id);
   const [answer, setAnswer] = useState<number | null>(null);
   const [result, setResult] = useState<CompleteResult | null>(null);
@@ -53,8 +54,9 @@ export default function LessonPage() {
     if (answer === null) return;
     setBusy(true);
     try {
-      const r = await api.post<CompleteResult>(`/lessons/${lesson.id}/complete`, { answerIndex: answer });
-      setResult(r);
+      // Sin señal, la lección completada queda guardada y se envía una sola vez al volver la conexión.
+      const r = token ? await sendOrQueue<CompleteResult>(`/lessons/${lesson.id}/complete`, { answerIndex: answer }, 'Lección completada') : await api.post<CompleteResult>(`/lessons/${lesson.id}/complete`, { answerIndex: answer });
+      setResult(r ?? { correct: answer === lesson.correctIndex, alreadyCompleted: false, correctAnswer: lesson.options[lesson.correctIndex] });
       qc.invalidateQueries({ queryKey: ['lessons'] });
       qc.invalidateQueries({ queryKey: ['me'] });
     } catch (err) {
@@ -172,7 +174,7 @@ export default function LessonPage() {
         {result && (
           <Alert tone={result.correct ? 'ok' : 'info'} className="mt-3" title={result.correct ? 'Correcto' : 'No era esa'}>
             {!result.correct && <p>La respuesta correcta es: {result.correctAnswer}.</p>}
-            {result.alreadyCompleted ? <p>Esta lección ya la habías completado; no suma puntos otra vez.</p> : token ? <p>Lección completada: sumaste puntos a tu cuenta.</p> : <p>Lección completada. Con una cuenta, cada lección suma puntos.</p>}
+            {result.alreadyCompleted ? <p>Esta lección ya la habías completado; no suma Raíces otra vez.</p> : token ? <p>Lección completada: sumaste Raíces a tu cuenta.</p> : <p>Lección completada. Con una cuenta, cada lección suma puntos.</p>}
           </Alert>
         )}
       </Card>

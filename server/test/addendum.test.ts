@@ -77,7 +77,7 @@ test('Compuertas fijas: se exigen aunque alguien las borre directamente de la co
 
 // ---------------------------------------------------------------- referidos y puntos
 
-test('Referidos: nada al registrarse; puntos solo con el primer reporte validado de la persona invitada', () => {
+test('Raíces: invitar no suma; cada persona gana solo por lo que otra persona le valida', () => {
   const store = db();
   const inviter = ensureUserCodes(store.list('users').find((u) => u.alias === 'contralora')!);
   const before = computePoints(inviter.id).points;
@@ -87,22 +87,20 @@ test('Referidos: nada al registrarse; puntos solo con el primer reporte validado
 
   const r1 = createCitizenReport({ photoIds: [photo().id], location: { lat: 10.598, lng: -66.873 }, size: 'small', source: 'pwa' }, actor(invited.id, 'citizen', null));
   validateOrigin(r1.origin.id, coordActor());
-  const p = getConfig().points.referralValidated;
-  assert.equal(computePoints(inviter.id).points, before + p);
-  assert.equal(computePoints(inviter.id).validatedReferrals, 1);
-
-  const r2 = createCitizenReport({ photoIds: [photo().id], location: { lat: 10.598, lng: -66.871 }, size: 'small', source: 'pwa' }, actor(invited.id, 'citizen', null));
-  validateOrigin(r2.origin.id, coordActor());
-  assert.equal(computePoints(inviter.id).points, before + p, 'solo cuenta el primer reporte validado');
+  // Addendum v4.2, 3.1: los referidos no están en la tabla de Raíces.
+  assert.equal(computePoints(inviter.id).points, before);
+  assert.equal(computePoints(invited.id).points, getConfig().raices.values.reportValidated);
 });
 
 test('Referidos: un código inexistente se rechaza con un mensaje claro', () => {
   assert.throws(() => registerCitizen({ alias: 'otro-test', password: 'secreto1', referralCode: 'INV-ZZZZZZ' }), (err: { message?: string }) => /invitación/.test(err.message || ''));
 });
 
-test('Semilla: Carlos suma puntos porque María, a quien invitó, tuvo su primer reporte validado', () => {
+test('Semilla: Carlos tiene Raíces por reportes validados por la coordinación', () => {
   const carlos = db().list('users').find((u) => u.alias === 'ciudadano')!;
-  assert.ok(computePoints(carlos.id).history.some((h) => h.reason.includes('persona que invitaste')));
+  const p = computePoints(carlos.id);
+  assert.ok(p.ledger.some((h) => h.action === 'reportValidated' && h.validatorId !== carlos.id));
+  assert.ok(['Semilla', 'Brote', 'Raíz', 'Tallo', 'Árbol', 'Bosque'].includes(p.level.name));
 });
 
 // ---------------------------------------------------------------- logros y tarjeta
@@ -110,8 +108,8 @@ test('Semilla: Carlos suma puntos porque María, a quien invitó, tuvo su primer
 test('Logros en dos capas: personales y comunitarios del sector de residencia', () => {
   const carlos = db().list('users').find((u) => u.alias === 'ciudadano')!;
   const a = achievementsFor(carlos);
-  assert.ok(a.personal.find((x) => x.key === 'first_validated')?.earned);
-  assert.ok(a.personal.find((x) => x.key === 'referral')?.earned);
+  assert.ok(a.personal.find((x) => x.key === 'primer_reporte')?.earned);
+  assert.deepEqual(a.personal.map((x) => x.name), ['Primer reporte', 'Contralor acreditado', '10 cierres confirmados', 'Racha de 4 semanas']);
   assert.ok(a.community.length >= 3);
   assert.ok(a.community.every((x) => x.layer === 'community'));
 });

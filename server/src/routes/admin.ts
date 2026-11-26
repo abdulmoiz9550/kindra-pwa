@@ -6,6 +6,7 @@ import type { Role } from '@kindra/shared';
 import { db } from '../core/db';
 import { wrap, requireMainAdmin } from '../middleware/auth';
 import { getConfig, updateConfig } from '../services/config';
+import { upsertCourse } from '../services/lessons';
 import { upsertEntity, upsertUser, setVerification, listUsersPublic, upsertSector, upsertCenter, upsertVehicleType, upsertVehicle, updateAuraText, upsertLesson, createPreregCode, updateTransitions, deleteDocument, stripUser, activateProposedRole, rejectProposedRole } from '../services/admin';
 import { appendEvent, verifyChain } from '../core/events';
 import { FIXED_GATES } from '../core/transitions';
@@ -31,10 +32,10 @@ import { adminOverview, assignReport, citizenQueue, dataQuality, listNews, logRe
 import { photoStoreName } from '../services/photoStore';
 
 export const adminRouter = Router();
-// Administrador principal de Kindra: rol admin + verificación de identidad + verificación en dos pasos.
+// Administrador Principal de Kindra: rol admin + verificación de identidad + verificación en dos pasos.
 adminRouter.use(...requireMainAdmin);
 
-/** Addendum, parte 3: cada acción del administrador principal queda registrada como evento sellado. */
+/** Addendum, parte 3: cada acción del Administrador Principal queda registrada como evento sellado. */
 adminRouter.use((req, res, next) => {
   if (req.method === 'GET') return next();
   res.on('finish', () => {
@@ -162,7 +163,7 @@ adminRouter.get('/sectors', (_req, res) => res.json(db().list('sectors')));
 adminRouter.post(
   '/sectors',
   wrap((req, res) => {
-    const body = z.object({ id: z.string().optional(), name: z.string().min(2), parish: z.string().optional(), polygon: z.array(z.tuple([z.number(), z.number()])).min(3), authorized: z.boolean().optional(), provisional: z.boolean().optional(), spaceId: z.string().nullable().optional() }).parse(req.body);
+    const body = z.object({ id: z.string().optional(), name: z.string().min(2), parish: z.string().optional(), polygon: z.array(z.tuple([z.number(), z.number()])).refine((p) => p.length === 0 || p.length >= 3, 'El polígono necesita al menos 3 vértices.'), authorized: z.boolean().optional(), provisional: z.boolean().optional(), spaceId: z.string().nullable().optional() }).parse(req.body);
     res.json(upsertSector(body));
   }),
 );
@@ -305,8 +306,20 @@ adminRouter.get('/lessons', (_req, res) => res.json(db().list('lessons').sort((a
 adminRouter.post(
   '/lessons',
   wrap((req, res) => {
-    const body = z.object({ id: z.string().optional(), order: z.number().int().optional(), title: z.string().min(2), content: z.string().min(10), imageUrl: z.string().nullable().optional(), question: z.string().min(2), options: z.array(z.string()).min(2), correctIndex: z.number().int(), validationStatus: z.enum(['pending', 'validated']).optional(), provisional: z.boolean().optional() }).parse(req.body);
+    const body = z.object({ id: z.string().optional(), order: z.number().int().optional(), title: z.string().min(2), content: z.string().min(10), imageUrl: z.string().nullable().optional(), videoUrl: z.string().url().nullable().optional(), courseId: z.string().nullable().optional(), question: z.string().min(2), options: z.array(z.string()).min(2), correctIndex: z.number().int(), validationStatus: z.enum(['pending', 'validated']).optional(), provisional: z.boolean().optional() }).parse(req.body);
     res.json(upsertLesson(body));
+  }),
+);
+// Addendum v4.2, 3.2: cursos de Training (mismo editor que las lecciones).
+adminRouter.get('/courses', (_req, res) => res.json(db().list('courses').sort((a, b) => a.order - b.order)));
+adminRouter.post(
+  '/courses',
+  wrap((req, res) => {
+    const q = z.object({ question: z.string().min(3).max(300), options: z.array(z.string().min(1).max(200)).min(2).max(6), correctIndex: z.number().int().min(0) });
+    const body = z.object({ id: z.string().regex(/^[a-z0-9_]{3,40}$/), order: z.number().int().optional(), title: z.string().min(3).max(120), description: z.string().max(500), roles: z.array(z.enum(ROLES as [Role, ...Role[]])), quiz: z.array(q).max(10), validationStatus: z.enum(['pending', 'validated']), published: z.boolean() }).parse(req.body);
+    for (const x of body.quiz) if (x.correctIndex >= x.options.length) throw badRequest('La respuesta correcta debe ser una de las opciones.');
+    const c = upsertCourse(body);
+    res.json(c);
   }),
 );
 adminRouter.post(

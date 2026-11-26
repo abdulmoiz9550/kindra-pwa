@@ -20,7 +20,8 @@ export default function Driver() {
   return (
     <Routes>
       <Route index element={<Home />} />
-      <Route path="solicitudes" element={<Requests />} />
+      <Route path="asignaciones" element={<Requests />} />
+      <Route path="solicitudes" element={<Navigate to="/conductor/asignaciones" replace />} />
       <Route path="actividad" element={<Activity />} />
       <Route path="impacto" element={<div><PageTitle title="Mi impacto" subtitle="Solo cuenta lo que el centro recibió y la coordinación validó." /><ImpactPanel title="Recolecciones validadas" countLabel="Recolecciones completadas" /></div>} />
       <Route path="*" element={<Navigate to="/conductor" replace />} />
@@ -44,8 +45,8 @@ function Home() {
     <div className="space-y-4">
       <PageTitle title={`Hola, ${user?.name || user?.alias}`} subtitle="Tu trabajo de hoy." />
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-        <Kpi label="Asignadas para hoy" value={active.filter((r) => r.date === day).length} note={day} to="/conductor/solicitudes?tab=mine" />
-        <Kpi label="Esperan una acción tuya" value={active.length} to="/conductor/solicitudes?tab=mine" />
+        <Kpi label="Asignadas para hoy" value={active.filter((r) => r.date === day).length} note={day} to="/conductor/asignaciones" />
+        <Kpi label="Esperan una acción tuya" value={active.length} to="/conductor/asignaciones" />
         <Kpi label="Validadas hoy" value={doneToday} note={day} />
         <Kpi label="Validadas en el piloto" value={mine.filter((r) => r.status === 'completed').length} to="/conductor/impacto" />
       </div>
@@ -53,7 +54,7 @@ function Home() {
       {mine.some((r) => r.status === 'issue') && <Alert tone="warn">Tienes una solicitud con incidencia. La coordinación la está revisando.</Alert>}
       <Card title="Siguiente recolección">
         <div className="flex flex-wrap gap-2 mb-3"><Link className="btn-secondary btn-sm" to="/panel/escolta">Mi ruta</Link><Link className="btn-ghost btn-sm" to="/aprende">Formación y seguridad</Link></div>
-        {next ? <PickupCard r={next} showMap actions={<Link className="btn-primary btn-sm" to="/conductor/solicitudes?tab=mine">Continuar</Link>} /> : <EmptyState title="No tienes recolecciones asignadas" text="Revisa las solicitudes disponibles." action={<Link className="btn-secondary" to="/conductor/solicitudes">Ver solicitudes</Link>} />}
+        {next ? <PickupCard r={next} showMap actions={<Link className="btn-primary btn-sm" to="/conductor/asignaciones">Continuar</Link>} /> : <EmptyState title="No tienes recolecciones asignadas" text="Tu operador te asigna los retiros." />}
       </Card>
     </div>
   );
@@ -63,21 +64,22 @@ function Requests() {
   const user = useAuth((s) => s.user);
   const q = usePickups();
   const { run, busy } = usePickupAction();
-  const [tab, setTab] = useTab<'available' | 'mine' | 'closed'>('available');
+  const [tab, setTab] = useTab<'available' | 'mine' | 'closed'>('mine');
   const [reject, setReject] = useState<PickupView | null>(null);
   const [issue, setIssue] = useState<PickupView | null>(null);
   const [collect, setCollect] = useState<PickupView | null>(null);
   const pending = usePendingPaths(collect);
   if (q.isLoading) return <Spinner />;
   if (q.error || !q.data) return <Alert tone="bad">{errorMessage(q.error)}</Alert>;
-  const available = q.data.filter((r) => r.status === 'new' && !r.driverId);
+  // Addendum v4.2: en escombros no hay solicitudes para tomar; solo asignaciones del operador.
+  const available = q.data.filter((r) => r.status === 'new' && !r.driverId && r.module !== 'debris');
   const mine = q.data.filter((r) => r.driverId && [...ACTIVE, 'issue', 'collected'].includes(r.status));
   const closed = q.data.filter((r) => r.driverId && ['received', 'completed', 'cancelled'].includes(r.status));
   const list = tab === 'available' ? available : tab === 'mine' ? mine : closed;
 
   const actions = (r: PickupView) => {
     if (r.status === 'new') return <><Button size="sm" disabled={busy} onClick={() => run(`/${r.id}/accept`, {}, 'Solicitud asignada a ti.')}>Aceptar</Button><Button size="sm" variant="secondary" onClick={() => setReject(r)}>Rechazar</Button></>;
-    if (r.status === 'assigned') return <><Button size="sm" disabled={busy} onClick={() => run(`/${r.id}/status`, { to: 'en_route' }, 'En camino.')}>Salir hacia el punto</Button><Button size="sm" variant="secondary" onClick={() => setReject(r)}>Rechazar</Button><Button size="sm" variant="ghost" onClick={() => setIssue(r)}>Reportar incidencia</Button></>;
+    if (r.status === 'assigned') return <><Button size="sm" disabled={busy} onClick={() => run(`/${r.id}/status`, { to: 'en_route' }, 'En camino.')}>Salir hacia el punto</Button>{r.module !== 'debris' && <Button size="sm" variant="secondary" onClick={() => setReject(r)}>Rechazar</Button>}<Button size="sm" variant="ghost" onClick={() => setIssue(r)}>Reportar incidencia</Button></>;
     if (r.status === 'en_route') return <><Button size="sm" disabled={busy} onClick={() => run(`/${r.id}/status`, { to: 'arrived' }, 'Llegada registrada.')}>Llegué al punto</Button><Button size="sm" variant="ghost" onClick={() => setIssue(r)}>Reportar incidencia</Button></>;
     if (pending.includes(`/requests/${r.id}/collect`)) return <Badge tone="warn">Pendiente de sincronizar</Badge>;
     if (r.status === 'arrived') return <><Button size="sm" onClick={() => setCollect(r)}>Registrar recolección</Button><Button size="sm" variant="ghost" onClick={() => setIssue(r)}>Reportar incidencia</Button></>;
@@ -86,12 +88,12 @@ function Requests() {
   };
   return (
     <div>
-      <PageTitle title="Solicitudes" subtitle="Al aceptar, la solicitud deja de verse para los demás conductores." />
-      <Tabs value={tab} onChange={setTab} items={[{ value: 'available', label: 'Disponibles', count: available.length }, { value: 'mine', label: 'Mías', count: mine.length }, { value: 'closed', label: 'Cerradas', count: closed.length }]} />
+      <PageTitle title="Asignaciones" subtitle="Retiros que te asignó tu operador. Registra la salida y la llegada; la recepción la confirma el centro." />
+      <Tabs value={tab} onChange={setTab} items={[...(available.length ? [{ value: 'available' as const, label: 'Disponibles', count: available.length }] : []), { value: 'mine', label: 'En curso', count: mine.length }, { value: 'closed', label: 'Cerradas', count: closed.length }]} />
       <div className="mt-3 grid md:grid-cols-2 gap-3">
         {list.map((r) => <PickupCard key={r.id} r={r} showMap actions={<>{actions(r)}{tab === 'closed' && <History r={r} />}</>} />)}
       </div>
-      {list.length === 0 && <EmptyState title={tab === 'available' ? 'No hay solicitudes disponibles' : tab === 'mine' ? 'No tienes solicitudes en curso' : 'Todavía no hay solicitudes cerradas'} text={user?.preferences?.available === false ? 'Tu perfil está marcado como no disponible.' : undefined} />}
+      {list.length === 0 && <EmptyState title={tab === 'available' ? 'No hay solicitudes disponibles' : tab === 'mine' ? 'No tienes asignaciones en curso' : 'Todavía no hay asignaciones cerradas'} text={user?.preferences?.available === false ? 'Tu perfil está marcado como no disponible.' : undefined} />}
       <RejectModal r={reject} busy={busy} onClose={() => setReject(null)} onSend={async (reason, note) => { if (await run(`/${reject!.id}/reject`, { reason, note }, 'Rechazo registrado.')) setReject(null); }} />
       <TextModal key={issue?.id} open={!!issue} title="Reportar incidencia" label="Qué pasó" busy={busy} onClose={() => setIssue(null)} onSend={async (text) => { if (await run(`/${issue!.id}/issue`, { text }, 'Incidencia enviada a la coordinación.')) setIssue(null); }} />
       {collect && <CollectModal r={collect} onClose={() => setCollect(null)} />}
@@ -184,7 +186,7 @@ function Activity() {
   const rows = q.data.filter((r) => r.driverId && (!f.from || r.date >= f.from) && (!f.to || r.date <= f.to) && (!f.status || r.status === f.status)).reverse();
   return (
     <div>
-      <PageTitle title="Actividad" subtitle="Tu historial de solicitudes. El piloto no tiene un esquema de pago aprobado, así que aquí no hay montos." />
+      <PageTitle title="Actividad" subtitle="Tu historial de asignaciones." />
       <Card>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-3">
           <Field label="Desde"><Input type="date" value={f.from} onChange={(e) => setF({ ...f, from: e.target.value })} /></Field>

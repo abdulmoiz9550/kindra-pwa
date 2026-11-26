@@ -13,6 +13,7 @@ export interface PublicConfig {
   complaintChannelUrl: string;
   levels: LevelConfig[];
   points: PointsConfig;
+  raices?: { values: Record<string, number>; dailyCaps: Record<string, number>; catalogApproved: boolean };
   incentives?: { status: 'pending' | 'approved'; reference: string | null; approvedAt: string | null; approvedBy: string | null };
   thresholds: { duplicateDistanceM: number; duplicateWindowDays: number; timeSkewMinutes: number; tripArrivalDeadlineHours: number; dailyReportLimit: number };
   hazardChecklist: { key: string; label: string; provisional: boolean }[];

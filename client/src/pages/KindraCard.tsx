@@ -36,7 +36,7 @@ export default function KindraCard() {
   };
   return (
     <div className="max-w-md mx-auto">
-      <PageTitle title="Mi tarjeta Kindra" subtitle="Tu QR personal e intransferible. Es el mismo en todos los módulos de Kindra y tus puntos van a un solo saldo." />
+      <PageTitle title="Mi tarjeta Kindra" subtitle="Tu QR personal e intransferible. Es el mismo en todos los módulos de Kindra y tus Raíces van a un solo saldo." />
       <div
         className="relative overflow-hidden rounded-2xl p-5 text-white shadow-lg"
         style={{ background: 'linear-gradient(135deg, var(--brand-deep) 0%, var(--brand-teal) 70%, var(--brand-green) 140%)' }}
@@ -54,7 +54,7 @@ export default function KindraCard() {
             <p className="text-xs uppercase tracking-widest text-white/70">Titular</p>
             <p className="text-2xl font-bold truncate">{c.alias}</p>
             <p className="mt-2 text-sm">
-              {c.levelName} · <strong>{c.points}</strong> puntos
+              {c.levelName} · <strong>{c.points}</strong> Raíces
             </p>
             <p className="text-xs text-white/70 mt-1">Desde {fmtDate(c.memberSince)}</p>
             {c.verified && (
@@ -79,11 +79,11 @@ export default function KindraCard() {
           <ExternalLink size={16} /> Ver lo que muestra el QR
         </Link>
         <ConfirmButton label="Perdí mi tarjeta" variant="secondary" confirmLabel="Emitir tarjeta nueva" onConfirm={regenerate}>
-          Se emite una tarjeta con un código nuevo. El QR anterior deja de funcionar. Tus puntos no cambian.
+          Se emite una tarjeta con un código nuevo. El QR anterior deja de funcionar. Tus Raíces no cambian.
         </ConfirmButton>
       </div>
       <p className="mt-3 text-xs text-muted inline-flex items-center gap-1">
-        <RefreshCw size={12} /> Los puntos se actualizan solos cuando otra persona verifica un hecho de tus reportes.
+        <RefreshCw size={12} /> Las Raíces se actualizan solas cuando otra persona verifica un hecho de tus reportes.
       </p>
     </div>
   );

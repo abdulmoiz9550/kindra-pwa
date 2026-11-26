@@ -1,3 +1,4 @@
+import { stripImageMetadata } from './stripMetadata';
 import fs from 'node:fs';
 import path from 'node:path';
 import type { Photo, GeoPoint } from '@kindra/shared';
@@ -20,10 +21,21 @@ export interface PhotoInput {
 export function savePhoto(input: PhotoInput): Photo {
   const m = /^data:(image\/(jpeg|jpg|png|webp)|application\/pdf|audio\/(webm|ogg|mp4|mpeg|wav))(?:;codecs=[^;]+)?;base64,(.+)$/i.exec(input.dataUrl || '');
   if (!m) throw badRequest('El archivo debe enviarse como data URL en formato JPEG, PNG, WebP, PDF o audio.');
-  const buf = Buffer.from(m[4], 'base64');
-  if (buf.length > MAX_BYTES) throw badRequest('El archivo es demasiado grande. Comprime la foto antes de enviarla.');
+  const raw = Buffer.from(m[4], 'base64');
+  if (raw.length > MAX_BYTES) throw badRequest('El archivo es demasiado grande. Comprime la foto antes de enviarla.');
   const mime = m[1].toLowerCase();
   const ext = mime === 'application/pdf' ? 'pdf' : mime.startsWith('audio/') ? (m[3] === 'mpeg' ? 'mp3' : m[3]) : m[2] === 'png' ? 'png' : m[2] === 'webp' ? 'webp' : 'jpg';
+  // Addendum v4.2: la ubicación y demás metadatos se quitan del archivo al recibirlo.
+  let buf: Buffer;
+  try {
+    buf = stripImageMetadata(raw, ext);
+  } catch {
+    throw badRequest('La imagen no se pudo leer. Toma la foto de nuevo.');
+  }
+  // La posición del teléfono solo se guarda en fotos operativas; la de un ciudadano va en su reporte, no en la foto.
+  const uploader = input.uploadedBy ? db().get('users', input.uploadedBy) : undefined;
+  const staff = !!uploader?.roles.some((r) => !['citizen', 'monitor', 'householder', 'business', 'community', 'coastal'].includes(r));
+  if (!staff && ['origin', 'selfie'].includes(String(input.kind))) input = { ...input, location: null };
   const id = newId('ph');
   fs.mkdirSync(env.uploadDir, { recursive: true });
   fs.writeFileSync(path.join(env.uploadDir, `${id}.${ext}`), buf);

@@ -55,7 +55,8 @@ export function toPublicUser(user: User, activeRole: Role, mfa = false): PublicU
 }
 
 /** Comunidades y grupos costeros no se ofrecen mientras estén ocultos. */
-const roleVisible = (r: Role) => (r !== 'community' && r !== 'coastal') || isFeatureOn('community_groups');
+// Addendum v4.2: Hogar y Comercio pertenecen al módulo de aceite, que sigue apagado.
+const roleVisible = (r: Role) => ((r !== 'community' && r !== 'coastal') || isFeatureOn('community_groups')) && ((r !== 'householder' && r !== 'business') || isFeatureOn('oil_module'));
 
 function defaultRole(user: User): Role {
   const order: Role[] = ['admin', 'entity_admin', 'coordinator', 'removal', 'driver', 'center', 'processing', 'evaluator', 'supervisor', 'destination', 'business', 'community', 'coastal', 'householder', 'monitor', 'citizen'];
@@ -148,7 +149,7 @@ export function switchActiveRole(user: User, role: Role, mfa = false): { token: 
   return { token: issueToken(user.id, role, mfa), user: toPublicUser(user, role, mfa) };
 }
 
-/** Segundo paso: con el código de la aplicación, la sesión queda verificada (requisito del administrador principal). */
+/** Segundo paso: con el código de la aplicación, la sesión queda verificada (requisito del Administrador Principal). */
 export function completeTwoFactor(user: User, activeRole: Role, code: string): { token: string; user: PublicUser } {
   checkTwoFactorCode(user, code);
   return { token: issueToken(user.id, activeRole, true), user: toPublicUser(user, activeRole, true) };

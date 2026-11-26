@@ -19,6 +19,7 @@ export const DEFAULT_CONFIG: AppConfig = {
     timeSkewMinutes: 30,
     tripArrivalDeadlineHours: 6,
     dailyReportLimit: 5,
+    closureConfirmDays: 7,
   },
   escalation: {
     originNoTripDays: 5,
@@ -43,6 +44,26 @@ export const DEFAULT_CONFIG: AppConfig = {
     { key: 'destacado', name: 'Recolector Destacado', threshold: 100 },
     { key: 'embajador', name: 'Embajador Kindra', threshold: 300 },
   ],
+  // Addendum v4.2, 3.1: Raíces. Valores iniciales; los cambia el Administrador Principal.
+  raices: {
+    values: { reportValidated: 10, closureConfirmed: 5, reportFinalDestination: 15, disputeValid: 10, fieldVerification: 8, disputeResolved: 10, accreditation: 50, tripNoDiscrepancy: 5, receptionWithin24h: 3, massBalanceClosed: 5, testValidated: 5, destinationReceipt: 5, lessonCompleted: 5, courseCompleted: 20, weeklyStreak: 10 },
+    dailyCaps: { reportValidated: 3 },
+    levels: [
+      { key: 'semilla', name: 'Semilla', threshold: 0 },
+      { key: 'brote', name: 'Brote', threshold: 100 },
+      { key: 'raiz', name: 'Raíz', threshold: 300 },
+      { key: 'tallo', name: 'Tallo', threshold: 700 },
+      { key: 'arbol', name: 'Árbol', threshold: 1500 },
+      { key: 'bosque', name: 'Bosque', threshold: 3000 },
+    ],
+    badges: [
+      { key: 'primer_reporte', name: 'Primer reporte', counter: 'validatedReports', target: 1 },
+      { key: 'contralor_acreditado', name: 'Contralor acreditado', counter: 'accredited', target: 1 },
+      { key: 'diez_cierres', name: '10 cierres confirmados', counter: 'confirmedRemovals', target: 10 },
+      { key: 'racha_4', name: 'Racha de 4 semanas', counter: 'streakWeeks', target: 1 },
+    ],
+    catalogApproved: false,
+  },
   complaintChannelUrl: '',
   help: DEFAULT_HELP,
   hazardChecklist: [

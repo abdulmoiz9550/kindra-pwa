@@ -18,7 +18,7 @@ export function CardLink() {
       <CreditCard size={22} className="text-primary shrink-0" />
       <span className="min-w-0">
         <span className="block font-semibold">Mi tarjeta Kindra</span>
-        <span className="block text-sm text-muted">QR personal e intransferible. Un solo saldo de puntos en todos los módulos.</span>
+        <span className="block text-sm text-muted">QR personal e intransferible. Un solo saldo de Raíces en todos los módulos.</span>
       </span>
     </Link>
   );
@@ -118,7 +118,7 @@ export function Referrals() {
           <Users size={18} /> Invita a tus vecinos
         </span>
       }
-      subtitle="Sumas puntos cuando el primer reporte de la persona que invitaste es validado. Registrarse solo no da puntos."
+      subtitle="Invitar no suma Raíces: cada persona gana las suyas por lo que otra persona le valida."
     >
       <p className="font-mono text-lg tracking-wider mb-1">{r.referralCode}</p>
       <p className="text-xs text-muted break-all mb-3">{r.shareUrl}</p>
@@ -126,7 +126,7 @@ export function Referrals() {
         items={[
           { k: 'Personas invitadas', v: r.invited },
           { k: 'Con primer reporte validado', v: r.validated },
-          { k: 'Puntos por referidos', v: r.pointsEarned },
+          
         ]}
       />
       <div className="mt-3 flex flex-wrap gap-2">

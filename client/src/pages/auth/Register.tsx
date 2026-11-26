@@ -38,7 +38,7 @@ export default function Register() {
 
   return (
     <div className="max-w-md mx-auto">
-      <PageTitle title="Crear una cuenta" subtitle="La cuenta es opcional. Con ella sumas puntos por hechos verificados, puedes disputar un retiro y ves tu historial desde cualquier teléfono." />
+      <PageTitle title="Crear una cuenta" subtitle="La cuenta es opcional. Con ella sumas Raíces por hechos verificados, puedes disputar un retiro y ves tu historial desde cualquier teléfono." />
       <Card>
         <form onSubmit={submit}>
           <Field label="Alias público" required hint="Es lo único que se muestra de ti, junto con tu nivel.">
@@ -67,7 +67,7 @@ export default function Register() {
             </Select>
           </Field>
           {referralsOn && (
-            <Field label="Código de invitación" hint="Opcional. Si alguien te invitó, suma puntos cuando tu primer reporte sea validado, no al registrarte.">
+            <Field label="Código de invitación" hint="Opcional.">
               <Input value={form.referralCode} onChange={(e) => setForm({ ...form, referralCode: e.target.value.toUpperCase() })} placeholder="INV-XXXXXX" className="font-mono tracking-wider" />
             </Field>
           )}

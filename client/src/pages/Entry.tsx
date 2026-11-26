@@ -83,7 +83,7 @@ export default function Entry() {
       </div>
 
       <p className="mt-6 text-xs text-muted text-center">
-        Para avisar no hace falta cuenta ni datos personales. Si quieres sumar puntos y seguir tus reportes, puedes <Link to="/registro" className="underline">crear una cuenta</Link>.
+        Para avisar no hace falta cuenta ni datos personales. Si quieres sumar Raíces y seguir tus reportes, puedes <Link to="/registro" className="underline">crear una cuenta</Link>.
       </p>
     </div>
   );

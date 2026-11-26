@@ -1,6 +1,7 @@
+import type { MeasurementMethod } from '@kindra/shared';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { SUBCATEGORY_LABELS } from '@kindra/shared';
+import { SUBCATEGORY_LABELS, MEASUREMENT_METHOD_LABELS } from '@kindra/shared';
 import type { AiSuggestion, Subcategory, OutputUnit } from '@kindra/shared';
 import { api, errorMessage } from '../../lib/api';
 import { toast } from '../../lib/toast';
@@ -117,9 +118,9 @@ function ArrivalModal({ t, operators, onClose, onDone }: { t: TripView | null; o
   const { busy, error, run } = useSubmit();
   const [qr, setQr] = useState<string | null>(null);
   const [photos, setPhotos] = useState<CapturedPhoto[]>([]);
-  const [rec, setRec] = useState({ operatorEntityId: operators.length === 1 ? operators[0].id : '', quantity: '', unit: 'm3' as OutputUnit, condition: '', discrepancyNote: '' });
+  const [rec, setRec] = useState({ operatorEntityId: operators.length === 1 ? operators[0].id : '', quantity: '', unit: 't' as OutputUnit, condition: '', discrepancyNote: '', method: 'weighbridge' as MeasurementMethod, factor: '', factorSource: '' });
   if (!t) return null;
-  const body = { operatorEntityId: rec.operatorEntityId || null, receivedQuantity: rec.quantity === '' ? null : Number(rec.quantity), receivedUnit: rec.quantity === '' ? null : rec.unit, condition: rec.condition || null, discrepancyNote: rec.discrepancyNote || null };
+  const body = { operatorEntityId: rec.operatorEntityId || null, receivedQuantity: rec.quantity === '' ? null : Number(rec.quantity), receivedUnit: rec.quantity === '' ? null : rec.unit, condition: rec.condition || null, discrepancyNote: rec.discrepancyNote || null, measurementMethod: rec.quantity === '' ? null : rec.method, conversionFactor: rec.method === 'factor_estimate' && rec.quantity !== '' ? { value: Number(rec.factor), source: rec.factorSource.trim() } : null };
   return (
     <Modal open onClose={onClose} title={`Confirmar llegada · ${t.code}`}>
       <p className="text-sm text-ink-2 mb-2">Vehículo {t.vehiclePlate} con material de {t.originCodes.join(', ')}.</p>
@@ -144,13 +145,24 @@ function ArrivalModal({ t, operators, onClose, onDone }: { t: TripView | null; o
             <option value="t">Toneladas (t)</option>
           </Select>
         </Field>
+        <Field label="Método de medición" required={rec.quantity !== ''} hint="La cifra principal es el peso de báscula. Si la báscula no funciona, elige otro método: queda marcado.">
+          <Select value={rec.method} onChange={(e) => setRec({ ...rec, method: e.target.value as MeasurementMethod })}>
+            {Object.entries(MEASUREMENT_METHOD_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </Select>
+        </Field>
+        {rec.method === 'factor_estimate' && (
+          <>
+            <Field label="Factor de conversión" required><Input type="number" min={0} step="0.01" inputMode="decimal" placeholder="1.10" value={rec.factor} onChange={(e) => setRec({ ...rec, factor: e.target.value })} /></Field>
+            <Field label="Fuente del factor" required><Input value={rec.factorSource} maxLength={200} placeholder="Ej. reporte oficial (t/m³)" onChange={(e) => setRec({ ...rec, factorSource: e.target.value })} /></Field>
+          </>
+        )}
         <Field label="Condición del material"><Input value={rec.condition} maxLength={300} onChange={(e) => setRec({ ...rec, condition: e.target.value })} /></Field>
       </div>
       <Field label="Discrepancia observada" hint="Si algo no coincide, descríbelo: se avisa a coordinación y supervisión."><Textarea value={rec.discrepancyNote} maxLength={500} onChange={(e) => setRec({ ...rec, discrepancyNote: e.target.value })} /></Field>
       {error && <Alert tone="bad" className="mt-2">{error}</Alert>}
       <div className="mt-3 flex justify-end gap-2">
         <Button variant="ghost" onClick={onClose}>Cancelar</Button>
-        <Button disabled={busy || !photos[0]?.id} onClick={() => run(async () => { const r = await api.post<{ batch: BatchView }>(`/center/trips/${t.id}/arrive`, { photoId: photos[0].id, vehicleQr: qr, location: photos[0].location, ...body }); toast.success(`Llegada de ${t.code} confirmada. Entró al lote ${r.batch.code}; clasifica la recepción.`); onDone(); })}>
+        <Button disabled={busy || !photos[0]?.id || (rec.quantity !== '' && rec.method === 'factor_estimate' && (!(Number(rec.factor) > 0) || rec.factorSource.trim().length < 2))} onClick={() => run(async () => { const r = await api.post<{ batch: BatchView }>(`/center/trips/${t.id}/arrive`, { photoId: photos[0].id, vehicleQr: qr, location: photos[0].location, ...body }); toast.success(`Llegada de ${t.code} confirmada. Entró al lote ${r.batch.code}; clasifica la recepción.`); onDone(); })}>
           {busy ? 'Confirmando…' : 'Confirmar llegada'}
         </Button>
       </div>
@@ -160,7 +172,7 @@ function ArrivalModal({ t, operators, onClose, onDone }: { t: TripView | null; o
 
 function BatchPanel({ b, works, onDone, embedded }: { b: BatchView; works: CenterOverview['works']; onDone: () => void; embedded?: boolean }) {
   const { busy, error, run, setError } = useSubmit();
-  const [outputs, setOutputs] = useState({ unit: 't' as OutputUnit, aggregate: '', metal: '', specialDisposal: '', rejects: '', input: '', method: '' });
+  const [outputs, setOutputs] = useState({ unit: 't' as OutputUnit, aggregate: '', metal: '', specialDisposal: '', rejects: '', input: '', method: '', loss: '', measurementMethod: 'weighbridge' as MeasurementMethod });
   const [dispatch, setDispatch] = useState({ workId: works[0]?.id || '', quantity: '' });
   const canClose = b.state === 'open' && !b.separateProcessing;
   const canOutputs = b.state === 'closed' && !b.separateProcessing;
@@ -170,7 +182,7 @@ function BatchPanel({ b, works, onDone, embedded }: { b: BatchView; works: Cente
     <div className="space-y-4">
       {!embedded && <BatchHeader b={b} />}
       <p className="text-xs text-muted">Periodo {fmtDate(b.periodStart)} – {fmtDate(b.periodEnd)} · {b.receptionIds.length} recepciones</p>
-      {b.state === 'held' && <Alert tone="bad" title="Lote retenido">Hay material con posible presencia de sustancias peligrosas. El evaluador técnico debe decidir antes de procesarlo (7.3).</Alert>}
+      {b.state === 'held' && <Alert tone="bad" title="Lote retenido">Hay material con posible presencia de sustancias peligrosas. El Evaluador Técnico debe decidir antes de procesarlo (7.3).</Alert>}
       <section>
         <h3 className="label">Recepciones</h3>
         {b.receptions.length === 0 ? <p className="text-sm text-muted">Sin recepciones.</p> : (
@@ -225,8 +237,10 @@ function BatchPanel({ b, works, onDone, embedded }: { b: BatchView; works: Cente
             <Field label="Metal entregado al Estado" required><Input type="number" min={0} step="0.1" inputMode="decimal" value={outputs.metal} onChange={(e) => setOutputs({ ...outputs, metal: e.target.value })} /></Field>
             <Field label="Material a disposición especial" required><Input type="number" min={0} step="0.1" inputMode="decimal" value={outputs.specialDisposal} onChange={(e) => setOutputs({ ...outputs, specialDisposal: e.target.value })} /></Field>
             <Field label="Rechazos al CDF" required><Input type="number" min={0} step="0.1" inputMode="decimal" value={outputs.rejects} onChange={(e) => setOutputs({ ...outputs, rejects: e.target.value })} /></Field>
+            <Field label="Pérdida declarada" hint="Entrada = suma de fracciones + pérdida."><Input type="number" min={0} step="0.1" inputMode="decimal" value={outputs.loss} onChange={(e) => setOutputs({ ...outputs, loss: e.target.value })} /></Field>
+            <Field label="Método de medición"><Select value={outputs.measurementMethod} onChange={(e) => setOutputs({ ...outputs, measurementMethod: e.target.value as MeasurementMethod })}>{Object.entries(MEASUREMENT_METHOD_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</Select></Field>
           </div>
-          <Button disabled={busy || [outputs.aggregate, outputs.metal, outputs.specialDisposal, outputs.rejects].some((v) => v === '')} onClick={() => run(async () => { await api.post(`/center/batches/${b.id}/outputs`, { unit: outputs.unit, aggregate: Number(outputs.aggregate), metal: Number(outputs.metal), specialDisposal: Number(outputs.specialDisposal), rejects: Number(outputs.rejects), input: outputs.input === '' ? null : Number(outputs.input), method: outputs.method || null }); toast.success(`Salidas de ${b.code} registradas. Pasa a verificación de calidad.`); onDone(); })}>
+          <Button disabled={busy || [outputs.aggregate, outputs.metal, outputs.specialDisposal, outputs.rejects].some((v) => v === '')} onClick={() => run(async () => { await api.post(`/center/batches/${b.id}/outputs`, { unit: outputs.unit, aggregate: Number(outputs.aggregate), metal: Number(outputs.metal), specialDisposal: Number(outputs.specialDisposal), rejects: Number(outputs.rejects), declaredLoss: outputs.loss === '' ? null : Number(outputs.loss), measurementMethod: outputs.measurementMethod, input: outputs.input === '' ? null : Number(outputs.input), method: outputs.method || null }); toast.success(`Salidas de ${b.code} registradas. Pasa a verificación de calidad.`); onDone(); })}>
             {busy ? 'Guardando…' : 'Guardar salidas'}
           </Button>
         </section>

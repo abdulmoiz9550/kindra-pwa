@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { db } from '../core/db';
 import { wrap, requireRole } from '../middleware/auth';
-import { createInstitutionalOrigin, validateOrigin, rejectOrigin, markDuplicate, setPriority, setOriginZone, setSectorAuthorization, markRemoved, resolveDispute, requestPhotoRetake } from '../services/origins';
+import { createInstitutionalOrigin, validateOrigin, rejectOrigin, markDuplicate, setPriority, setOriginZone, setSectorAuthorization, markRemoved, resolveDispute, requestPhotoRetake, linkReportToLot, reportStatus } from '../services/origins';
 import { decideMonitorRequest } from '../services/monitor';
 import { originView } from './helpers';
 import { sendSectorAnnouncement, listSectorAnnouncements, residentCount } from '../services/announcements';
@@ -162,5 +162,15 @@ coordRouter.post(
   wrap((req, res) => {
     const body = z.object({ status: z.enum(['approved', 'rejected']) }).parse(req.body);
     res.json(decideMonitorRequest(String(req.params.id), req.auth!.actor, body.status));
+  }),
+);
+
+// Addendum v4.2, sección 7: el Ente Coordinador asigna reportes validados a uno o más lotes (LG-…).
+coordRouter.post(
+  '/origins/:id/link-lot',
+  wrap((req, res) => {
+    const body = z.object({ lotCode: z.string().min(3).max(30) }).parse(req.body);
+    const o = linkReportToLot(String(req.params.id), body.lotCode, req.auth!.actor);
+    res.json({ code: o.code, status: reportStatus(o) });
   }),
 );

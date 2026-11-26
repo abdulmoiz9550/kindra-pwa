@@ -13,20 +13,20 @@ export const PROFILE_ROLES: Role[] = ['householder', 'community', 'business', 'c
  */
 export const ENTITY_ASSIGNABLE_ROLES: Role[] = ['coordinator', 'removal', 'driver', 'center', 'processing', 'supervisor', 'destination'];
 
-/** Roles que solo el administrador principal de Kindra puede activar. */
+/** Roles que solo el Administrador Principal de Kindra puede activar. */
 export const KINDRA_ONLY_ROLES: Role[] = ['admin', 'entity_admin', 'evaluator'];
 
 export const ROLE_LABELS: Record<Role, string> = {
   citizen: 'Ciudadano',
-  monitor: 'Contralor comunitario',
-  coordinator: 'Ente coordinador',
-  removal: 'Ente de retiro',
-  center: 'Centro de disposición',
-  evaluator: 'Evaluador técnico',
-  supervisor: 'Supervisor ambiental',
-  destination: 'Destino final (obras)',
-  entity_admin: 'Administrador de entidad',
-  admin: 'Administrador principal Kindra',
+  monitor: 'Contralor Comunitario',
+  coordinator: 'Ente Coordinador',
+  removal: 'Ente de Retiro',
+  center: 'Centro de Disposición',
+  evaluator: 'Evaluador Técnico',
+  supervisor: 'Supervisor Ambiental',
+  destination: 'Destino Final',
+  entity_admin: 'Administrador de Institución',
+  admin: 'Administrador Principal',
   driver: 'Conductor',
   processing: 'Procesamiento',
   householder: 'Hogar',
@@ -268,6 +268,16 @@ export const EVENT_TYPES = [
   'ai_suggestion',
   'correction_requested',
   'report_assigned',
+  // addendum v4.2
+  'report_linked_to_lot',
+  'location_confirmed',
+  'field_verified',
+  'closure_expired',
+  'aura_message',
+  'consent_recorded',
+  'personal_data_erased',
+  'vehicle_location_viewed',
+  'support_ticket',
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -311,14 +321,14 @@ export const EVENT_LABELS: Record<EventType, string> = {
   correction: 'Corrección',
   origin_in_batch: 'Material incluido en un lote',
   origin_in_work: 'Material del sector usado en obra',
-  origin_verified_on_site: 'Verificado en sitio por contralor comunitario',
+  origin_verified_on_site: 'Verificado en sitio por Contralor Comunitario',
   lesson_completed: 'Lección completada',
   monitor_requested: 'Solicitud de rol de contralor',
   monitor_request_decided: 'Solicitud de contralor decidida',
   photo_retake_requested: 'Se pidió repetir la foto',
   escalation_alert: 'Alerta de escalamiento',
   trip_arrival_late: 'Llegada tardía (discrepancia resuelta)',
-  admin_action: 'Acción del administrador principal',
+  admin_action: 'Acción del Administrador Principal',
   entity_admin_action: 'Acción del administrador de entidad',
   sector_announcement: 'Aviso comunitario al sector',
   movement_departure: 'Salida de material desde el centro',
@@ -338,6 +348,47 @@ export const EVENT_LABELS: Record<EventType, string> = {
   ai_suggestion: 'Sugerencia de IA',
   correction_requested: 'Corrección pedida por el evaluador',
   report_assigned: 'Reporte asignado o escalado',
+  report_linked_to_lot: 'Reporte asignado a lote',
+  location_confirmed: 'Ubicación confirmada en campo',
+  field_verified: 'Verificación en campo del Contralor Comunitario',
+  closure_expired: 'Cerrado sin Confirmación',
+  aura_message: 'Mensaje de AURA (WhatsApp o PWA)',
+  consent_recorded: 'Consentimiento registrado',
+  personal_data_erased: 'Datos personales borrados a pedido',
+  vehicle_location_viewed: 'Consulta de ubicación de vehículo',
+  support_ticket: 'Conversación pasada a una persona',
+};
+
+/** Addendum v4.2, sección 2: las tres parroquias del Módulo 1, con su abreviatura para los códigos. */
+export const PARISHES: { name: string; code: string }[] = [
+  { name: 'Caraballeda', code: 'CB' },
+  { name: 'Catia La Mar', code: 'CM' },
+  { name: 'Macuto', code: 'MA' },
+];
+
+/** Addendum v4.2, sección 7: estados del reporte ciudadano. */
+export type ReportStatusKey = 'received' | 'validated' | 'assigned_to_lot' | 'closure_proposed' | 'confirmed' | 'disputed' | 'closed_no_confirmation' | 'closed';
+export const REPORT_STATUS_LABELS: Record<ReportStatusKey, string> = {
+  received: 'Recibido / Por Verificar',
+  validated: 'Validado',
+  assigned_to_lot: 'Asignado a Lote',
+  closure_proposed: 'Cierre Propuesto',
+  confirmed: 'Confirmado',
+  disputed: 'Disputado',
+  closed_no_confirmation: 'Cerrado sin Confirmación',
+  closed: 'Cerrado',
+};
+
+/** Addendum v4.2, sección 4: los 4 estados públicos de un lote. 0 = todavía sin estado público. */
+export const PUBLIC_LOT_STATES = ['Retirado', 'Recibido', 'Procesado y Ensayado', 'Destino Final'] as const;
+
+/** Addendum v4.2, sección 6: método de medición, obligatorio en toda cantidad. */
+export type MeasurementMethod = 'weighbridge' | 'measured_volume' | 'factor_estimate' | 'visual_estimate';
+export const MEASUREMENT_METHOD_LABELS: Record<MeasurementMethod, string> = {
+  weighbridge: 'Báscula',
+  measured_volume: 'Volumen medido',
+  factor_estimate: 'Estimación por factor',
+  visual_estimate: 'Estimación visual',
 };
 
 /** Roles con permiso de exportación (sección 9 y 20). Cada exportación queda registrada. */
@@ -426,14 +477,16 @@ export interface FeatureDefinition {
 export const FEATURES: FeatureDefinition[] = [
   // Módulos de residuos (addendum v1.3): cada módulo vive en la misma PWA detrás de su propio interruptor.
   { key: 'module_debris', label: 'Módulo 1: escombros', description: 'Activo en la fase 1.', group: 'module', defaultOn: true, available: true, locked: true },
-  { key: 'oil_module', label: 'Módulo 2: aceite de cocina usado', description: 'Apagado. Para encenderlo, el administrador principal completa primero su definición (flujo, datos, unidades, validación, roles y riesgos) con la referencia de aprobación.', group: 'module', defaultOn: false, available: true },
+  { key: 'oil_module', label: 'Módulo 2: aceite de cocina usado', description: 'Apagado. Para encenderlo, el Administrador Principal completa primero su definición (flujo, datos, unidades, validación, roles y riesgos) con la referencia de aprobación.', group: 'module', defaultOn: false, available: true },
   { key: 'module_other', label: 'Módulos 3, 4 y siguientes (otros residuos)', description: 'Se construyen en la misma PWA y quedan ocultos hasta su activación.', group: 'module', defaultOn: false, available: false },
-  // Funciones del módulo de escombros que el administrador principal puede apagar
+  // Funciones del módulo de escombros que el Administrador Principal puede apagar
   { key: 'kindra_card', label: 'Tarjeta Kindra y QR personal', description: 'Tarjeta con QR personal e intransferible. Los puntos de escombros van al mismo saldo.', group: 'debris', defaultOn: true, available: true },
   { key: 'achievements', label: 'Logros (dos capas)', description: 'Logros personales y logros comunitarios del sector.', group: 'debris', defaultOn: true, available: true },
   { key: 'referrals', label: 'Referidos', description: 'Solo suman puntos cuando el primer reporte de la persona invitada se valida, nunca al registrarse.', group: 'debris', defaultOn: true, available: true },
   { key: 'community_announcements', label: 'Avisos comunitarios por sector', description: 'Avisa a los vecinos de un sector cuando hay puntos asignados para retiro.', group: 'debris', defaultOn: true, available: true },
   { key: 'preregistration', label: 'Códigos de pre-registro', description: 'Ingreso con código para personas sin teléfono. Oculto en esta fase.', group: 'debris', defaultOn: false, available: true },
+  // Addendum v4.2, sección 12: ubicación continua desde el GPS del camión. Preparada y apagada hasta que se encienda.
+  { key: 'vehicle_tracking_level2', label: 'Ubicación continua de vehículos (nivel 2)', description: 'Rastreo continuo desde el dispositivo del camión o el teléfono del escolta. Apagado: solo se guarda la ubicación al registrar la salida y la llegada (nivel 1).', group: 'debris', defaultOn: false, available: true },
   // Fase posterior
   { key: 'ai_photo_detection', label: 'Sugerencias de IA sobre fotos', description: 'Al estar encendida, la foto elegida se envía al servicio de IA de Google (Gemini). El resultado es solo una sugerencia hasta que una persona autorizada la confirma.', group: 'later_phase', defaultOn: false, available: true },
   { key: 'eco_challenges', label: 'Retos ecológicos', description: 'Apagados hasta que el proyecto apruebe una campaña. Cada reto exige su referencia de aprobación.', group: 'later_phase', defaultOn: false, available: true },

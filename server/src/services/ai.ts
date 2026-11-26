@@ -67,6 +67,11 @@ export async function suggestFromPhoto(actor: Actor, photoId: string, call: Visi
   assertFeature('ai_photo_detection');
   const photo = db().get('photos', photoId);
   if (!photo) throw notFound('La foto no existe.');
+  // Addendum v4.2, 1.5: durante el piloto las fotos de ciudadanos nunca se envían a Gemini; solo fotos operativas de lotes.
+  const store = db();
+  const citizen = store.find('origins', (o) => o.photoIds.includes(photoId) && o.type === 'citizen');
+  const institutional = store.find('origins', (o) => o.photoIds.includes(photoId) && o.type === 'institutional');
+  if (citizen || ['selfie', 'voice'].includes(photo.kind) || (photo.kind === 'origin' && !institutional)) throw conflict('Las fotos de ciudadanos no se analizan con IA durante el piloto. Clasifica a mano.', 'ai_citizen_photo');
   const file = path.join(env.uploadDir, path.basename(photo.url));
   const mediaType = MEDIA[path.extname(file).toLowerCase()];
   if (!mediaType) throw new HttpError(400, 'Este tipo de archivo no se puede analizar.', 'ai_media');

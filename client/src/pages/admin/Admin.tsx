@@ -52,7 +52,7 @@ const NAV = [
 ];
 
 /**
- * 17 + addendum: panel del administrador principal de Kindra. Controla espacios, funciones, tabla de estados,
+ * 17 + addendum: panel del Administrador Principal de Kindra. Controla espacios, funciones, tabla de estados,
  * co-branding y textos de AURA. Exige verificación en dos pasos. Nunca edita ni borra eventos.
  */
 export default function Admin() {

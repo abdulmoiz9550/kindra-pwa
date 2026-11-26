@@ -184,7 +184,7 @@ export function buildDashboard(sectorId: string | null): DashboardData {
       open: fig(counted.filter((o) => o.state !== 'closed').length, PLATFORM, latestOriginEvent, 'Reportes y orígenes institucionales que todavía no completaron el recorrido.'),
       closed: fig(counted.filter((o) => o.state === 'closed').length, PLATFORM, latestOriginEvent, 'Orígenes cuyo cierre final ya fue enviado al ciudadano.'),
       total: fig(counted.length, PLATFORM, latestOriginEvent, 'Orígenes registrados, sin contar rechazados ni duplicados.'),
-      rejected: fig(origins.length - counted.length, 'Ente coordinador', latestOriginEvent, 'Reportes descartados por el coordinador con un motivo registrado.'),
+      rejected: fig(origins.length - counted.length, 'Ente Coordinador', latestOriginEvent, 'Reportes descartados por el coordinador con un motivo registrado.'),
     },
     completeness: { ...fig(counted.length ? full / counted.length : null, PLATFORM, latestOriginEvent, 'Porcentaje de fichas con los siete campos completos: origen, retiro, centro, clasificación, calidad, uso final y confirmación ciudadana.'), full, counted: counted.length },
     tripsPerCenter,

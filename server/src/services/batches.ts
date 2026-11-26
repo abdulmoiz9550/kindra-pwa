@@ -95,7 +95,7 @@ function assertChecklist(checklist: Record<string, boolean>, keys: string[]): vo
 
 export function decideHazard(batchId: string, actor: Actor, input: HazardInput): { batch: Batch; decision: HazardDecision } {
   const store = db();
-  if (actor.role !== 'evaluator' || !actor.id || !actor.entityId) throw forbidden('Solo el evaluador técnico decide sobre material peligroso.');
+  if (actor.role !== 'evaluator' || !actor.id || !actor.entityId) throw forbidden('Solo el Evaluador Técnico decide sobre material peligroso.');
   const batch = getBatchOrThrow(batchId);
   if (batch.state !== 'held') throw conflict('El lote no está retenido.');
   if (!input.receptionIds?.length) throw badRequest('Indica las recepciones afectadas.');
@@ -162,6 +162,13 @@ export function recordOutputs(batchId: string, actor: Actor, outputs: BatchOutpu
     if (typeof outputs[k] !== 'number' || outputs[k] < 0) throw badRequest('Las salidas deben ser números no negativos.');
   }
   if (outputs.input != null && !(outputs.input > 0)) throw badRequest('La cantidad de entrada debe ser mayor que cero.');
+  // Addendum v4.2, sección 6: balance de masa. Entrada = agregado + acero + no apto + disposición especial + pérdida declarada.
+  const fractions = outputs.aggregate + outputs.metal + outputs.specialDisposal + outputs.rejects;
+  if (outputs.declaredLoss != null && outputs.declaredLoss < 0) throw badRequest('La pérdida declarada no puede ser negativa.');
+  if (outputs.input != null) {
+    if (fractions > outputs.input + 0.01) throw badRequest('Las salidas suman más que la entrada: el balance de masa no cierra.', 'mass_balance');
+    if (outputs.declaredLoss != null && Math.abs(outputs.input - fractions - outputs.declaredLoss) > 0.01) throw badRequest(`El balance no cierra: entrada ${outputs.input} ≠ salidas ${Math.round(fractions * 100) / 100} + pérdida ${outputs.declaredLoss}.`, 'mass_balance');
+  }
   // 7.3: desde "closed", no retenido, sin sospechosas pendientes (tabla de transiciones)
   if (batch.state === 'held') throw conflict(HELD_MESSAGE, 'batch_held');
   assertProcessingSeparation(actor, batch.centerId);
@@ -185,7 +192,7 @@ export interface QualityInput {
 }
 
 export function verifyQuality(batchId: string, actor: Actor, input: QualityInput): { batch: Batch; verification: QualityVerification } {
-  if (actor.role !== 'evaluator' || !actor.id || !actor.entityId) throw forbidden('Solo el evaluador técnico registra la verificación de calidad.');
+  if (actor.role !== 'evaluator' || !actor.id || !actor.entityId) throw forbidden('Solo el Evaluador Técnico registra la verificación de calidad.');
   const batch = getBatchOrThrow(batchId);
   const cfg = getConfig();
   assertChecklist(input.checklist, cfg.qualityChecklist.map((c) => c.key));

@@ -205,7 +205,7 @@ function VehicleList() {
           <div className="text-center">
             <div className="mx-auto w-64 [&_svg]:w-full [&_svg]:h-full" dangerouslySetInnerHTML={{ __html: qr.svg }} role="img" aria-label={`Código QR ${qr.v.qrCode}`} />
             <p className="font-mono text-sm mt-2">{qr.v.qrCode}</p>
-            <p className="text-xs text-muted">Pégalo en el vehículo: el ente de retiro lo escanea al salir y el centro al llegar.</p>
+            <p className="text-xs text-muted">Pégalo en el vehículo: el Ente de Retiro lo escanea al salir y el centro al llegar.</p>
             <div className="mt-3 flex justify-center gap-2">
               <Button variant="secondary" onClick={download}>
                 Descargar SVG

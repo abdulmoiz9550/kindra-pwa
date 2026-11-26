@@ -53,7 +53,7 @@ export default function Supervisor() {
   return (
     <div>
       <PageTitle
-        title="Panel del supervisor ambiental"
+        title="Panel del Supervisor Ambiental"
         subtitle="Vista de solo lectura de toda la cadena. Puedes agregar observaciones y marcarlas como alerta para el coordinador."
         actions={
           <Select value={sector} onChange={(e) => setSector(e.target.value)} className="!w-auto" aria-label="Filtrar por sector">

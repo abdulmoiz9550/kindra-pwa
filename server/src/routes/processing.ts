@@ -39,7 +39,7 @@ processingRouter.post(
   '/batches/:id/outputs',
   wrap((req, res) => {
     const n = z.number().min(0);
-    const body = z.object({ unit: z.enum(['t', 'm3']), aggregate: n, metal: n, specialDisposal: n, rejects: n, input: z.number().positive(), method: z.string().min(2).max(200), evidencePhotoId: z.string().nullable().optional() }).parse(req.body);
+    const body = z.object({ unit: z.enum(['t', 'm3']), aggregate: n, metal: n, specialDisposal: n, rejects: n, input: z.number().positive(), method: z.string().min(2).max(200), evidencePhotoId: z.string().nullable().optional(), declaredLoss: z.number().min(0).nullable().optional(), measurementMethod: z.enum(['weighbridge', 'measured_volume', 'factor_estimate', 'visual_estimate']).nullable().optional() }).parse(req.body);
     res.json(batchView(recordOutputs(ownBatch(req).id, req.auth!.actor, body, req.deviceTime)));
   }),
 );

@@ -54,11 +54,11 @@ export default function Processing() {
   );
 }
 
-const NUMS = [['input', 'Cantidad de entrada'], ['aggregate', 'Agregado'], ['metal', 'Metal'], ['specialDisposal', 'A disposición especial'], ['rejects', 'Rechazos']] as const;
+const NUMS = [['input', 'Cantidad de entrada'], ['aggregate', 'Agregado'], ['metal', 'Acero / metal'], ['specialDisposal', 'A disposición especial'], ['rejects', 'No apto (al CDF)'], ['loss', 'Pérdida declarada']] as const;
 
 function Lot({ b, onDone }: { b: BatchView; onDone: () => void }) {
   const { busy, error, run } = useSubmit();
-  const [f, setF] = useState({ unit: 't' as OutputUnit, input: '', aggregate: '', metal: '', specialDisposal: '', rejects: '', method: '' });
+  const [f, setF] = useState({ unit: 't' as OutputUnit, input: '', aggregate: '', metal: '', specialDisposal: '', rejects: '', method: '', loss: '0' });
   const [photos, setPhotos] = useState<CapturedPhoto[]>([]);
   return (
     <div className="rounded-lg border border-line p-3">
@@ -75,7 +75,7 @@ function Lot({ b, onDone }: { b: BatchView; onDone: () => void }) {
           </div>
           <Field label="Separación o trituración: método" required><Input value={f.method} maxLength={200} onChange={(e) => setF({ ...f, method: e.target.value })} /></Field>
           <PhotoCapture kind="document" label="Evidencia (opcional)" photos={photos} onChange={setPhotos} max={1} withLocation={false} />
-          <Button className="mt-3" disabled={busy || NUMS.some(([k]) => f[k] === '') || !(Number(f.input) > 0) || f.method.trim().length < 2} onClick={() => run(async () => { await api.post(`/processing/batches/${b.id}/outputs`, { unit: f.unit, input: Number(f.input), aggregate: Number(f.aggregate), metal: Number(f.metal), specialDisposal: Number(f.specialDisposal), rejects: Number(f.rejects), method: f.method.trim(), evidencePhotoId: photos[0]?.id ?? null }); toast.success(`Salidas de ${b.code} registradas.`); onDone(); })}>Guardar registro</Button>
+          <Button className="mt-3" disabled={busy || NUMS.some(([k]) => f[k] === '') || !(Number(f.input) > 0) || f.method.trim().length < 2} onClick={() => run(async () => { await api.post(`/processing/batches/${b.id}/outputs`, { unit: f.unit, declaredLoss: Number(f.loss), input: Number(f.input), aggregate: Number(f.aggregate), metal: Number(f.metal), specialDisposal: Number(f.specialDisposal), rejects: Number(f.rejects), method: f.method.trim(), evidencePhotoId: photos[0]?.id ?? null }); toast.success(`Salidas de ${b.code} registradas.`); onDone(); })}>Guardar registro</Button>
         </div>
       )}
     </div>

@@ -62,7 +62,7 @@ export function requireRole(...roles: Role[]): RequestHandler {
 }
 
 /**
- * Administrador principal de Kindra (addendum, parte 3): rol admin, identidad verificada
+ * Administrador Principal de Kindra (addendum, parte 3): rol admin, identidad verificada
  * y sesión con verificación en dos pasos completada.
  */
 export const requireMainAdmin: RequestHandler[] = [

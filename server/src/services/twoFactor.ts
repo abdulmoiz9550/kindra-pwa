@@ -8,7 +8,7 @@ import { generateSecret, otpauthUrl, totp, verifyTotp } from './totp';
 import { getConfig } from './config';
 
 /**
- * Verificación en dos pasos (addendum, parte 3): obligatoria para el administrador principal de Kindra.
+ * Verificación en dos pasos (addendum, parte 3): obligatoria para el Administrador Principal de Kindra.
  * El secreto vive en una colección propia que nunca se envía al cliente.
  */
 export const twoFactorRequired = (user: User) => user.roles.includes('admin');

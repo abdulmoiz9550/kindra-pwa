@@ -7,7 +7,7 @@ import { MapView } from '../../components/MapView';
 import { Alert, Badge, Card, EmptyState, PageTitle, Spinner } from '../../components/ui';
 
 /**
- * Seguimiento interno de camiones (addendum v1.3): administrador principal, coordinador, supervisor y centro de destino.
+ * Seguimiento interno de camiones (addendum v1.3): Administrador Principal, coordinador, supervisor y centro de destino.
  * Nunca público ni en el tablero ciudadano.
  */
 export default function TrackingLive() {

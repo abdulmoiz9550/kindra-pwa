@@ -1,3 +1,4 @@
+import type { MeasurementMethod } from '@kindra/shared';
 import type { Trip, Reception, FillLevel, GeoPoint, Vehicle, TripLeg, OutputUnit, QuantityCheck } from '@kindra/shared';
 import { assertNoOpenTrip, centerPoint, geofenceCheck, ingestPoints, planRoute, raiseTrackingAlert, traceHash } from './tracking';
 import { db } from '../core/db';
@@ -52,6 +53,8 @@ export function registerDeparture(actor: Actor, input: DepartureInput): Trip {
     if (!o) throw notFound(`El origen ${id} no existe.`);
     // 7.2 y 4.1: la tabla de transiciones bloquea zona no autorizada y auto-retiro.
     assertTransition('origin', 'trip_departure', o.state, { actor, origin: o });
+    // Addendum v4.2: quien reportó el punto no se asigna su retiro.
+    if (actor.id && o.reporterId === actor.id) throw forbidden(`No puedes registrar la salida de ${o.code}: lo reportaste tú.`, 'own_report');
     return o;
   });
   const serverTime = nowIso();
@@ -106,11 +109,14 @@ export interface ArrivalInput {
   receivedUnit?: OutputUnit | null;
   condition?: string | null;
   discrepancyNote?: string | null;
+  measurementMethod?: MeasurementMethod | null;
+  conversionFactor?: { value: number; source: string } | null;
 }
 
 /** Compara lo recibido con lo despachado solo si comparten unidad; marca la diferencia sin tocar la cifra de salida. */
 function quantityCheck(trip: Trip, input: ArrivalInput): QuantityCheck | null {
   if (input.receivedQuantity == null) return null;
+  if (input.measurementMethod === 'factor_estimate' && !(input.conversionFactor && input.conversionFactor.value > 0 && input.conversionFactor.source.trim())) throw badRequest('Con «Estimación por factor» indica el valor del factor y su fuente.');
   if (!(input.receivedQuantity >= 0)) throw badRequest('La cantidad recibida debe ser cero o mayor.');
   if (!input.receivedUnit) throw badRequest('Indica la unidad de la cantidad recibida (t o m³).');
   const comparable = input.receivedUnit === 'm3' && trip.estimatedVolumeM3 != null;
@@ -168,6 +174,9 @@ export function confirmArrival(tripId: string, actor: Actor, input: ArrivalInput
     condition: input.condition?.trim() || null,
     discrepancyNote: input.discrepancyNote?.trim() || null,
     receivedBy: actor.id,
+    measurementMethod: input.receivedQuantity == null ? null : input.measurementMethod ?? null,
+    conversionFactor: input.measurementMethod === 'factor_estimate' ? input.conversionFactor ?? null : null,
+    weighbridgeUnavailable: input.receivedQuantity != null && !!input.measurementMethod && input.measurementMethod !== 'weighbridge',
     quantityCheck: check,
   };
   // Perímetro del centro (punto de descarga si existe) y sello del trazado completo en la cadena del viaje.
@@ -205,6 +214,9 @@ export function tripView(t: Trip) {
   const origins = t.originIds.map((id) => store.get('origins', id)).filter(Boolean);
   return {
     ...t,
+    // Addendum v4.2, sección 12: la ubicación de salida y llegada del vehículo no sale en las vistas generales.
+    departure: { ...t.departure, location: null },
+    arrival: t.arrival ? { ...t.arrival, location: null } : t.arrival,
     vehiclePlate: vehicle?.plate ?? null,
     vehicleType: vtype?.name ?? null,
     centerName: center?.name ?? null,

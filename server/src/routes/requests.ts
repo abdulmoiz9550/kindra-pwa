@@ -4,7 +4,7 @@ import { requireRole, wrap } from '../middleware/auth';
 import { forbidden } from '../core/errors';
 import { db } from '../core/db';
 import { isFeatureOn } from '../services/features';
-import { acceptPickup, advancePickup, collectPickup, createPickup, cancelOwn, listPickups, managePickup, pickupImpact, pickupView, receivePickup, rejectPickup, reportIssue, requestService, schedulePickup, validatePickup } from '../services/pickups';
+import { acceptPickup, assignPickup, advancePickup, collectPickup, createPickup, cancelOwn, listPickups, managePickup, pickupImpact, pickupView, receivePickup, rejectPickup, reportIssue, requestService, schedulePickup, validatePickup } from '../services/pickups';
 
 /** Solicitudes de recolección (v4.0, sección 17). La recepción la confirma el centro por su ruta de llegada. */
 export const requestsRouter = Router();
@@ -33,6 +33,7 @@ requestsRouter.get('/context', (req, res) => {
     vehicles: role === 'driver' ? store.filter('vehicles', (v) => v.active && v.entityId === user.entityId).map((v) => ({ id: v.id, plate: v.plate })) : [],
     centers: staff || role === 'driver' ? store.list('centers').map((c) => ({ id: c.id, name: c.name })) : [],
     operators: staff ? store.filter('entities', (e) => e.type === 'removal' && e.active && (role === 'coordinator' || role === 'admin' || e.id === user.entityId)).map((e) => ({ id: e.id, name: e.name })) : [],
+    drivers: staff ? store.filter('users', (u) => u.active && u.roles.includes('driver') && !!u.entityId && (role === 'coordinator' || role === 'admin' || u.entityId === user.entityId)).map((u) => ({ id: u.id, alias: u.alias, entityId: u.entityId! })) : [],
     origins: role === 'coordinator' || role === 'entity_admin' || role === 'removal' ? store.filter('origins', (o) => ['validated', 'under_removal'].includes(o.state) && o.zoneAuthorized).map((o) => ({ id: o.id, code: o.code, sectorName: store.get('sectors', o.sectorId)?.name ?? null })) : [],
   });
 });
@@ -97,6 +98,14 @@ requestsRouter.post(
   wrap((req, res) => {
     const { text } = z.object({ text: z.string().min(3).max(500) }).parse(req.body);
     res.json(pickupView(reportIssue(req.auth!.actor, String(req.params.id), text), req.auth!.actor));
+  }),
+);
+
+requestsRouter.post(
+  '/:id/assign',
+  wrap((req, res) => {
+    const { driverId } = z.object({ driverId: z.string().min(1) }).parse(req.body);
+    res.json(pickupView(assignPickup(req.auth!.actor, String(req.params.id), driverId), req.auth!.actor));
   }),
 );
 

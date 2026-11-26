@@ -4,11 +4,11 @@ import { INSTITUTIONAL_ROLES } from '@kindra/shared';
 import { db } from '../core/db';
 import { wrap, requireAuth, citizenActor } from '../middleware/auth';
 import { savePhoto } from '../services/photos';
-import { createCitizenReport, getOriginOrThrow, listOriginsForReporter, lookupOrigins, respondRemovalClosure, answerSatisfaction, addRetakePhoto, originStatusView } from '../services/origins';
+import { createCitizenReport, getOriginOrThrow, listOriginsForReporter, lookupOrigins, respondRemovalClosure, answerSatisfaction, addRetakePhoto, originStatusView, sectorMonitors, reportStatus, sectorName, monitorReviewClosure, confirmLocation } from '../services/origins';
 import { buildRecord, recordToCsv, verifyRecord } from '../services/record';
 import { listNotifications, markRead, markAllRead } from '../services/notifications';
 import { computePoints, certificateFor } from '../services/points';
-import { listLessons, completeLesson, lessonAsText } from '../services/lessons';
+import { listLessons, completeLesson, lessonAsText, listCourses, submitCourseQuiz, courseCompleted } from '../services/lessons';
 import { requestMonitorRole, verifyOnSite, recordBeforeAfter } from '../services/monitor';
 import { handleMessage, sessionView } from '../services/aura';
 import { citizenOriginView } from './helpers';
@@ -43,8 +43,11 @@ citizenRouter.post(
   wrap((req, res) => {
     const body = z
       .object({
-        photoIds: z.array(z.string()).min(1),
+        photoIds: z.array(z.string()).max(5).default([]),
         location: geo,
+        locationAccuracyM: z.number().min(0).max(100000).nullable().optional(),
+        phone: z.string().max(30).nullable().optional(),
+        viaMonitor: z.boolean().optional(),
         street: z.string().nullable().optional(),
         reference: z.string().nullable().optional(),
         sectorId: z.string().nullable().optional(),
@@ -76,7 +79,7 @@ function canSeeFull(req: Parameters<typeof citizenActor>[0], originId: string): 
   return !!o && o.reporterId === req.auth.user.id;
 }
 
-/** Supervisor y contralor comunitario nunca ven la identidad de quien reportó (salvo su propio reporte). */
+/** Supervisor y Contralor Comunitario nunca ven la identidad de quien reportó (salvo su propio reporte). */
 function hideReporter(req: Parameters<typeof citizenActor>[0], originId: string): boolean {
   if (!req.auth || !['monitor', 'supervisor', 'driver', 'processing'].includes(req.auth.role)) return false;
   return db().get('origins', originId)?.reporterId !== req.auth.user.id;
@@ -177,7 +180,8 @@ citizenRouter.get('/me/profile', requireAuth, (req, res) => {
     points: pts,
     certificate: cert ? { ...cert, verifyUrl: `${env.publicBaseUrl}/publico/certificado/${cert.code}` } : null,
     monitorRequestPending: !!monitorRequest,
-    canRequestMonitor: !pts.level.next && !u.roles.includes('monitor') && !monitorRequest,
+    // Addendum v4.2, 3.2: la acreditación exige el curso Contralor Comunitario.
+    canRequestMonitor: courseCompleted(u.id, 'contralor') && !u.roles.includes('monitor') && !monitorRequest,
     sectorName: u.sectorId ? db().get('sectors', u.sectorId)?.name ?? null : null,
   });
 });
@@ -221,13 +225,24 @@ citizenRouter.post(
     res.json(completeLesson(String(req.params.id), citizenActor(req), body.answerIndex));
   }),
 );
+citizenRouter.get('/courses', (req, res) => {
+  res.json(listCourses(req.auth?.user.id ?? null, req.auth?.role ?? null));
+});
+citizenRouter.post(
+  '/courses/:id/quiz',
+  requireAuth,
+  wrap((req, res) => {
+    const body = z.object({ answers: z.array(z.number().int()) }).parse(req.body);
+    res.json(submitCourseQuiz(String(req.params.id), citizenActor(req), body.answers));
+  }),
+);
 citizenRouter.get('/lessons/:id/text', (req, res) => {
   const l = db().get('lessons', String(req.params.id));
   if (!l) throw notFound('La lección no existe.');
   res.type('text/plain; charset=utf-8').send(lessonAsText(l, typeof req.query.sector === 'string' ? req.query.sector : null));
 });
 
-// ---------------------------------------------------------------- contralor comunitario
+// ---------------------------------------------------------------- Contralor Comunitario
 citizenRouter.post(
   '/monitor/request',
   requireAuth,
@@ -239,9 +254,45 @@ citizenRouter.post(
   '/origins/:code/on-site',
   requireAuth,
   wrap((req, res) => {
-    if (req.auth!.role !== 'monitor') throw forbidden('Activa el rol de contralor comunitario para verificar en sitio.');
-    const body = z.object({ photoId: z.string() }).parse(req.body);
-    res.json(citizenOriginView(verifyOnSite(String(req.params.code), req.auth!.user, req.auth!.actor, body.photoId, req.deviceTime)));
+    if (req.auth!.role !== 'monitor') throw forbidden('Activa el rol de Contralor Comunitario para verificar en sitio.');
+    const body = z.object({ photoId: z.string(), result: z.enum(['exists', 'not_exists', 'already_cleared']).optional() }).parse(req.body);
+    res.json(citizenOriginView(verifyOnSite(String(req.params.code), req.auth!.user, req.auth!.actor, body.photoId, req.deviceTime, body.result)));
+  }),
+);
+
+// ---------------------------------------------------------------- addendum v4.2: Contralor Comunitario
+/** Casos del sector del Contralor, sin datos personales de quien reporta. */
+citizenRouter.get('/contralor/cases', requireAuth, (req, res) => {
+  if (req.auth!.role !== 'monitor') throw forbidden('Activa el rol de Contralor Comunitario.');
+  const store = db();
+  const me = req.auth!.user;
+  const cases = store
+    .filter('origins', (o) => o.type === 'citizen' && sectorMonitors(o.sectorId).includes(me.id) && !['rejected', 'duplicate'].includes(o.state))
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+    .slice(0, 200)
+    .map((o) => {
+      const st = reportStatus(o);
+      const closure = store.find('closures', (c) => c.originId === o.id && c.type === 'removal');
+      return { id: o.id, code: o.code, sector: sectorName(o.sectorId), street: o.street ?? null, reference: o.reference ?? null, location: o.confirmedLocation ?? o.location, photoIds: o.photoIds, afterPhotoId: o.afterPhotoId ?? o.disputeEvidencePhotoId ?? null, createdAt: o.createdAt, status: st, own: o.reporterId === me.id, viaMonitor: !!o.viaMonitor, verified: o.fieldVerification ?? (o.verifiedOnSiteAt ? { result: 'exists', at: o.verifiedOnSiteAt } : null), closurePending: !!closure && closure.citizenResponse === 'no_response', disputed: o.state === 'disputed' };
+    });
+  res.json(cases);
+});
+citizenRouter.post(
+  '/contralor/cases/:id/closure',
+  requireAuth,
+  wrap((req, res) => {
+    const body = z.object({ ok: z.boolean(), photoId: z.string(), note: z.string().max(500).nullable().optional() }).parse(req.body);
+    const o = monitorReviewClosure(String(req.params.id), req.auth!.actor, body.ok, body.photoId, body.note);
+    res.json({ code: o.code, status: reportStatus(o) });
+  }),
+);
+citizenRouter.post(
+  '/origins/:id/confirm-location',
+  requireAuth,
+  wrap((req, res) => {
+    const body = z.object({ lat: z.number(), lng: z.number() }).parse(req.body);
+    const o = confirmLocation(String(req.params.id), req.auth!.actor, body);
+    res.json({ code: o.code, confirmedLocation: o.confirmedLocation });
   }),
 );
 citizenRouter.post(

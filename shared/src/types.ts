@@ -1,3 +1,4 @@
+import type { MeasurementMethod } from './constants';
 // ---------------------------------------------------------------------------
 // Tipos compartidos entre servidor y cliente (sección 5 de la especificación)
 // ---------------------------------------------------------------------------
@@ -90,6 +91,8 @@ export interface TwoFactorState {
 export type VerificationStatus = 'not_required' | 'pending' | 'verified' | 'rejected';
 
 export interface User {
+  /** Addendum v4.2: sectores asignados al Contralor Comunitario por el administrador. */
+  monitorSectorIds?: string[];
   id: string;
   name?: string;
   phone?: string;
@@ -117,7 +120,7 @@ export interface User {
   appointment?: Appointment | null;
   /** Roles propuestos por la entidad pendientes de activación por Kindra. */
   proposedRoles?: RoleProposal[];
-  /** Verificación en dos pasos (obligatoria para el administrador principal). */
+  /** Verificación en dos pasos (obligatoria para el Administrador Principal). */
   twoFactor?: TwoFactorState | null;
   /** Correo para ingresar (confidencial). */
   email?: string | null;
@@ -250,9 +253,25 @@ export interface Origin {
   tripIds: string[];
   batchIds: string[];
   workIds: string[];
-  source: 'pwa' | 'aura' | 'institutional' | 'seed';
+  source: 'pwa' | 'aura' | 'institutional' | 'seed' | 'whatsapp';
   /** Espacio (convenio) del registro (27.1). Si falta, se toma el del sector. */
   spaceId?: string | null;
+  /** Addendum v4.2, sección 7. Teléfono opcional de quien reporta: confidencial. */
+  reporterPhone?: string | null;
+  /** Rol desde el que se hizo el reporte (auditoría). En público se ve como cualquier reporte ciudadano. */
+  reporterRole?: string | null;
+  /** Reporte hecho por un Contralor Comunitario en nombre de un vecino sin teléfono. */
+  viaMonitor?: boolean;
+  /** Precisión en metros de la ubicación capturada por la persona. */
+  locationAccuracyM?: number | null;
+  /** Ubicación confirmada en campo por el Contralor Comunitario o el Ente de Retiro. La capturada se conserva. */
+  confirmedLocation?: (GeoPoint & { by: string; role: string; at: string }) | null;
+  /** Lotes de origen (códigos LG-…) a los que la coordinación asignó este reporte. */
+  lotIds?: string[];
+  /** Verificación en campo: el punto existe, no existe o ya fue despejado. */
+  fieldVerification?: { result: 'exists' | 'not_exists' | 'already_cleared'; photoId: string | null; by: string; at: string } | null;
+  /** Se venció el plazo para confirmar o disputar el cierre. */
+  closedNoConfirmationAt?: string | null;
 }
 
 export interface VehicleType {
@@ -414,6 +433,12 @@ export interface Reception {
   discrepancyNote?: string | null;
   receivedBy?: string | null;
   quantityCheck?: QuantityCheck | null;
+  /** Addendum v4.2, sección 6: cómo se midió la cantidad recibida. En el CDT la cifra principal es la báscula. */
+  measurementMethod?: MeasurementMethod | null;
+  /** Solo con «Estimación por factor»: valor y fuente (p. ej. 1,10 t/m³). Se muestra como estimación. */
+  conversionFactor?: { value: number; source: string } | null;
+  /** La báscula no estaba disponible y se usó otro método: queda marcado. */
+  weighbridgeUnavailable?: boolean;
 }
 
 export type BatchState =
@@ -438,6 +463,9 @@ export interface BatchOutputs {
   input?: number | null;
   method?: string | null;
   evidencePhotoId?: string | null;
+  /** Addendum v4.2, sección 6: pérdida declarada; entrada = suma de fracciones + pérdida. */
+  declaredLoss?: number | null;
+  measurementMethod?: MeasurementMethod | null;
 }
 
 export interface Batch {
@@ -577,9 +605,24 @@ export interface Observation {
   createdAt: string;
 }
 
+/** Addendum v4.2, 3.2: curso de Training con cuestionario final. Roles vacío = para todas las personas. */
+export interface Course {
+  id: string;
+  order: number;
+  title: string;
+  description: string;
+  roles: Role[];
+  quiz: { question: string; options: string[]; correctIndex: number }[];
+  validationStatus: 'pending' | 'validated';
+  published: boolean;
+}
+
 export interface Lesson {
   id: string;
   order: number;
+  courseId?: string | null;
+  /** Video corto opcional (URL). */
+  videoUrl?: string | null;
   title: string;
   content: string;
   imageUrl?: string | null;
@@ -717,6 +760,35 @@ export interface PointsConfig {
   suspensionDays: number;
 }
 
+/** Addendum v4.2, 3.1: valores de Raíces por hecho validado. Configurables por el Administrador Principal. */
+export interface RaicesValues {
+  reportValidated: number;
+  closureConfirmed: number;
+  reportFinalDestination: number;
+  disputeValid: number;
+  fieldVerification: number;
+  disputeResolved: number;
+  accreditation: number;
+  tripNoDiscrepancy: number;
+  receptionWithin24h: number;
+  massBalanceClosed: number;
+  testValidated: number;
+  destinationReceipt: number;
+  lessonCompleted: number;
+  courseCompleted: number;
+  weeklyStreak: number;
+}
+
+export interface RaicesConfig {
+  values: RaicesValues;
+  /** Tope diario por hecho (p. ej. 3 reportes validados por día). Sin valor = sin tope. */
+  dailyCaps: Partial<Record<keyof RaicesValues, number>>;
+  levels: LevelConfig[];
+  badges: { key: string; name: string; counter: 'validatedReports' | 'accredited' | 'confirmedRemovals' | 'streakWeeks' | 'closedReports' | 'lessonsCompleted' | 'onSiteVerifications'; target: number }[];
+  /** Catálogo de premios: «Próximamente» hasta que se apruebe. */
+  catalogApproved: boolean;
+}
+
 export interface LevelConfig {
   key: string;
   name: string;
@@ -734,6 +806,8 @@ export interface AppConfig {
     timeSkewMinutes: number;
     tripArrivalDeadlineHours: number;
     dailyReportLimit: number;
+    /** Addendum v4.2: días para confirmar o disputar un cierre (7 por defecto). */
+    closureConfirmDays?: number;
   };
   escalation: {
     originNoTripDays: number;
@@ -743,12 +817,13 @@ export interface AppConfig {
   };
   points: PointsConfig;
   levels: LevelConfig[];
+  raices: RaicesConfig;
   complaintChannelUrl: string;
   hazardChecklist: { key: string; label: string; provisional: boolean }[];
   qualityChecklist: { key: string; label: string; provisional: boolean }[];
   transitions: TransitionRule[];
   provisionalFlags: Record<string, boolean>;
-  /** Funciones activables por el administrador principal (addendum, partes 1 y 4). */
+  /** Funciones activables por el Administrador Principal (addendum, partes 1 y 4). */
   features: Record<string, boolean>;
   /** Cifras del reporte oficial que se muestran en público. Sin valor = ninguna. */
   publicReport?: { keys: string[]; approvalReference: string };
@@ -942,7 +1017,7 @@ export interface InfoRequest {
   code: string;
   subject: string;
   description: string;
-  /** Confidencial: solo la ven el administrador principal y la persona revisora asignada. */
+  /** Confidencial: solo la ven el Administrador Principal y la persona revisora asignada. */
   requesterName: string | null;
   requesterContact: string | null;
   requesterUserId: string | null;

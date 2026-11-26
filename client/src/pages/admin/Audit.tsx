@@ -23,13 +23,13 @@ const describe = (r: AuditRow): string => {
   return [`${d.method} ${d.path}`, extra].filter(Boolean).join(' · ');
 };
 
-/** Addendum, parte 3: cada acción del administrador principal y de los administradores de entidad queda como evento sellado. */
+/** Addendum, parte 3: cada acción del Administrador Principal y de los administradores de entidad queda como evento sellado. */
 export default function Audit() {
   const q = useAdminGet<{ events: AuditRow[]; integrity: ChainVerification[] }>('audit');
   if (q.isLoading || !q.data) return <Spinner />;
   const altered = q.data.integrity.filter((c) => c.status !== 'intact');
   return (
-    <Section title="Bitácora de administración" subtitle="Acciones de los administradores, en orden. Son eventos de la misma bitácora sellada: nadie, ni el administrador principal, puede editarlos ni borrarlos.">
+    <Section title="Bitácora de administración" subtitle="Acciones de los administradores, en orden. Son eventos de la misma bitácora sellada: nadie, ni el Administrador Principal, puede editarlos ni borrarlos.">
       {altered.length ? (
         <Alert tone="bad" className="mb-3" title="Integridad alterada">
           {altered.map((c) => `${c.chainId}: ${c.brokenAt?.reason}`).join(' ')}

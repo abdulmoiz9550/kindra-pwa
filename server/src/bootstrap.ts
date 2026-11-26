@@ -45,6 +45,7 @@ export async function initPlatform(opts: BootOptions = {}): Promise<Db> {
   }
   else if (!env.demoMode && process.env.ADMIN_ALIAS && process.env.ADMIN_PASSWORD && startClean(process.env.ADMIN_ALIAS, process.env.ADMIN_PASSWORD)) log('[kindra] arranque real: base vacía preparada sin datos simulados');
   ensureReportSnapshots();
+  ensureDefaults();
   // Sugerencias de IA sobre fotos: encendidas una sola vez al autorizarse Gemini; después manda Administración → Funciones.
   if (geminiReady() && !getConfig().provisionalFlags.aiPhotosEnabled) updateConfig({ features: { ...getConfig().features, ai_photo_detection: true }, provisionalFlags: { ...getConfig().provisionalFlags, aiPhotosEnabled: true } });
   return db;

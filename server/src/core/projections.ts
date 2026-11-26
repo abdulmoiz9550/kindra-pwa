@@ -114,7 +114,22 @@ export function applyEvent(e: KEvent, _opts: { replay?: boolean } = {}): void {
     }
     case 'origin_verified_on_site': {
       const o = origin();
-      if (o) store.update('origins', o.id, { verifiedOnSiteAt: t, verifiedOnSitePhotoId: d.photoId });
+      if (o) store.update('origins', o.id, { verifiedOnSiteAt: t, verifiedOnSitePhotoId: d.photoId, ...(d.result ? { fieldVerification: { result: d.result, photoId: d.photoId ?? null, by: e.actorId ?? '', at: t } } : {}) });
+      break;
+    }
+    case 'report_linked_to_lot': {
+      const o = origin();
+      if (o) store.update('origins', o.id, { lotIds: uniq([...(o.lotIds ?? []), d.lotId]) });
+      break;
+    }
+    case 'location_confirmed': {
+      const o = origin();
+      if (o) store.update('origins', o.id, { confirmedLocation: { lat: d.location.lat, lng: d.location.lng, by: e.actorId ?? '', role: String(e.actorRole ?? ''), at: t } });
+      break;
+    }
+    case 'closure_expired': {
+      const o = origin();
+      if (o) store.update('origins', o.id, { closedNoConfirmationAt: t });
       break;
     }
     case 'before_after_photo': {

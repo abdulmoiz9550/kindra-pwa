@@ -27,6 +27,7 @@ export interface RequestContext {
   vehicles: { id: string; plate: string }[];
   centers: { id: string; name: string }[];
   operators: { id: string; name: string }[];
+  drivers?: { id: string; alias: string; entityId: string }[];
   origins: { id: string; code: string; sectorName: string | null }[];
 }
 

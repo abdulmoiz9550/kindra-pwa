@@ -3,7 +3,7 @@ import { getConfig, updateConfig } from './config';
 import { badRequest, HttpError } from '../core/errors';
 import { db } from '../core/db';
 
-/** Una función activable está encendida (addendum: el administrador principal enciende y apaga funciones). */
+/** Una función activable está encendida (addendum: el Administrador Principal enciende y apaga funciones). */
 export function isFeatureOn(key: string): boolean {
   return featureOn(getConfig().features, key);
 }

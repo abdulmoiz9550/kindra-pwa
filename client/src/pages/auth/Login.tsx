@@ -59,7 +59,7 @@ export default function Login() {
 
   return (
     <div className="max-w-md mx-auto">
-      <PageTitle title="Ingresar" subtitle="Para avisar de un escombro no hace falta cuenta. La cuenta sirve para sumar puntos, disputar un retiro y usar roles institucionales." />
+      <PageTitle title="Ingresar" subtitle="Para avisar de un escombro no hace falta cuenta. La cuenta sirve para sumar Raíces, disputar un retiro y usar roles institucionales." />
       {preregOn && (
         <Tabs
           value={mode}

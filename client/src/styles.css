@@ -310,7 +310,6 @@ a {
   font-family: var(--font-display);
   font-size: 11px;
   letter-spacing: 0.14em;
-  text-transform: uppercase;
   font-weight: 600;
 }
 .title-mark::after {
@@ -391,7 +390,7 @@ a {
   @apply w-full text-sm;
 }
 .table-plain th {
-  @apply text-left text-xs uppercase tracking-wide text-muted font-semibold py-2 border-b border-line;
+  @apply text-left text-xs tracking-wide text-muted font-semibold py-2 border-b border-line;
 }
 .table-plain td {
   @apply py-2 border-b border-line align-top;

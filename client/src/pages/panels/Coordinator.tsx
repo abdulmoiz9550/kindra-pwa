@@ -302,7 +302,7 @@ function DisputeResolver({ o, onDone }: { o: OriginView; onDone: () => void }) {
     <div className="mt-2">
       <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>Resolver disputa</Button>
       <Modal open={open} onClose={() => setOpen(false)} title={`Resolver disputa de ${o.code}`}>
-        <p className="text-sm text-ink-2 mb-3">Para confirmar que el punto quedó retirado hace falta evidencia: una foto del contralor comunitario o del ente de retiro. Si el escombro sigue ahí, devuélvelo a retiro.</p>
+        <p className="text-sm text-ink-2 mb-3">Para confirmar que el punto quedó retirado hace falta evidencia: una foto del Contralor Comunitario o del Ente de Retiro. Si el escombro sigue ahí, devuélvelo a retiro.</p>
         {o.afterPhotoUrl && (
           <p className="text-sm mb-2">
             Ya existe una foto de “después”: <a href={o.afterPhotoUrl} target="_blank" rel="noreferrer" className="text-primary underline">ver foto</a>
@@ -329,7 +329,7 @@ function DisputeResolver({ o, onDone }: { o: OriginView; onDone: () => void }) {
 function MonitorRequests({ requests, onDone }: { requests: CoordOverview['monitorRequests']; onDone: () => void }) {
   const { busy, error, run } = useSubmit();
   return (
-    <Card title="Solicitudes de contralor comunitario" subtitle="Requieren el nivel más alto de Kindra (Embajador) y verificación por selfie antes de aprobar.">
+    <Card title="Solicitudes de Contralor Comunitario" subtitle="Requieren el nivel más alto de Kindra (Embajador) y verificación por selfie antes de aprobar.">
       {error && <Alert tone="bad" className="mb-2">{error}</Alert>}
       {requests.length === 0 ? (
         <EmptyState title="No hay solicitudes pendientes" />
@@ -342,7 +342,7 @@ function MonitorRequests({ requests, onDone }: { requests: CoordOverview['monito
               <span className="text-xs text-muted">{fmtRelative(r.createdAt)}</span>
               <div className="ml-auto flex gap-2">
                 <Button size="sm" variant="ghost" disabled={busy} onClick={() => run(async () => { await api.post(`/coord/monitor/requests/${r.id}/decide`, { status: 'rejected' }); onDone(); })}>Rechazar</Button>
-                <Button size="sm" disabled={busy || r.verificationStatus !== 'verified'} onClick={() => run(async () => { await api.post(`/coord/monitor/requests/${r.id}/decide`, { status: 'approved' }); toast.success(`${r.alias} ya es contralor comunitario.`); onDone(); })}>Aprobar</Button>
+                <Button size="sm" disabled={busy || r.verificationStatus !== 'verified'} onClick={() => run(async () => { await api.post(`/coord/monitor/requests/${r.id}/decide`, { status: 'approved' }); toast.success(`${r.alias} ya es Contralor Comunitario.`); onDone(); })}>Aprobar</Button>
               </div>
             </li>
           ))}

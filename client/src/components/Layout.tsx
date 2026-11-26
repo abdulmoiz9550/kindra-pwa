@@ -61,6 +61,7 @@ function Header({ connected }: { connected: boolean }) {
           <BrandBlock light size={38} compact />
         </Link>
         <div className="ml-auto flex items-center gap-1">
+          <Link to="/avisar" className="btn-primary btn-sm whitespace-nowrap mr-1">Reportar Escombro</Link>
           <span title={connected ? 'Actualización en vivo activa' : 'Sin conexión en vivo'} className={`hidden sm:inline-flex items-center gap-1 text-[11px] mr-1 ${connected ? 'text-white/90' : 'text-white/50'}`} aria-label={connected ? 'En vivo' : 'Sin conexión en vivo'}>
             {connected ? <Wifi size={15} /> : <WifiOff size={15} />}
             <span className="hidden md:inline">{connected ? 'en vivo' : 'sin señal'}</span>

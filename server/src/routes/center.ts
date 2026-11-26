@@ -39,7 +39,7 @@ centerRouter.get('/overview', (req, res) => {
 centerRouter.post(
   '/trips/:id/arrive',
   wrap((req, res) => {
-    const body = z.object({ photoId: z.string(), vehicleQr: z.string().nullable().optional(), location: z.object({ lat: z.number(), lng: z.number() }).nullable().optional(), operatorEntityId: z.string().nullable().optional(), receivedQuantity: z.number().min(0).nullable().optional(), receivedUnit: z.enum(['t', 'm3']).nullable().optional(), condition: z.string().max(300).nullable().optional(), discrepancyNote: z.string().max(500).nullable().optional() }).parse(req.body);
+    const body = z.object({ photoId: z.string(), vehicleQr: z.string().nullable().optional(), location: z.object({ lat: z.number(), lng: z.number() }).nullable().optional(), operatorEntityId: z.string().nullable().optional(), receivedQuantity: z.number().min(0).nullable().optional(), receivedUnit: z.enum(['t', 'm3']).nullable().optional(), condition: z.string().max(300).nullable().optional(), discrepancyNote: z.string().max(500).nullable().optional(), measurementMethod: z.enum(['weighbridge', 'measured_volume', 'factor_estimate', 'visual_estimate']).nullable().optional(), conversionFactor: z.object({ value: z.number().positive(), source: z.string().min(2).max(200) }).nullable().optional() }).refine((b) => b.receivedQuantity == null || !!b.measurementMethod, { message: 'Indica cómo se midió la cantidad (método de medición).' }).parse(req.body);
     const r = confirmArrival(String(req.params.id), req.auth!.actor, { ...body, deviceTime: req.deviceTime, offlineQueuedAt: req.offlineQueuedAt });
     res.json({ trip: tripView(r.trip), reception: r.reception, batch: batchView(getBatchOrThrow(r.reception.batchId)) });
   }),
@@ -68,7 +68,7 @@ centerRouter.post(
 centerRouter.post(
   '/batches/:id/outputs',
   wrap((req, res) => {
-    const body = z.object({ unit: z.enum(['t', 'm3']), aggregate: z.number().min(0), metal: z.number().min(0), specialDisposal: z.number().min(0), rejects: z.number().min(0), input: z.number().positive().nullable().optional(), method: z.string().max(200).nullable().optional() }).parse(req.body);
+    const body = z.object({ unit: z.enum(['t', 'm3']), aggregate: z.number().min(0), metal: z.number().min(0), specialDisposal: z.number().min(0), rejects: z.number().min(0), input: z.number().positive().nullable().optional(), method: z.string().max(200).nullable().optional(), declaredLoss: z.number().min(0).nullable().optional(), measurementMethod: z.enum(['weighbridge', 'measured_volume', 'factor_estimate', 'visual_estimate']).nullable().optional() }).parse(req.body);
     res.json(batchView(recordOutputs(String(req.params.id), req.auth!.actor, body, req.deviceTime)));
   }),
 );

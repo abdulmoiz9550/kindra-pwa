@@ -13,7 +13,7 @@ import { badRequest, conflict, forbidden, notFound } from '../core/errors';
  */
 
 const SECURITY_TYPES = new Set(['security_event', 'data_exported', 'info_request_action', 'governance_action']);
-/** Eventos de seguridad y gobierno de datos: solo los ve el administrador principal. */
+/** Eventos de seguridad y gobierno de datos: solo los ve el Administrador Principal. */
 export const isSecurityTrail = (e: { type: string }) => SECURITY_TYPES.has(e.type);
 
 // ---------------------------------------------------------------- inicios de sesión
@@ -33,7 +33,7 @@ export function logSignIn(ok: boolean, userId: string | null, method: 'password'
 
 // ---------------------------------------------------------------- exportaciones
 
-/** Solo los roles con permiso de exportación descargan datos en bloque. El administrador principal además exige sesión en dos pasos. */
+/** Solo los roles con permiso de exportación descargan datos en bloque. El Administrador Principal además exige sesión en dos pasos. */
 export function assertCanExport(role: Role, mfa: boolean): void {
   if (!EXPORT_ROLES.includes(role)) throw forbidden('Tu rol no tiene permiso de exportación.');
   if (role === 'admin' && !mfa) throw forbidden('Confirma la verificación en dos pasos para exportar.');

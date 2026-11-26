@@ -62,7 +62,7 @@ export interface UserInput {
   appointmentPhotoId?: string | null;
 }
 
-/** Quién está creando o editando: el administrador principal (Kindra) o un administrador de entidad. */
+/** Quién está creando o editando: el Administrador Principal (Kindra) o un administrador de entidad. */
 export interface UserEditor {
   id: string;
   kind: 'kindra' | 'entity_admin';
@@ -73,10 +73,10 @@ export function upsertUser(input: UserInput, editor?: UserEditor): User {
   const store = db();
   const existing = input.id ? store.get('users', input.id) : undefined;
   if (input.id && !existing) throw notFound('El usuario no existe.');
-  // Administrador principal: solo uno (addendum, parte 3: "solo Jesús").
+  // Administrador Principal: solo uno (addendum, parte 3: "solo Jesús").
   if (input.roles.includes('admin')) {
     const other = store.find('users', (u) => u.active && u.roles.includes('admin') && u.id !== existing?.id);
-    if (other) throw conflict(`Ya existe un administrador principal (${other.alias}). Solo puede haber uno.`, 'single_main_admin');
+    if (other) throw conflict(`Ya existe un Administrador Principal (${other.alias}). Solo puede haber uno.`, 'single_main_admin');
   }
   // Administrador de entidad: designado por escrito por la institución y activado por Kindra.
   const becomesEntityAdmin = input.roles.includes('entity_admin') && !existing?.roles.includes('entity_admin');
@@ -261,6 +261,8 @@ export function upsertLesson(input: Partial<Lesson> & { id?: string; title: stri
     title: input.title.trim(),
     content: input.content.trim(),
     imageUrl: input.imageUrl ?? existing?.imageUrl ?? null,
+    videoUrl: input.videoUrl ?? existing?.videoUrl ?? null,
+    courseId: input.courseId !== undefined ? input.courseId : existing?.courseId ?? null,
     question: input.question.trim(),
     options: input.options.map((o) => o.trim()),
     correctIndex: input.correctIndex,

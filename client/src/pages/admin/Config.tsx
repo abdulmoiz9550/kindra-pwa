@@ -153,7 +153,7 @@ export default function Config() {
               ))}
             </tbody>
           </table>
-          <p className="text-xs text-muted mt-2">El último nivel habilita la solicitud del rol de contralor comunitario (9.3).</p>
+          <p className="text-xs text-muted mt-2">El último nivel habilita la solicitud del rol de Contralor Comunitario (9.3).</p>
         </Card>
 
         <Card title={<span>Listas de verificación del evaluador {(flags.hazardChecklist || flags.qualityChecklist) && <Provisional />}</span>} subtitle="Provisionales hasta recibir las definitivas (5.10, 5.11).">

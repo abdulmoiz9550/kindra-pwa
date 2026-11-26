@@ -101,8 +101,8 @@ export default function Profile() {
   return (
     <div className="max-w-lg mx-auto">
       <PageTitle title={p.user.alias} subtitle={p.sectorName ? `Sector: ${p.sectorName}` : 'Sin sector de residencia registrado'} />
-      <Card className="mb-3" title={`Nivel: ${lvl.name}`} subtitle={`${p.points.points} puntos por hechos verificados`}>
-        {lvl.next ? <ProgressBar value={pct} label={`Hacia ${lvl.next.name} (${lvl.next.threshold} puntos)`} /> : <p className="text-sm text-muted">Alcanzaste el nivel más alto.</p>}
+      <Card className="mb-3" title={`Nivel: ${lvl.name}`} subtitle={`${p.points.points} Raíces por hechos verificados`}>
+        {lvl.next ? <ProgressBar value={pct} label={`Hacia ${lvl.next.name} (${lvl.next.threshold} Raíces)`} /> : <p className="text-sm text-muted">Alcanzaste el nivel más alto.</p>}
         {p.points.suspendedUntil && (
           <Alert tone="warn" className="mt-3">
             La suma de puntos está en pausa hasta {fmtDateTime(p.points.suspendedUntil)} por rechazos consecutivos. Puedes seguir reportando con normalidad.
@@ -120,11 +120,11 @@ export default function Profile() {
           />
         </div>
         <button type="button" className="mt-3 text-sm text-primary inline-flex items-center gap-1" onClick={() => setShowHistory((s) => !s)} aria-expanded={showHistory}>
-          <ChevronDown size={16} className={showHistory ? 'rotate-180' : ''} /> {showHistory ? 'Ocultar' : 'Ver'} detalle de puntos
+          <ChevronDown size={16} className={showHistory ? 'rotate-180' : ''} /> {showHistory ? 'Ocultar' : 'Ver'} detalle de Raíces
         </button>
         {showHistory && (
           <ul className="mt-2 divide-y divide-line text-sm">
-            {p.points.history.length === 0 && <li className="py-2 text-muted">Todavía no hay movimientos. Los puntos llegan cuando otra persona verifica un hecho de tus reportes.</li>}
+            {p.points.history.length === 0 && <li className="py-2 text-muted">Todavía no hay movimientos. Las Raíces llegan cuando otra persona verifica un hecho de tus reportes.</li>}
             {p.points.history.map((h, i) => (
               <li key={i} className="flex justify-between py-2 gap-2">
                 <span>
@@ -160,14 +160,14 @@ export default function Profile() {
         </Card>
       )}
 
-      <Card className="mb-3" title="Contralor comunitario">
+      <Card className="mb-3" title="Contralor Comunitario">
         {p.user.roles.includes('monitor') ? (
-          <p className="text-sm">Tienes el rol de contralor comunitario activado. Puedes verificar en sitio orígenes de tu sector y confirmar despejes con foto.</p>
+          <p className="text-sm">Tienes el rol de Contralor Comunitario activado. Puedes verificar en sitio orígenes de tu sector y confirmar despejes con foto.</p>
         ) : p.monitorRequestPending ? (
           <p className="text-sm">Tu solicitud está en revisión por el equipo de coordinación.</p>
         ) : p.canRequestMonitor ? (
           <>
-            <p className="text-sm mb-2">Alcanzaste el nivel {lvl.name}. Puedes pedir el rol de contralor comunitario: hace falta la verificación por selfie y la aprobación del coordinador.</p>
+            <p className="text-sm mb-2">Alcanzaste el nivel {lvl.name}. Puedes pedir el rol de Contralor Comunitario: hace falta la verificación por selfie y la aprobación del coordinador.</p>
             <Button onClick={requestMonitor} disabled={busy}>
               <ShieldCheck size={18} /> Solicitar el rol
             </Button>

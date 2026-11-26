@@ -41,7 +41,7 @@ export default function Verification() {
 
   return (
     <div className="max-w-md mx-auto">
-      <PageTitle title="Verificación de identidad" subtitle="Solo se pide para roles institucionales y para contralores comunitarios. Reportar no la requiere." />
+      <PageTitle title="Verificación de identidad" subtitle="Solo se pide para roles institucionales y para Contralores Comunitarios. Reportar no la requiere." />
       <Card className="mb-3" title="Progreso">
         <ol className="space-y-2">
           {steps.map((s, i) => (

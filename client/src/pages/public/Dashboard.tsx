@@ -211,7 +211,7 @@ export default function Dashboard() {
                   </tbody>
                 </table>
               )}
-              <SourceNote source="Calculado por la plataforma con las salidas del ente de retiro y las llegadas confirmadas por cada centro" asOf={d.generatedAt} />
+              <SourceNote source="Calculado por la plataforma con las salidas del Ente de Retiro y las llegadas confirmadas por cada centro" asOf={d.generatedAt} />
             </Card>
           )}
 

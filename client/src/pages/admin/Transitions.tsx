@@ -59,7 +59,7 @@ export default function Transitions() {
       }
     >
       <Alert tone="warn" className="mb-3" title="Compuertas fijas">
-        Las reglas 7.2, 7.3, 7.4 y "nadie valida ni recibe lo que reportó" (4.1) están en el código y no se pueden quitar de esta tabla, ni siquiera por el administrador principal. Aparecen con candado; si se borran o se quitan sus condiciones, el servidor las repone al guardar.
+        Las reglas 7.2, 7.3, 7.4 y "nadie valida ni recibe lo que reportó" (4.1) están en el código y no se pueden quitar de esta tabla, ni siquiera por el Administrador Principal. Aparecen con candado; si se borran o se quitan sus condiciones, el servidor las repone al guardar.
       </Alert>
       <Alert tone="info" className="mb-3">
         Condiciones disponibles: zoneAuthorized (7.2), notOwnReport (4.1), isReporter, notAnonymous, allHazardDecided (7.3), qualityApproved (7.4), sameCenter, hasEvidence, notHeld. Destinos especiales: "previous" (vuelve al estado anterior) y "a|b" (el servicio decide entre dos).

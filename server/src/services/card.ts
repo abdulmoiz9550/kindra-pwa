@@ -4,6 +4,7 @@ import { ROLE_LABELS, stageOf } from '@kindra/shared';
 import { db } from '../core/db';
 import { env } from '../config/env';
 import { notFound } from '../core/errors';
+import { getConfig } from './config';
 import { computePoints, type PointsSummary } from './points';
 import { ensureUserCodes, newCardCode } from './referrals';
 import { spaceName, spaceOfUser } from './spaces';
@@ -60,23 +61,6 @@ export function publicCard(code: string) {
 
 // ---------------------------------------------------------------- logros en dos capas
 
-interface PersonalDef {
-  key: string;
-  name: string;
-  description: string;
-  counter: keyof PointsSummary['milestones'];
-  target: number;
-}
-
-const PERSONAL: PersonalDef[] = [
-  { key: 'first_validated', name: 'Primer reporte validado', description: 'El coordinador confirmó uno de tus reportes.', counter: 'validatedReports', target: 1 },
-  { key: 'trusted_reporter', name: 'Reportes confiables', description: 'Cinco reportes tuyos fueron validados.', counter: 'validatedReports', target: 5 },
-  { key: 'removal_confirmed', name: 'Retiro confirmado', description: 'Confirmaste que retiraron el escombro de un reporte tuyo.', counter: 'confirmedRemovals', target: 1 },
-  { key: 'full_cycle', name: 'Ciclo completo', description: 'El material de un reporte tuyo llegó a una obra pública.', counter: 'closedReports', target: 1 },
-  { key: 'all_lessons', name: 'Aprendizaje completo', description: 'Completaste todas las lecciones sobre escombros.', counter: 'lessonsCompleted', target: 5 },
-  { key: 'on_site', name: 'Verificación en sitio', description: 'Verificaste un origen en tu sector como contralor comunitario.', counter: 'onSiteVerifications', target: 1 },
-  { key: 'referral', name: 'Vecino que suma', description: 'Una persona que invitaste tuvo su primer reporte validado.', counter: 'validatedReferrals', target: 1 },
-];
 
 /**
  * Logros (addendum, parte 1: dos capas).
@@ -86,13 +70,11 @@ const PERSONAL: PersonalDef[] = [
 export function achievementsFor(user: User): { personal: Achievement[]; community: Achievement[]; sectorName: string | null } {
   const store = db();
   const pts = computePoints(user.id);
-  const lessonsTotal = Math.max(1, store.count('lessons'));
-  const personal: Achievement[] = PERSONAL.map((d) => {
-    const target = d.key === 'all_lessons' ? lessonsTotal : d.target;
-    const list = pts.milestones[d.counter];
-    const earned = list.length >= target;
-    const description = d.key === 'all_lessons' ? `Completaste las ${lessonsTotal} lecciones sobre escombros.` : d.description;
-    return { key: d.key, layer: 'personal', name: d.name, description, earned, earnedAt: earned ? list[target - 1] : null, progress: { current: Math.min(list.length, target), target } };
+  // Addendum v4.2, 3.1: insignias configurables de Raíces.
+  const personal: Achievement[] = getConfig().raices.badges.map((d) => {
+    const list = pts.milestones[d.counter] ?? [];
+    const earned = list.length >= d.target;
+    return { key: d.key, layer: 'personal' as const, name: d.name, description: d.name, earned, earnedAt: earned ? list[d.target - 1] : null, progress: { current: Math.min(list.length, d.target), target: d.target } };
   });
 
   const sector = user.sectorId ? store.get('sectors', user.sectorId) : undefined;

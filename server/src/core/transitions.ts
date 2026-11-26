@@ -73,7 +73,7 @@ function evalCondition(name: string, ctx: TransitionContext): boolean {
 
 /**
  * Compuertas fijas (addendum, parte 3; 7.2, 7.3, 7.4, 21.4): viven en el código y se exigen siempre,
- * aunque alguien las quite de la tabla de estados. Ni el administrador principal puede eliminarlas.
+ * aunque alguien las quite de la tabla de estados. Ni el Administrador Principal puede eliminarlas.
  *  - 7.2  no sale un viaje de una zona no autorizada
  *  - 7.3  un lote con material sospechoso sin decisión no se procesa ni se libera
  *  - 7.4  no se despacha a una obra sin verificación de calidad aprobada

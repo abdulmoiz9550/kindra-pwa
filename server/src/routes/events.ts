@@ -17,7 +17,7 @@ eventsRouter.get('/', (req, res) => {
   if (!INSTITUTIONAL_ROLES.includes(req.auth!.role)) throw forbidden();
   const chain = typeof req.query.chain === 'string' ? req.query.chain : null;
   const limit = Math.min(500, Number(req.query.limit) || 200);
-  // v4.0, sección 9: inicios de sesión, exportaciones y solicitudes de información solo las ve el administrador principal.
+  // v4.0, sección 9: inicios de sesión, exportaciones y solicitudes de información solo las ve el Administrador Principal.
   const visible = (e: KEvent) => (req.auth!.role === 'admin' && req.auth!.mfa) || !isSecurityTrail(e);
   const events = chain ? db().eventsOfChain(chain).filter(visible) : db().allEvents().filter(visible).slice(-limit);
   const mask = ['supervisor', 'driver', 'processing'].includes(req.auth!.role);

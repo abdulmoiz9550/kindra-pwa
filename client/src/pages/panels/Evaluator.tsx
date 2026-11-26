@@ -25,7 +25,7 @@ export default function Evaluator() {
   const uv = d.batches.filter((b) => b.state === 'under_verification').length;
   return (
     <div>
-      <PageTitle title="Panel del evaluador técnico" subtitle="Decisiones sobre material peligroso y verificación de calidad de cada lote. Toda decisión exige lista completa y justificación escrita." />
+      <PageTitle title="Panel del Evaluador Técnico" subtitle="Decisiones sobre material peligroso y verificación de calidad de cada lote. Toda decisión exige lista completa y justificación escrita." />
       <Tabs value={tab} onChange={setTab} items={[{ value: 'held', label: 'Lotes retenidos', count: held }, { value: 'verification', label: 'Por verificar', count: uv }, { value: 'decided', label: 'Decididos', count: d.decided.length }]} />
       <div className="mt-3 space-y-4">
         {tab === 'held' &&

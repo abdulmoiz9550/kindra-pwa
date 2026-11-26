@@ -514,3 +514,26 @@ export function recordGatePresence(actor: Actor, input: { gateCode: string; trip
   const closes = expected && check === 'inside' && isEscort && (ref.state === 'in_transit' || ref.state === 'no_arrival');
   return { tripKey: ref.key, kind: ref.kind, gate: gate.name, geofence: check, counts: check === 'inside' || check === 'no_reference', closes };
 }
+
+/**
+ * Addendum v4.2, sección 12: la ubicación de vehículos es dato interno restringido. Solo la ven el Administrador
+ * Principal, el Supervisor Ambiental y el Administrador de Institución dueño del vehículo. Cada consulta queda registrada.
+ */
+export function canSeeVehicleLocation(user: User, role: Role, vehicleId: string): boolean {
+  if (role === 'admin' || role === 'supervisor') return true;
+  const v = db().get('vehicles', vehicleId);
+  return role === 'entity_admin' && !!v && !!user.entityId && v.entityId === user.entityId;
+}
+
+export function logVehicleLocationView(user: User, role: Role, keys: string[]): void {
+  if (!keys.length) return;
+  appendEvent({ type: 'vehicle_location_viewed', objectType: 'system', objectId: 'vehicle_location', actor: { id: user.id, role, entityId: user.entityId ?? null }, data: { trips: keys.slice(0, 50) }, silent: true });
+}
+
+/** Quita todo dato de posición de una vista de seguimiento (para roles sin permiso). */
+export function withoutLocation<T extends Record<string, unknown>>(v: T): T {
+  const out: Record<string, unknown> = { ...v, lastPosition: null, segments: [], stops: [], planned: null, pointCount: 0, locationRestricted: true };
+  if (Array.isArray(v.checkpoints)) out.checkpoints = (v.checkpoints as { type: string; at: string }[]).map((c) => ({ type: c.type, at: c.at, data: {} }));
+  if (Array.isArray(v.declaredStops)) out.declaredStops = (v.declaredStops as Record<string, unknown>[]).map((d) => ({ ...d, location: null }));
+  return out as T;
+}

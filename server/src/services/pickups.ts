@@ -191,7 +191,7 @@ export function createPickup(actor: Actor, input: CreatePickupInput): PickupRequ
 
 function announce(entityId: string): void {
   const drivers = db().filter('users', (u) => u.active && u.roles.includes('driver') && u.entityId === entityId && u.preferences?.available !== false);
-  if (drivers.length) notify({ recipientKeys: drivers.map((u) => `user:${u.id}`), kind: 'pickup_new', text: 'Hay una solicitud de recolección disponible.', link: '/conductor/solicitudes' });
+  if (drivers.length) notify({ recipientKeys: drivers.map((u) => `user:${u.id}`), kind: 'pickup_new', text: 'Hay una solicitud de recolección disponible.', link: '/conductor/asignaciones' });
 }
 
 export interface ServiceRequestInput {
@@ -253,7 +253,7 @@ export function cancelOwn(actor: Actor, id: string, note: string): PickupRequest
   const mine = (actor.role === 'householder' && r.requesterUserId === actor.id) || (actor.role === 'business' && !!r.businessId && r.businessId === u?.businessId);
   if (!mine) throw forbidden('La solicitud no es tuya.');
   if (!['submitted', 'new', 'assigned'].includes(r.status)) throw conflict('La recolección ya está en curso.');
-  if (r.driverId) notify({ recipientKeys: [`user:${r.driverId}`], kind: 'pickup_changed', text: 'Se canceló una solicitud que tenías asignada.', link: '/conductor/solicitudes' });
+  if (r.driverId) notify({ recipientKeys: [`user:${r.driverId}`], kind: 'pickup_changed', text: 'Se canceló una solicitud que tenías asignada.', link: '/conductor/asignaciones' });
   return save(actor, r, { status: 'cancelled' }, 'cancelled_by_requester', note.trim());
 }
 
@@ -278,6 +278,8 @@ export function acceptPickup(actor: Actor, id: string): PickupRequest {
   const r = getOrThrow(id);
   if (actor.role !== 'driver' || !actor.id) throw forbidden('Solo un conductor acepta solicitudes.');
   if (r.operatorEntityId !== actor.entityId) throw forbidden('La solicitud es de otra entidad.');
+  // Addendum v4.2: en escombros el conductor no acepta ni rechaza; recibe asignaciones de su operador.
+  if (r.module === 'debris') throw forbidden('En escombros el operador asigna los viajes.');
   assertModule(actor, r.module);
   if (r.status !== 'new' || r.driverId) throw conflict('Otra persona ya tomó esta solicitud.', 'already_assigned');
   const next = save(actor, r, { status: 'assigned', driverId: actor.id, acceptedAt: nowIso() }, 'accepted');
@@ -288,6 +290,7 @@ export function acceptPickup(actor: Actor, id: string): PickupRequest {
 export function rejectPickup(actor: Actor, id: string, reason: PickupRejectReason, note?: string | null): PickupRequest {
   const r = getOrThrow(id);
   if (actor.role !== 'driver' || !actor.id || r.operatorEntityId !== actor.entityId) throw forbidden();
+  if (r.module === 'debris') throw forbidden('En escombros el operador asigna los viajes; si no puedes, reporta una incidencia.');
   if (!(reason in PICKUP_REJECT_LABELS)) throw badRequest('Elige un motivo.');
   if (reason === 'other' && !note?.trim()) throw badRequest('Escribe el motivo.');
   const available = r.status === 'new' && !r.driverId;
@@ -356,13 +359,31 @@ export function reportIssue(actor: Actor, id: string, text: string): PickupReque
   return next;
 }
 
+/** Addendum v4.2: el operador (o la coordinación) asigna el conductor. Quien reportó el punto no se lo asigna. */
+export function assignPickup(actor: Actor, id: string, driverId: string): PickupRequest {
+  const r = getOrThrow(id);
+  const store = db();
+  const staff = actor.role === 'coordinator' || ((actor.role === 'entity_admin' || actor.role === 'removal') && r.operatorEntityId === actor.entityId);
+  if (!staff) throw forbidden('Solo el operador o la coordinación asignan conductores.');
+  if (!['new', 'assigned'].includes(r.status)) throw conflict('La solicitud ya está en curso.');
+  const d = store.get('users', driverId);
+  if (!d || !d.active || !d.roles.includes('driver') || d.entityId !== r.operatorEntityId) throw badRequest('Elige un conductor de la entidad operadora.');
+  const o = r.originId ? store.get('origins', r.originId) : undefined;
+  if (o?.reporterId && o.reporterId === d.id) throw forbidden('Quien reportó el punto no puede retirarlo.');
+  if (r.driverId && r.driverId !== d.id) notify({ recipientKeys: [`user:${r.driverId}`], kind: 'pickup_changed', text: 'Se reasignó una recolección que tenías asignada.', link: '/conductor/asignaciones' });
+  notify({ recipientKeys: [`user:${d.id}`], kind: 'pickup_changed', text: `Tienes una nueva asignación (${r.code}).`, link: '/conductor/asignaciones' });
+  const next = save(actor, r, { status: 'assigned', driverId: d.id, acceptedAt: nowIso() }, 'assigned', d.alias);
+  tellOwner(next, 'Tu recolección ya tiene conductor asignado.');
+  return next;
+}
+
 /** Coordinación o la entidad reasigna (vuelve a disponible) o cancela, siempre con motivo. */
 export function managePickup(actor: Actor, id: string, action: 'reassign' | 'cancel', note: string): PickupRequest {
   const r = getOrThrow(id);
   if (actor.role !== 'coordinator' && !(actor.role === 'entity_admin' && r.operatorEntityId === actor.entityId)) throw forbidden();
   if (!OPEN.includes(r.status)) throw conflict('La solicitud ya tiene un viaje registrado o está cerrada.');
   if (!note.trim()) throw badRequest('Indica el motivo.');
-  if (r.driverId) notify({ recipientKeys: [`user:${r.driverId}`], kind: 'pickup_changed', text: 'Cambió una solicitud que tenías asignada.', link: '/conductor/solicitudes' });
+  if (r.driverId) notify({ recipientKeys: [`user:${r.driverId}`], kind: 'pickup_changed', text: 'Cambió una solicitud que tenías asignada.', link: '/conductor/asignaciones' });
   tellOwner(r, action === 'cancel' ? 'Tu recolección fue cancelada.' : 'Tu recolección se está reasignando.');
   return save(actor, r, action === 'cancel' ? { status: 'cancelled' } : { status: r.operatorEntityId ? 'new' : 'submitted', driverId: null, acceptedAt: null, issue: null }, action, note.trim());
 }

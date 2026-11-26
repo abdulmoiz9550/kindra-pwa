@@ -1,3 +1,4 @@
+import { PARISHES } from '@kindra/shared';
 import { useState } from 'react';
 import type { Sector, Space } from '@kindra/shared';
 import { Card, Button, Field, Input, Badge, Modal, Spinner, Provisional, Select } from '../../components/ui';
@@ -66,8 +67,11 @@ export default function Sectors() {
               <Field label="Nombre" required>
                 <Input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
               </Field>
-              <Field label="Parroquia">
-                <Input value={editing.parish} onChange={(e) => setEditing({ ...editing, parish: e.target.value })} />
+              <Field label="Parroquia" required>
+                <Select value={editing.parish} onChange={(e) => setEditing({ ...editing, parish: e.target.value })}>
+                  <option value="">Elige la parroquia</option>
+                  {PARISHES.map((p) => <option key={p.code} value={p.name}>{p.name}</option>)}
+                </Select>
               </Field>
               <Field label="Espacio (convenio)" hint="Los reportes de este sector quedan vinculados a este espacio.">
                 <Select value={editing.spaceId || ''} onChange={(e) => setEditing({ ...editing, spaceId: e.target.value || null })}>
@@ -122,7 +126,7 @@ export default function Sectors() {
               <Button variant="ghost" onClick={() => setEditing(null)}>
                 Cancelar
               </Button>
-              <Button onClick={save} disabled={busy || editing.polygon.length < 3 || !editing.name}>
+              <Button onClick={save} disabled={busy || (editing.polygon.length > 0 && editing.polygon.length < 3) || !editing.name || !editing.parish}>
                 Guardar
               </Button>
             </div>

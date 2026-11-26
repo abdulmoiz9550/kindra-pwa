@@ -1,12 +1,12 @@
 import type {
   Origin, OriginSize, OriginUrgency, GeoPoint, Subcategory, StructureType, DebrisCause, OriginPriority, RejectionReason,
-  Closure, SatisfactionAnswer, Sector, Work, Batch, OriginEffectiveState,
+  Closure, SatisfactionAnswer, Sector, Work, Batch, OriginEffectiveState, OriginState, ReportStatusKey,
 } from '@kindra/shared';
-import { effectiveOriginState, pointInPolygon, distanceMeters, REJECTION_REASON_PLAIN, ORIGIN_STATE_PLAIN, ORIGIN_STATE_LABELS, USE_TYPE_LABELS, isoDay } from '@kindra/shared';
+import { PARISHES, PUBLIC_LOT_STATES, REPORT_STATUS_LABELS, effectiveOriginState, pointInPolygon, distanceMeters, REJECTION_REASON_PLAIN, ORIGIN_STATE_PLAIN, ORIGIN_STATE_LABELS, USE_TYPE_LABELS, isoDay } from '@kindra/shared';
 import { db } from '../core/db';
 import { appendEvent, SYSTEM_ACTOR, type Actor } from '../core/events';
 import { assertTransition } from '../core/transitions';
-import { newId, newOriginCode, nowIso } from '../core/ids';
+import { newId, newParishCode, nowIso } from '../core/ids';
 import { badRequest, conflict, forbidden, notFound } from '../core/errors';
 import { getConfig } from './config';
 import { notify, notifyOrigin, notifyRole, pickText } from './notifications';
@@ -84,11 +84,24 @@ export interface CitizenReportInput {
   voiceNoteId?: string | null;
   reporterName?: string | null;
   anonymous?: boolean;
-  source: 'pwa' | 'aura';
+  source: 'pwa' | 'aura' | 'whatsapp';
   deviceTime?: string | null;
   offlineQueuedAt?: string | null;
   clientKey?: string | null;
+  /** Addendum v4.2, sección 7. */
+  phone?: string | null;
+  locationAccuracyM?: number | null;
+  viaMonitor?: boolean;
 }
+
+/** Abreviatura de la parroquia del sector (CB, CM, MA) para los códigos. */
+export function parishCodeOf(sectorId: string | null | undefined): string {
+  const s = sectorId ? db().get('sectors', sectorId) : undefined;
+  const hit = PARISHES.find((p) => p.name === s?.parish) || PARISHES.find((p) => s?.name.toLowerCase().includes(p.name.toLowerCase()));
+  return hit?.code ?? 'LG';
+}
+
+const codeCount = (prefix: string) => db().filter('origins', (o) => o.code.startsWith(prefix)).length;
 
 export interface CitizenReportResult {
   origin: Origin;
@@ -101,7 +114,8 @@ export interface CitizenReportResult {
 export function createCitizenReport(input: CitizenReportInput, actor: Actor): CitizenReportResult {
   const store = db();
   const cfg = getConfig();
-  if (!input.photoIds?.length) throw badRequest('Hace falta al menos una foto del escombro.', 'need_photo');
+  // Addendum v4.2: sin foto se acepta como «Por Verificar» con prioridad baja.
+  input.photoIds = input.photoIds ?? [];
   for (const pid of input.photoIds) if (!store.get('photos', pid)) throw badRequest('Una de las fotos no existe.');
 
   const userId = actor.id;
@@ -109,9 +123,9 @@ export function createCitizenReport(input: CitizenReportInput, actor: Actor): Ci
     throw conflict('Por hoy ya registraste varios puntos. Si hay otro urgente, cuéntalo al equipo de coordinación.', 'daily_limit');
   }
 
-  const sector = deriveSector(input.location) || (input.sectorId ? store.get('sectors', input.sectorId) : undefined);
-  if (!sector) throw badRequest('No pude ubicar ese punto dentro de los sectores atendidos. Comparte la ubicación o indica el sector y una referencia.', 'sector_unknown');
-  if (!input.location && !(input.street || input.reference)) throw badRequest('Indica la ubicación, o la calle y una referencia.', 'need_location');
+  // Addendum v4.2: parroquia y sector de la lista son obligatorios; el punto en el mapa es opcional.
+  const sector = (input.sectorId ? store.get('sectors', input.sectorId) : undefined) || deriveSector(input.location);
+  if (!sector) throw badRequest('Elige la parroquia y el sector de la lista.', 'sector_unknown');
 
   const now = nowIso();
   const anonymous = !userId || !!input.anonymous;
@@ -122,7 +136,7 @@ export function createCitizenReport(input: CitizenReportInput, actor: Actor): Ci
 
   const origin: Origin & { clientKey?: string | null } = {
     id: newId('or'),
-    code: newOriginCode((c) => !!getOriginByCode(c)),
+    code: newParishCode('R', parishCodeOf(sector.id), (c) => !!getOriginByCode(c), codeCount),
     type: 'citizen',
     sectorId: sector.id,
     location: input.location ?? null,
@@ -138,7 +152,7 @@ export function createCitizenReport(input: CitizenReportInput, actor: Actor): Ci
     reporterId: anonymous ? null : userId,
     reporterName: input.reporterName?.trim() || user?.name || user?.alias || null,
     anonymous,
-    priority: null,
+    priority: input.photoIds.length ? null : 'low',
     state: 'registered',
     linkedOriginIds: [],
     linkedReporterKeys: [],
@@ -149,6 +163,11 @@ export function createCitizenReport(input: CitizenReportInput, actor: Actor): Ci
     batchIds: [],
     workIds: [],
     source: input.source,
+    reporterPhone: input.phone?.trim() || null,
+    reporterRole: actor.role ?? 'citizen',
+    viaMonitor: !!input.viaMonitor && actor.role === 'monitor',
+    locationAccuracyM: input.location && input.locationAccuracyM != null ? Math.round(input.locationAccuracyM) : null,
+    lotIds: [],
     possibleDuplicateOfId: possibleDuplicate?.id ?? null,
     clientKey: input.clientKey ?? null,
     spaceId: spaceOfSector(sector.id),
@@ -197,7 +216,7 @@ export function createInstitutionalOrigin(input: InstitutionalOriginInput, actor
   const now = nowIso();
   const origin: Origin = {
     id: newId('or'),
-    code: newOriginCode((c) => !!getOriginByCode(c)),
+    code: newParishCode('LG', parishCodeOf(sector.id), (c) => !!getOriginByCode(c), codeCount),
     type: 'institutional',
     sectorId: sector.id,
     location: input.location ?? null,
@@ -249,6 +268,7 @@ export function createInstitutionalOrigin(input: InstitutionalOriginInput, actor
 export function validateOrigin(id: string, actor: Actor, priority?: OriginPriority | null, deviceTime?: string | null): Origin {
   const o = getOriginOrThrow(id);
   if (o.type !== 'citizen' && o.state !== 'registered') throw conflict('Los orígenes institucionales nacen validados.');
+  assertNotOwn(o, actor, 'validar');
   assertTransition('origin', 'origin_validated', o.state, { actor, origin: o });
   appendEvent({ type: 'origin_validated', objectType: 'origin', objectId: o.id, actor, data: { priority: priority ?? null }, deviceTime });
   const sector = sectorName(o.sectorId);
@@ -265,6 +285,7 @@ export function validateOrigin(id: string, actor: Actor, priority?: OriginPriori
 export function rejectOrigin(id: string, actor: Actor, reason: RejectionReason, note?: string | null, deviceTime?: string | null): Origin {
   const o = getOriginOrThrow(id);
   if (!reason) throw badRequest('El motivo de rechazo es obligatorio.');
+  assertNotOwn(o, actor, 'rechazar');
   assertTransition('origin', 'origin_rejected', o.state, { actor, origin: o });
   appendEvent({ type: 'origin_rejected', objectType: 'origin', objectId: o.id, actor, data: { reason, note: note ?? null }, deviceTime });
   notifyOrigin(o, 'rejected', pickText('rejection', { código: o.code, motivo: REJECTION_REASON_PLAIN[reason] + (note ? ` (${note})` : '') }));
@@ -278,6 +299,7 @@ export function rejectOrigin(id: string, actor: Actor, reason: RejectionReason, 
 export function markDuplicate(id: string, mainId: string, actor: Actor, deviceTime?: string | null): Origin {
   const o = getOriginOrThrow(id);
   const main = getOriginOrThrow(mainId);
+  assertNotOwn(o, actor, 'marcar como duplicado');
   if (main.id === o.id) throw badRequest('Un reporte no puede ser duplicado de sí mismo.');
   if (['rejected', 'duplicate'].includes(main.state)) throw badRequest('El reporte principal no puede estar rechazado ni ser a su vez un duplicado.');
   assertTransition('origin', 'origin_marked_duplicate', o.state, { actor, origin: o });
@@ -321,6 +343,7 @@ export function setSectorAuthorization(sectorId: string, actor: Actor, authorize
 
 export function markRemoved(id: string, actor: Actor, evidencePhotoId?: string | null, deviceTime?: string | null): Origin {
   const o = getOriginOrThrow(id);
+  assertNotOwn(o, actor, 'cerrar');
   assertTransition('origin', 'origin_removed', o.state, { actor, origin: o });
   appendEvent({ type: 'origin_removed', objectType: 'origin', objectId: o.id, actor, data: { evidencePhotoId: evidencePhotoId ?? null }, deviceTime });
   sendRemovalClosure(db().get('origins', o.id)!);
@@ -363,11 +386,15 @@ export function respondRemovalClosure(code: string, response: 'confirmed' | 'dis
   const text = pickText('dispute');
   notifyOrigin(o, 'dispute', text);
   notifyRole('coordinator', 'dispute', pickText('notif_coord_dispute', { código: o.code, sector: sectorName(o.sectorId) }), { link: '/panel/coordinador' });
+  // Addendum v4.2: la disputa reabre el caso y llega al Contralor Comunitario del sector.
+  const monitors = sectorMonitors(o.sectorId, o.reporterId);
+  if (monitors.length) notify({ recipientKeys: monitors.map((m) => `user:${m}`), kind: 'dispute', text: `Disputa en ${o.code} (${sectorName(o.sectorId)}): revisa el punto en campo.`, link: '/contralor' });
   return { origin: db().get('origins', o.id)!, text };
 }
 
 export function resolveDispute(id: string, actor: Actor, result: 'removed' | 'reopened', evidencePhotoId?: string | null, note?: string | null, deviceTime?: string | null): Origin {
   const o = getOriginOrThrow(id);
+  assertNotOwn(o, actor, 'resolver la disputa de');
   assertTransition('origin', 'dispute_resolved', o.state, { actor, origin: o, evidence: result === 'reopened' || !!evidencePhotoId });
   appendEvent({ type: 'dispute_resolved', objectType: 'origin', objectId: o.id, actor, data: { result, evidencePhotoId: evidencePhotoId ?? null, note: note ?? null }, deviceTime });
   const resultado = pickText(result === 'removed' ? 'dispute_result_removed' : 'dispute_result_reopened');
@@ -518,4 +545,146 @@ export function lookupOrigins(codes: string[]): Origin[] {
   return db()
     .filter('origins', (o) => set.has(o.code))
     .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+}
+
+// ---------------------------------------------------------------- addendum v4.2: reporte ciudadano y lote
+
+/** Nadie valida, verifica en campo, asigna a un lote ni cierra su propio reporte (addendum v4.2, sección 3). */
+export function assertNotOwn(o: Origin, actor: Actor, what = 'actuar sobre'): void {
+  if (actor.id && o.reporterId && o.reporterId === actor.id) throw forbidden(`No puedes ${what} un reporte que hiciste tú. Lo hace otra persona con el rol correspondiente.`, 'notOwnReport');
+}
+
+/** Contralores Comunitarios activos de un sector, sin contar a quien reportó. */
+export function sectorMonitors(sectorId: string, exceptUserId?: string | null): string[] {
+  return db()
+    .filter('users', (u) => u.active && u.roles.includes('monitor') && (!u.sectorId || u.sectorId === sectorId || (u.monitorSectorIds ?? []).includes(sectorId)) && u.id !== exceptUserId)
+    .map((u) => u.id);
+}
+
+/** La coordinación asigna un reporte validado a uno o más lotes de origen (LG-…). */
+export function linkReportToLot(reportId: string, lotCode: string, actor: Actor): Origin {
+  const store = db();
+  if (actor.role !== 'coordinator') throw forbidden('Solo el Ente Coordinador asigna reportes a lotes.');
+  const o = getOriginOrThrow(reportId);
+  assertNotOwn(o, actor, 'asignar a un lote');
+  if (o.type !== 'citizen') throw badRequest('Solo los reportes ciudadanos se asignan a un lote.');
+  if (['registered', 'rejected', 'duplicate'].includes(o.state)) throw conflict('Valida primero el reporte.', 'not_validated');
+  const lot = getOriginOrThrow(lotCode.trim().toUpperCase());
+  if (lot.type !== 'institutional' || ['rejected', 'duplicate'].includes(lot.state)) throw badRequest('El código no corresponde a un lote de origen activo.');
+  if ((o.lotIds ?? []).includes(lot.id)) return o;
+  appendEvent({ type: 'report_linked_to_lot', objectType: 'origin', objectId: o.id, actor, data: { lotId: lot.id, lotCode: lot.code } });
+  notifyOrigin(o, 'lote_asignado', `Tu reporte ${o.code} quedó asignado al lote ${lot.code}. Desde ahora ves sus 4 estados públicos.`);
+  return store.get('origins', o.id)!;
+}
+
+/** Ubicación confirmada en campo (Contralor del sector o Ente de Retiro). La capturada queda en el historial. */
+export function confirmLocation(id: string, actor: Actor, location: GeoPoint): Origin {
+  const o = getOriginOrThrow(id);
+  if (actor.role !== 'monitor' && actor.role !== 'removal' && actor.role !== 'driver') throw forbidden('Confirma la ubicación el Contralor Comunitario o el Ente de Retiro.');
+  assertNotOwn(o, actor, 'confirmar la ubicación de');
+  if (!(Math.abs(location.lat) <= 90 && Math.abs(location.lng) <= 180)) throw badRequest('Ubicación no válida.');
+  appendEvent({ type: 'location_confirmed', objectType: 'origin', objectId: o.id, actor, data: { location: { lat: location.lat, lng: location.lng } } });
+  return db().get('origins', o.id)!;
+}
+
+/**
+ * El Contralor Comunitario valida o rechaza un cierre propuesto con foto. Rechazarlo reabre el caso como disputa.
+ * No puede hacerlo sobre un reporte propio.
+ */
+export function monitorReviewClosure(id: string, actor: Actor, ok: boolean, photoId: string | null, note?: string | null): Origin {
+  const store = db();
+  const o = getOriginOrThrow(id);
+  const user = actor.id ? store.get('users', actor.id) : undefined;
+  if (actor.role !== 'monitor' || !user || !sectorMonitors(o.sectorId).includes(user.id)) throw forbidden('Solo un Contralor Comunitario del sector revisa cierres.');
+  assertNotOwn(o, actor, 'revisar el cierre de');
+  const closure = store.find('closures', (c) => c.originId === o.id && c.type === 'removal');
+  if (!closure) throw conflict('Este punto no tiene un cierre propuesto.', 'nothing_to_confirm');
+  if (!photoId || !store.get('photos', photoId)) throw badRequest('La foto es obligatoria.');
+  appendEvent({ type: 'field_verified', objectType: 'origin', objectId: o.id, actor, data: { kind: 'closure', ok, photoId, note: note?.trim() || null } });
+  if (!ok && o.state !== 'disputed') {
+    const alertText = `El Contralor Comunitario no validó el cierre de ${o.code} (${sectorName(o.sectorId)}).`;
+    appendEvent({ type: 'removal_disputed', objectType: 'origin', objectId: o.id, actor, data: { closureId: closure.id, comment: note?.trim() || null, alertText, byMonitor: true } });
+    notifyRole('coordinator', 'dispute', alertText, { link: '/panel/coordinador?tab=disputes' });
+    notifyOrigin(o, 'caso_reabierto', `El caso ${o.code} se reabrió: el punto no quedó despejado.`);
+  }
+  refreshRecognition(user.id);
+  return store.get('origins', o.id)!;
+}
+
+const LOT_STAGE_OF_STATE: Partial<Record<OriginState, number>> = { under_removal: 1, removed: 1, in_batch: 2, in_work: 4, closed: 4 };
+
+/**
+ * Addendum v4.2, sección 4: estado público 1 a 4 (Retirado, Recibido, Procesado y Ensayado, Destino Final).
+ * 0 = sin estado público. El 3 exige un ensayo validado; sin evidencia de una etapa, el lote no avanza.
+ */
+export function publicLotStage(o: Origin): number {
+  const store = db();
+  if (['rejected', 'duplicate'].includes(o.state)) return 0;
+  let stage = 0;
+  const trips = o.tripIds.map((id) => store.get('trips', id)).filter((t): t is NonNullable<typeof t> => !!t);
+  if (trips.length) stage = 1;
+  if (trips.some((t) => t.state === 'received')) stage = 2;
+  const batches = o.batchIds.map((id) => store.get('batches', id)).filter((b): b is NonNullable<typeof b> => !!b);
+  if (batches.some((b) => !!b.outputs && !!b.qualityVerificationId && store.get('qualityVerifications', b.qualityVerificationId)?.result === 'approved')) stage = 3;
+  if (o.workIds.length && stage >= 3) stage = 4;
+  const base = o.state === 'disputed' ? (o.preDisputeState as OriginState | null) : o.state;
+  // Estados heredados sin viaje registrado (datos anteriores): nunca suben por encima de la evidencia.
+  if (!trips.length && base && (LOT_STAGE_OF_STATE[base] ?? 0) >= 1 && o.removedAt) stage = Math.max(stage, 1);
+  for (const lid of o.lotIds ?? []) {
+    const lot = store.get('origins', lid);
+    if (lot && lot.id !== o.id) stage = Math.max(stage, publicLotStage(lot));
+  }
+  return stage;
+}
+
+export interface ReportStatus {
+  key: ReportStatusKey;
+  label: string;
+  reason: string | null;
+  lotCodes: string[];
+  publicStage: number;
+  publicStageLabel: string | null;
+  confirmBy: string | null;
+}
+
+/** Addendum v4.2, sección 7: estado del reporte ciudadano para la persona, el portal y AURA. */
+export function reportStatus(o: Origin): ReportStatus {
+  const store = db();
+  const lotCodes = (o.lotIds ?? []).map((id) => store.get('origins', id)?.code).filter((c): c is string => !!c);
+  const stage = publicLotStage(o);
+  const removal = store.find('closures', (c) => c.originId === o.id && c.type === 'removal');
+  const days = getConfig().thresholds.closureConfirmDays ?? 7;
+  const out = (key: ReportStatusKey, reason: string | null = null): ReportStatus => ({
+    key,
+    label: REPORT_STATUS_LABELS[key],
+    reason,
+    lotCodes,
+    publicStage: stage,
+    publicStageLabel: stage ? PUBLIC_LOT_STATES[stage - 1] : null,
+    confirmBy: key === 'closure_proposed' && removal ? new Date(Date.parse(removal.sentAt) + days * 86_400_000).toISOString() : null,
+  });
+  if (o.state === 'duplicate') return out('closed', 'duplicado');
+  if (o.state === 'rejected') return out('closed', o.rejectionReason === 'outside_area' ? 'fuera de la zona' : o.rejectionReason === 'not_earthquake_debris' ? 'no es escombro' : o.rejectionReason === 'false' ? 'no se encontró el punto' : 'rechazado');
+  if (o.fieldVerification?.result === 'not_exists' && o.state === 'registered') return out('received', 'el Contralor no encontró el punto');
+  if (o.state === 'disputed') return out('disputed');
+  if (removal?.citizenResponse === 'confirmed') return out(o.state === 'closed' ? 'closed' : 'confirmed', o.state === 'closed' ? 'despejado y confirmado' : null);
+  if (removal && removal.citizenResponse === 'no_response') return o.closedNoConfirmationAt ? out('closed_no_confirmation', 'sin respuesta en el plazo') : out('closure_proposed');
+  if (lotCodes.length || stage >= 1 || ['under_removal', 'removed', 'in_batch', 'in_work', 'closed'].includes(o.state)) return out('assigned_to_lot');
+  if (o.state === 'validated') return out('validated');
+  return out('received', o.photoIds.length ? null : 'sin foto: lo confirma un Contralor Comunitario');
+}
+
+/** Cierra sin confirmación los cierres propuestos que vencieron (se llama desde el ciclo de escalamiento). */
+export function expireClosures(): number {
+  const store = db();
+  const days = getConfig().thresholds.closureConfirmDays ?? 7;
+  const limit = Date.now() - days * 86_400_000;
+  let n = 0;
+  for (const c of store.filter('closures', (x) => x.type === 'removal' && x.citizenResponse === 'no_response' && Date.parse(x.sentAt) < limit)) {
+    const o = store.get('origins', c.originId);
+    if (!o || o.closedNoConfirmationAt || o.state === 'disputed') continue;
+    appendEvent({ type: 'closure_expired', objectType: 'origin', objectId: o.id, actor: SYSTEM_ACTOR, data: { closureId: c.id, days } });
+    n++;
+  }
+  return n;
 }

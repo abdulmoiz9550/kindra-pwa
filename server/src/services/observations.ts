@@ -7,10 +7,10 @@ import { notifyRole, pickText } from './notifications';
 
 const COLLECTION: Record<ObservedObjectType, 'origins' | 'trips' | 'batches' | 'works'> = { origin: 'origins', trip: 'trips', batch: 'batches', work: 'works' };
 
-/** Supervisor ambiental: observación sobre cualquier origen, viaje, lote u obra; opcionalmente como alerta (4). */
+/** Supervisor Ambiental: observación sobre cualquier origen, viaje, lote u obra; opcionalmente como alerta (4). */
 export function addObservation(actor: Actor, input: { objectType: ObservedObjectType; objectId: string; text: string; isAlert: boolean; deviceTime?: string | null }): Observation {
   const store = db();
-  if (actor.role !== 'supervisor' || !actor.id || !actor.entityId) throw forbidden('Solo el supervisor ambiental registra observaciones.');
+  if (actor.role !== 'supervisor' || !actor.id || !actor.entityId) throw forbidden('Solo el Supervisor Ambiental registra observaciones.');
   if (!input.text?.trim()) throw badRequest('El texto de la observación es obligatorio.');
   const col = COLLECTION[input.objectType];
   if (!col) throw badRequest('Tipo de objeto no válido.');

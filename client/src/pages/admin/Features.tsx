@@ -11,14 +11,14 @@ const GROUPS: { key: FeatureDefinition['group']; title: string; subtitle: string
   { key: 'hidden', title: 'Ocultas en el módulo de escombros', subtitle: 'Pertenecen a otros módulos de Kindra. En esta fase no aparecen en ninguna pantalla del módulo de escombros.' },
 ];
 
-/** Addendum: el administrador principal enciende y apaga funciones. */
+/** Addendum: el Administrador Principal enciende y apaga funciones. */
 export default function Features() {
   const q = useAdminList<FeatureRow>('features');
   const { put, busy } = useAdminAction();
   if (q.isLoading || !q.data) return <Spinner />;
   const toggle = (f: FeatureRow) => put('features', { [f.key]: !f.enabled }, `${f.label}: ${f.enabled ? 'apagada' : 'encendida'}.`);
   return (
-    <Section title="Funciones" subtitle="Interruptores de las funciones de la plataforma. Solo el administrador principal de Kindra puede cambiarlos.">
+    <Section title="Funciones" subtitle="Interruptores de las funciones de la plataforma. Solo el Administrador Principal de Kindra puede cambiarlos.">
       <Alert tone="info" className="mb-3">
         Las funciones marcadas como no disponibles no están construidas en esta instalación, así que su interruptor queda bloqueado en apagado.
       </Alert>

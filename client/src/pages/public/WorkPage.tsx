@@ -94,7 +94,7 @@ export default function WorkPage() {
             {w.entityChain.map((e, i) => (
               <li key={`${e.role}-${e.name}`} className="inline-flex items-center gap-2">
                 <span className="rounded-lg border border-line bg-surface-2 px-3 py-2">
-                  <span className="block text-[11px] uppercase tracking-wide text-muted">{e.role}</span>
+                  <span className="block text-[11px] tracking-wide text-muted">{e.role}</span>
                   <span className="font-medium">{e.name}</span>
                 </span>
                 {i < w.entityChain.length - 1 && <ArrowRight size={16} className="text-muted" aria-hidden />}

@@ -14,6 +14,19 @@ export function newOriginCode(exists: (code: string) => boolean): string {
   return `LG-${shortCode()}${shortCode()}`;
 }
 
+/**
+ * Addendum v4.2: códigos cortos por parroquia, siempre en mayúsculas. Reporte R-CB-004512; lote de origen LG-CB-000123.
+ * CB = Caraballeda, CM = Catia La Mar, MA = Macuto.
+ */
+export function newParishCode(prefix: 'R' | 'LG', parishCode: string, exists: (code: string) => boolean, count: (prefix: string) => number): string {
+  const p = `${prefix}-${parishCode}-`;
+  for (let n = count(p) + 1; n < count(p) + 1000; n++) {
+    const code = `${p}${String(n).padStart(6, '0')}`;
+    if (!exists(code)) return code;
+  }
+  return `${p}${shortCode()}${shortCode()}`;
+}
+
 export function newTripCode(seq: number): string {
   return `V-${String(seq).padStart(4, '0')}`;
 }

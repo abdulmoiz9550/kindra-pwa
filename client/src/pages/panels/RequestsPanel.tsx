@@ -19,6 +19,8 @@ export default function RequestsPanel() {
   const [schedule, setSchedule] = useState<PickupView | null>(null);
   const [manage, setManage] = useState<{ r: PickupView; action: 'reassign' | 'cancel' } | null>(null);
   const [receive, setReceive] = useState<PickupView | null>(null);
+  const [assign, setAssign] = useState<PickupView | null>(null);
+  const ctx = useRequestContext();
   if (q.isLoading) return <Spinner />;
   if (q.error || !q.data) return <Alert tone="bad">{errorMessage(q.error)}</Alert>;
   const groups: Record<Tab, PickupView[]> = {
@@ -43,6 +45,7 @@ export default function RequestsPanel() {
                 {coord && r.status === 'submitted' && <Button size="sm" onClick={() => setSchedule(r)}>Programar</Button>}
                 {coord && r.status === 'received' && <Button size="sm" disabled={busy} onClick={() => run(`/${r.id}/validate`, {}, 'Solicitud validada y cerrada.')}>Validar y cerrar</Button>}
                 {role === 'center' && r.module !== 'debris' && r.status === 'collected' && <Button size="sm" onClick={() => setReceive(r)}>Confirmar recepción</Button>}
+                {(canManage || role === 'removal') && ['new', 'assigned'].includes(r.status) && <Button size="sm" onClick={() => setAssign(r)}>{r.driverId ? 'Cambiar conductor' : 'Asignar conductor'}</Button>}
                 {canManage && ['new', 'assigned', 'en_route', 'arrived', 'issue'].includes(r.status) && r.driverId && <Button size="sm" variant="secondary" onClick={() => setManage({ r, action: 'reassign' })}>Reasignar</Button>}
                 {canManage && ['submitted', 'new', 'assigned', 'en_route', 'arrived', 'issue'].includes(r.status) && <Button size="sm" variant="ghost" onClick={() => setManage({ r, action: 'cancel' })}>Cancelar</Button>}
                 <History r={r} />
@@ -55,6 +58,9 @@ export default function RequestsPanel() {
       {creating && <CreateModal onClose={() => setCreating(false)} />}
       {schedule && <ScheduleModal r={schedule} onClose={() => setSchedule(null)} />}
       {receive && <ReceiveModal r={receive} onClose={() => setReceive(null)} />}
+      <Modal open={!!assign} onClose={() => setAssign(null)} title={`Asignar conductor ${assign?.code ?? ''}`}>
+        {assign && <AssignForm drivers={(ctx.data?.drivers ?? []).filter((d) => d.entityId === assign.operatorEntityId)} busy={busy} onSend={async (driverId) => { if (await run(`/${assign.id}/assign`, { driverId }, 'Conductor asignado.')) setAssign(null); }} />}
+      </Modal>
       <TextModal key={manage?.r.id} open={!!manage} title={manage?.action === 'cancel' ? 'Cancelar solicitud' : 'Reasignar solicitud'} label="Motivo" busy={busy} onClose={() => setManage(null)} onSend={async (note) => { if (await run(`/${manage!.r.id}/manage`, { action: manage!.action, note }, 'Cambio registrado.')) setManage(null); }} />
     </div>
   );
@@ -119,5 +125,16 @@ function ReceiveModal({ r, onClose }: { r: PickupView; onClose: () => void }) {
       <Field label="Condición"><Input value={f.condition} onChange={(e) => setF({ ...f, condition: e.target.value })} /></Field>
       <Button disabled={busy || f.quantity === ''} onClick={async () => { if (await run(`/${r.id}/receive`, { quantity: Number(f.quantity), unit: r.unit, condition: f.condition || null }, 'Recepción confirmada.')) onClose(); }}>Confirmar recepción</Button>
     </Modal>
+  );
+}
+
+function AssignForm({ drivers, busy, onSend }: { drivers: { id: string; alias: string }[]; busy: boolean; onSend: (id: string) => void }) {
+  const [id, setId] = useState('');
+  if (!drivers.length) return <Alert tone="info">La entidad operadora no tiene conductores activos. Créalos desde Usuarios.</Alert>;
+  return (
+    <>
+      <Field label="Conductor" required><Select value={id} onChange={(e) => setId(e.target.value)}><option value="">Elige el conductor</option>{drivers.map((d) => <option key={d.id} value={d.id}>{d.alias}</option>)}</Select></Field>
+      <Button disabled={busy || !id} onClick={() => onSend(id)}>Asignar</Button>
+    </>
   );
 }
