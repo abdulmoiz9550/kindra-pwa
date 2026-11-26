@@ -44,7 +44,7 @@ export function eventView(e: KEvent, publicVersion: boolean): EventView {
   const d = e.data as Record<string, any>;
   const photoId: string | undefined = d.photoId || d.evidencePhotoId || d.trip?.departure?.photoId || d.arrival?.photoId || d.afterPhotoId || d.origin?.photoIds?.[0];
   const photo = photoId ? store.get('photos', photoId) : undefined;
-  const photoUrl = photo && (!publicVersion || photo.moderation === 'approved') ? photo.url : null;
+  const photoUrl = photo && (!publicVersion || photo.moderation === 'approved') ? (publicVersion ? photo.publicUrl ?? photo.url : photo.url) : null;
   let data: Record<string, unknown> = {};
   if (!publicVersion) data = summarizeData(e);
   else data = summarizeData(e, true);

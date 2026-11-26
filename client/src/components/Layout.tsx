@@ -23,6 +23,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const signedIn = useAuth((x) => !!x.user);
   const isPublicPage = location.pathname.startsWith('/publico/') || (location.pathname.startsWith('/tablero') && !signedIn);
   const showNav = !isPublicPage;
+  useIdleLogout();
   return (
     <div className="min-h-screen flex flex-col">
       <a href="#main" className="sr-only-focusable fixed left-2 top-2 z-[2000] rounded bg-surface px-3 py-2">
@@ -336,7 +337,37 @@ function OfflineBanner() {
   if (online && !pending) return null;
   return (
     <div className="fixed top-14 inset-x-0 z-[1090] bg-warn-soft text-ink text-xs text-center py-1 border-b border-warn" role="status">
-      {!online ? 'Sin conexión. Lo que envíes se guarda y se reintenta cuando vuelva la señal.' : `${pending} reporte${pending === 1 ? '' : 's'} guardado${pending === 1 ? '' : 's'} sin conexión, enviando…`}
+      {!online ? 'Sin conexión. Lo que envíes queda «Pendiente de Sincronizar», cifrado en el teléfono, y se envía al volver la señal.' : `${pending} registro${pending === 1 ? '' : 's'} Pendiente${pending === 1 ? '' : 's'} de Sincronizar, enviando…`}
     </div>
   );
+}
+
+/** Addendum v4.2, sección 11: la sesión se cierra tras un tiempo sin actividad (configurable por el administrador). */
+function useIdleLogout() {
+  const { data: cfg } = usePublicConfig();
+  const signedIn = useAuth((s) => !!s.token);
+  const logout = useAuth((s) => s.logout);
+  const qc = useQueryClient();
+  const push = useToasts((s) => s.push);
+  useEffect(() => {
+    if (!signedIn) return;
+    const limit = (cfg?.sessionIdleMinutes ?? 30) * 60_000;
+    let last = Date.now();
+    const touch = () => {
+      last = Date.now();
+    };
+    const events = ['pointerdown', 'keydown', 'scroll', 'touchstart'];
+    for (const e of events) window.addEventListener(e, touch, { passive: true });
+    const timer = setInterval(() => {
+      if (Date.now() - last > limit) {
+        logout();
+        qc.clear();
+        push({ kind: 'info', text: 'Cerramos tu sesión por inactividad. Ingresa de nuevo para seguir.' });
+      }
+    }, 30_000);
+    return () => {
+      clearInterval(timer);
+      for (const e of events) window.removeEventListener(e, touch);
+    };
+  }, [signedIn, cfg?.sessionIdleMinutes, logout, qc, push]);
 }

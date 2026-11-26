@@ -81,7 +81,7 @@ function Requests() {
     if (r.status === 'new') return <><Button size="sm" disabled={busy} onClick={() => run(`/${r.id}/accept`, {}, 'Solicitud asignada a ti.')}>Aceptar</Button><Button size="sm" variant="secondary" onClick={() => setReject(r)}>Rechazar</Button></>;
     if (r.status === 'assigned') return <><Button size="sm" disabled={busy} onClick={() => run(`/${r.id}/status`, { to: 'en_route' }, 'En camino.')}>Salir hacia el punto</Button>{r.module !== 'debris' && <Button size="sm" variant="secondary" onClick={() => setReject(r)}>Rechazar</Button>}<Button size="sm" variant="ghost" onClick={() => setIssue(r)}>Reportar incidencia</Button></>;
     if (r.status === 'en_route') return <><Button size="sm" disabled={busy} onClick={() => run(`/${r.id}/status`, { to: 'arrived' }, 'Llegada registrada.')}>Llegué al punto</Button><Button size="sm" variant="ghost" onClick={() => setIssue(r)}>Reportar incidencia</Button></>;
-    if (pending.includes(`/requests/${r.id}/collect`)) return <Badge tone="warn">Pendiente de sincronizar</Badge>;
+    if (pending.includes(`/requests/${r.id}/collect`)) return <Badge tone="warn">Pendiente de Sincronizar</Badge>;
     if (r.status === 'arrived') return <><Button size="sm" onClick={() => setCollect(r)}>Registrar recolección</Button><Button size="sm" variant="ghost" onClick={() => setIssue(r)}>Reportar incidencia</Button></>;
     if (r.status === 'collected') return <>{r.tripId && <Link className="btn-primary btn-sm" to="/panel/escolta">Ir a mi ruta</Link>}<span className="text-sm text-muted self-center">El centro confirma la recepción.</span></>;
     return null;

@@ -38,7 +38,7 @@ export function TwoFactorGate({ children }: { children: ReactNode }) {
 
   if (status.isLoading || !status.data) return <Spinner label="Comprobando la verificación en dos pasos…" />;
   const s = status.data;
-  if (s.sessionVerified) return <>{children}</>;
+  if (s.sessionVerified || !s.required) return <>{children}</>;
 
   const finish = (session: { token: string; user: PublicUser }) => {
     setSession(session);
@@ -70,7 +70,7 @@ export function TwoFactorGate({ children }: { children: ReactNode }) {
             <ShieldCheck size={20} /> Verificación en dos pasos
           </span>
         }
-        subtitle="La administración principal de Kindra solo se abre con la contraseña y un código de tu aplicación de autenticación."
+        subtitle="Las cuentas institucionales de Kindra se abren con la contraseña y un código de tu aplicación de autenticación."
       >
         {error && (
           <Alert tone="bad" className="mb-3">

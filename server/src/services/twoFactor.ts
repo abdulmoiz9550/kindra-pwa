@@ -1,3 +1,6 @@
+import { INSTITUTIONAL_ROLES } from '@kindra/shared';
+import type { Role } from '@kindra/shared';
+import { isFeatureOn } from './features';
 import QRCode from 'qrcode';
 import type { User } from '@kindra/shared';
 import { db } from '../core/db';
@@ -11,7 +14,10 @@ import { getConfig } from './config';
  * Verificación en dos pasos (addendum, parte 3): obligatoria para el Administrador Principal de Kindra.
  * El secreto vive en una colección propia que nunca se envía al cliente.
  */
-export const twoFactorRequired = (user: User) => user.roles.includes('admin');
+export const twoFactorRequired = (user: User) => user.roles.includes('admin') || (isFeatureOn('institutional_2fa') && user.roles.some((r) => INSTITUTIONAL_ROLES.includes(r)) && !(user.isDemo && getConfig().demoMode));
+
+/** Addendum v4.2, sección 13: el rol activo institucional exige la sesión verificada en dos pasos. */
+export const mfaRequiredForRole = (user: User, role: Role) => INSTITUTIONAL_ROLES.includes(role) && role !== 'admin' && isFeatureOn('institutional_2fa') && !(user.isDemo && getConfig().demoMode);
 
 const secretDoc = (userId: string) => db().get('twoFactorSecrets', userId);
 

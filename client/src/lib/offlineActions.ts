@@ -1,4 +1,4 @@
-import { get, set } from 'idb-keyval';
+import { getSecure as get, setSecure as set } from './secureStore';
 import { api, ApiError } from './api';
 import { uploadPhoto } from './media';
 import { toast } from './toast';
@@ -41,9 +41,9 @@ export async function sendOrQueue<T>(path: string, body: Record<string, unknown>
   } catch (err) {
     if (!(err instanceof ApiError) || !err.isNetwork) throw err;
     const items = await list();
-    items.push({ id: `pa_${Date.now()}`, queuedAt: new Date().toISOString(), path, body, photo: photo ?? null, label });
+    items.push({ id: `pa_${Date.now()}_${crypto.getRandomValues(new Uint32Array(1))[0].toString(36)}`, queuedAt: new Date().toISOString(), path, body, photo: photo ?? null, label });
     await set(KEY, items);
-    toast.info(`Sin señal: "${label}" quedó guardado en el teléfono y se enviará al volver la conexión.`);
+    toast.info(`Pendiente de Sincronizar: "${label}" quedó guardado en el teléfono y se enviará al volver la conexión.`);
     return null;
   }
 }
@@ -57,8 +57,8 @@ export async function flushActions(): Promise<number> {
     const remaining: QueuedAction[] = [];
     for (const it of items) {
       try {
-        const photoId = it.photo ? (await api.post<{ id: string }>('/photos', { dataUrl: it.photo.dataUrl, kind: it.photo.kind, location: it.photo.location }, { offlineQueuedAt: it.queuedAt })).id : undefined;
-        await api.post(it.path, photoId ? { ...it.body, photoId } : it.body, { offlineQueuedAt: it.queuedAt });
+        const photoId = it.photo ? (await api.post<{ id: string }>('/photos', { dataUrl: it.photo.dataUrl, kind: it.photo.kind, location: it.photo.location }, { offlineQueuedAt: it.queuedAt, idempotencyKey: `${it.id}:p` })).id : undefined;
+        await api.post(it.path, photoId ? { ...it.body, photoId } : it.body, { offlineQueuedAt: it.queuedAt, idempotencyKey: it.id });
         sent++;
       } catch (err) {
         if (err instanceof ApiError && err.isNetwork) remaining.push(it);

@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
 import { Link, Navigate, useLocation } from 'react-router-dom';
 import type { Role } from '@kindra/shared';
-import { PROFILE_ROLES, ROLE_LABELS } from '@kindra/shared';
+import { INSTITUTIONAL_ROLES, PROFILE_ROLES, ROLE_LABELS } from '@kindra/shared';
+import { TwoFactorGate } from '../pages/admin/TwoFactorGate';
 import { useAuth } from '../lib/auth';
 import { Alert, Button } from './ui';
 
@@ -10,6 +11,8 @@ export function RequireAccount({ children }: { children: ReactNode }) {
   const user = useAuth((s) => s.user);
   const location = useLocation();
   if (!user) return <Navigate to={`/ingresar?next=${encodeURIComponent(location.pathname)}`} replace />;
+  // Addendum v4.2, sección 13: las cuentas institucionales entran con verificación en dos pasos.
+  if (INSTITUTIONAL_ROLES.includes(user.activeRole) && user.activeRole !== 'admin') return <TwoFactorGate>{children}</TwoFactorGate>;
   return <>{children}</>;
 }
 

@@ -169,7 +169,7 @@ export function buildDashboard(sectorId: string | null): DashboardData {
     if (!o.afterPhotoId || !o.photoIds.length) continue;
     const before = store.get('photos', o.photoIds[0]);
     const after = store.get('photos', o.afterPhotoId);
-    if (before?.moderation === 'approved' && after?.moderation === 'approved') beforeAfter.push({ originCode: o.code, sectorName: store.get('sectors', o.sectorId)?.name || '', beforeUrl: before.url, afterUrl: after.url });
+    if (before?.moderation === 'approved' && after?.moderation === 'approved') beforeAfter.push({ originCode: o.code, sectorName: store.get('sectors', o.sectorId)?.name || '', beforeUrl: before.publicUrl ?? before.url, afterUrl: after.publicUrl ?? after.url });
   }
 
   const cfg = store.get('config', 'main');

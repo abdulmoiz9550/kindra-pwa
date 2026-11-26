@@ -1,3 +1,4 @@
+import { whatsappStatus } from '../services/whatsapp';
 import { logExport } from '../services/governance';
 import { openData, openDataCsv, parishPage, publicFacilities, publicLookup, sectorProgressAll } from '../services/portal';
 import { Router } from 'express';
@@ -40,6 +41,8 @@ publicRouter.get('/config', (_req, res) => {
     publicBaseUrl: env.publicBaseUrl,
     complaintChannelUrl: cfg.complaintChannelUrl,
     levels: cfg.raices.levels,
+    sessionIdleMinutes: cfg.sessionIdleMinutes ?? 30,
+    whatsapp: whatsappStatus(),
     raices: { values: cfg.raices.values, dailyCaps: cfg.raices.dailyCaps, catalogApproved: cfg.raices.catalogApproved },
     incentives: cfg.incentives ?? { status: 'pending', reference: null, approvedAt: null, approvedBy: null },
     points: cfg.points,

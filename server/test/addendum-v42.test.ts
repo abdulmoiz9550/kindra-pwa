@@ -222,3 +222,16 @@ test('v4.2 · Training: cursos con estados y cuestionario final que exige las le
   assert.equal(c.state, 'available');
   assert.throws(() => submitCourseQuiz(c.id, { id: u.id, role: 'citizen', entityId: null }, c.quiz.map(() => 0)), /lecciones/);
 });
+
+test('v4.2 · 14: un reporte oficial con diferencia mayor al 5 % abre una discrepancia; las anteriores no se pisan', async () => {
+  const { importSnapshot, reconciliationView } = await import('../src/services/reconciliation');
+  const store = db();
+  const before = store.count('reportSnapshots');
+  const center = store.get('centers', 'ce_norte')!;
+  const r = importSnapshot(coord(), { title: 'Prueba conciliación', source: 'Plan de Despeje Digno y Seguro / Totalidad de Vestigios', reportedAt: new Date().toISOString(), note: '', rows: [{ label: 'Caraballeda · prueba', facilityId: center.id, operatorEntityId: null, m3Today: 10, m3Accumulated: 999999, tonnesToday: 11, tonnesAccumulated: 1099998.9 }] });
+  assert.equal(store.count('reportSnapshots'), before + 1);
+  assert.ok(r.discrepancies.length >= 1);
+  assert.ok(r.discrepancies.every((d) => d.status === 'open'));
+  const v = reconciliationView(r.snapshot.id);
+  assert.match(v.rows[0].official.tonnesMethod, /factor/);
+});

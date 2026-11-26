@@ -1,3 +1,4 @@
+import { BlurEditor } from './BlurEditor';
 import { useState } from 'react';
 import type { Photo } from '@kindra/shared';
 import { Button, Badge, Spinner, Tabs, EmptyState } from '../../components/ui';
@@ -26,6 +27,7 @@ export default function Photos() {
   const [mode, setMode] = useState<Mode>('pending');
   const q = useAdminList<Photo>(`photos?moderation=${mode}`);
   const { post, busy } = useAdminAction();
+  const [blur, setBlur] = useState<Photo | null>(null);
   const list = (q.data || []).filter((p) => p.kind !== 'voice');
   return (
     <Section title="Moderación de fotos" subtitle="Antes de aprobar, revisa que no se vean rostros ni direcciones legibles. Las fotos aprobadas aparecen en la ficha pública y en el tablero.">
@@ -52,8 +54,8 @@ export default function Photos() {
             <p className="text-[11px] text-muted mt-1">{fmtDateTime(p.uploadedAt)}</p>
             <div className="mt-2 flex gap-1">
               {p.moderation !== 'approved' && (
-                <Button size="sm" disabled={busy} onClick={() => post(`photos/${p.id}/moderate`, { decision: 'approved' }, 'Foto aprobada.')}>
-                  Aprobar
+                <Button size="sm" disabled={busy} onClick={() => (p.url.endsWith('.pdf') || ['document', 'selfie', 'voice', 'other', 'reception'].includes(p.kind) ? post(`photos/${p.id}/moderate`, { decision: 'approved' }, 'Foto aprobada.') : setBlur(p))}>
+                  Revisar y aprobar
                 </Button>
               )}
               {p.moderation !== 'rejected' && (
@@ -65,6 +67,7 @@ export default function Photos() {
           </li>
         ))}
       </ul>
+      {blur && <BlurEditor src={blur.url} onClose={() => setBlur(null)} onPublish={async (r) => { if (await post(`photos/${blur.id}/publish`, r, 'Foto revisada y publicada.')) setBlur(null); }} />}
     </Section>
   );
 }

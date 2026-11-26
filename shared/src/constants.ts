@@ -485,6 +485,8 @@ export const FEATURES: FeatureDefinition[] = [
   { key: 'referrals', label: 'Referidos', description: 'Solo suman puntos cuando el primer reporte de la persona invitada se valida, nunca al registrarse.', group: 'debris', defaultOn: true, available: true },
   { key: 'community_announcements', label: 'Avisos comunitarios por sector', description: 'Avisa a los vecinos de un sector cuando hay puntos asignados para retiro.', group: 'debris', defaultOn: true, available: true },
   { key: 'preregistration', label: 'Códigos de pre-registro', description: 'Ingreso con código para personas sin teléfono. Oculto en esta fase.', group: 'debris', defaultOn: false, available: true },
+  // Addendum v4.2, sección 13: verificación en dos pasos obligatoria para todas las cuentas institucionales.
+  { key: 'institutional_2fa', label: 'Verificación en dos pasos para cuentas institucionales', description: 'Encendida: toda cuenta institucional (coordinación, retiro, conductor, centro, procesamiento, evaluador, supervisor, destino, administradores) entra con contraseña y código de su aplicación de autenticación. Las cuentas de prueba quedan exentas solo en modo demostración.', group: 'debris', defaultOn: true, available: true },
   // Addendum v4.2, sección 12: ubicación continua desde el GPS del camión. Preparada y apagada hasta que se encienda.
   { key: 'vehicle_tracking_level2', label: 'Ubicación continua de vehículos (nivel 2)', description: 'Rastreo continuo desde el dispositivo del camión o el teléfono del escolta. Apagado: solo se guarda la ubicación al registrar la salida y la llegada (nivel 1).', group: 'debris', defaultOn: false, available: true },
   // Fase posterior

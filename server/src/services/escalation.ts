@@ -102,6 +102,7 @@ export function startScheduler(intervalSeconds: number): void {
       runEscalations();
       // Addendum v4.2, sección 7: sin respuesta en el plazo, el cierre queda «Cerrado sin Confirmación».
       expireClosures();
+      purgeVehicleTrack();
     } catch (err) {
       console.error('[jobs] error en escalamientos:', (err as Error).message);
     }
@@ -110,4 +111,18 @@ export function startScheduler(intervalSeconds: number): void {
 export function stopScheduler(): void {
   if (timer) clearInterval(timer);
   timer = null;
+}
+
+/** Addendum v4.2, sección 12: el rastreo de vehículos se conserva el plazo configurado y después se borra. */
+export function purgeVehicleTrack(): number {
+  const days = getConfig().vehicleLocationRetentionDays;
+  if (!days || days < 1) return 0;
+  const limit = new Date(Date.now() - days * 86_400_000).toISOString();
+  const store = db();
+  let n = 0;
+  for (const p of store.filter('trackPoints', (x) => x.at < limit)) {
+    store.remove('trackPoints', p.id);
+    n++;
+  }
+  return n;
 }

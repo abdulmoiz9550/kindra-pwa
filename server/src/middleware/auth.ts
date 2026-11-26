@@ -1,3 +1,5 @@
+import { getConfig } from '../services/config';
+import { mfaRequiredForRole } from '../services/twoFactor';
 import type { Request, Response, NextFunction, RequestHandler } from 'express';
 import type { Role, User } from '@kindra/shared';
 import { INSTITUTIONAL_ROLES } from '@kindra/shared';
@@ -24,6 +26,8 @@ declare module 'express-serve-static-core' {
   }
 }
 
+const lastSeen = new Map<string, number>();
+
 /** Lee el token si existe (rutas públicas y ciudadanas lo aceptan de forma opcional). */
 export function authenticate(req: Request, _res: Response, next: NextFunction): void {
   req.deviceTime = (req.header('x-device-time') as string) || (req.body && typeof req.body.deviceTime === 'string' ? req.body.deviceTime : null);
@@ -34,7 +38,14 @@ export function authenticate(req: Request, _res: Response, next: NextFunction): 
     const payload = verifyToken(header.slice(7));
     if (payload) {
       const user = db().get('users', payload.userId);
-      if (user && user.active) {
+      // Addendum v4.2, sección 11: la sesión vence tras un tiempo sin actividad (configurable).
+      const token = header.slice(7);
+      const idleMs = (getConfig().sessionIdleMinutes ?? 30) * 60_000;
+      const seen = lastSeen.get(token);
+      const expired = !!seen && Date.now() - seen > idleMs;
+      if (!expired) lastSeen.set(token, Date.now());
+      if (lastSeen.size > 50_000) for (const [k, t] of lastSeen) if (Date.now() - t > idleMs) lastSeen.delete(k);
+      if (user && user.active && !expired) {
         const role = user.roles.includes(payload.activeRole) ? payload.activeRole : user.roles[0];
         req.auth = { user, role, actor: { id: user.id, role, entityId: user.entityId ?? null }, mfa: !!payload.mfa && !!user.twoFactor?.enabled };
       }
@@ -56,6 +67,10 @@ export function requireRole(...roles: Role[]): RequestHandler {
     const institutional: Role[] = [...INSTITUTIONAL_ROLES, 'monitor'];
     if (institutional.includes(req.auth.role) && req.auth.user.verificationStatus !== 'verified') {
       return next(forbidden('Debes completar la verificación de identidad para usar este rol.'));
+    }
+    if (mfaRequiredForRole(req.auth.user, req.auth.role)) {
+      if (!req.auth.user.twoFactor?.enabled) return next(new HttpError(403, 'Activa la verificación en dos pasos para usar tu cuenta institucional.', 'mfa_setup_required'));
+      if (!req.auth.mfa) return next(new HttpError(403, 'Confirma el código de tu aplicación de verificación para continuar.', 'mfa_required'));
     }
     next();
   };

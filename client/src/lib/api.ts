@@ -17,6 +17,8 @@ export class ApiError extends Error {
 
 export interface RequestOptions {
   offlineQueuedAt?: string | null;
+  /** Identificador único del envío: un reintento no duplica el registro (addendum v4.2, sección 11). */
+  idempotencyKey?: string | null;
   signal?: AbortSignal;
   raw?: boolean;
 }
@@ -31,6 +33,7 @@ async function request<T>(method: string, path: string, body?: unknown, opts: Re
   const token = getToken();
   if (token) headers.Authorization = `Bearer ${token}`;
   if (opts.offlineQueuedAt) headers['X-Offline-Queued-At'] = opts.offlineQueuedAt;
+  if (opts.idempotencyKey) headers['X-Idempotency-Key'] = opts.idempotencyKey;
   let res: Response;
   try {
     res = await fetch(`/api${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), signal: opts.signal });

@@ -64,6 +64,7 @@ export const DEFAULT_CONFIG: AppConfig = {
     ],
     catalogApproved: false,
   },
+  sessionIdleMinutes: 30,
   complaintChannelUrl: '',
   help: DEFAULT_HELP,
   hazardChecklist: [

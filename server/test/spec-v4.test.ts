@@ -265,9 +265,13 @@ test('17, 21 y 30: solicitud → un solo conductor → recolección → centro c
     validateOrigin(origin.id, { id: user('coordinador').id, role: 'coordinator', entityId: 'en_coord' });
     return origin;
   };
+  // Addendum v4.2, sección 13: cuentas institucionales reales entran con verificación en dos pasos.
+  const mfa = (id: string) => db().update('users', id, { twoFactor: { enabled: true } } as never).id;
   const other = upsertUser({ alias: 'retiro-dos', password: 'demo1234', roles: ['driver'], entityId: 'en_ejec', verificationStatus: 'verified' });
-  const d1 = issueToken(upsertUser({ alias: 'retiro-uno', password: 'demo1234', roles: ['driver'], entityId: 'en_ejec', verificationStatus: 'verified' }).id, 'driver');
-  const d2 = issueToken(other.id, 'driver');
+  const one = upsertUser({ alias: 'retiro-uno', password: 'demo1234', roles: ['driver'], entityId: 'en_ejec', verificationStatus: 'verified' });
+  assert.equal((await get('/requests', issueToken(one.id, 'driver'))).status, 403); // sin verificación en dos pasos
+  const d1 = issueToken(mfa(one.id), 'driver', true);
+  const d2 = issueToken(mfa(other.id), 'driver', true);
   const o = mk();
   const body = { module: 'debris', originId: o.id, operatorEntityId: 'en_ejec', centerId: 'ce_norte', material: 'Concreto', estimatedQuantity: 6, unit: 'm3', date: '2026-11-25', windowFrom: '08:00', windowTo: '10:00' };
   assert.equal((await post('/requests', coord, { ...body, module: 'liquid', unit: 'l' })).status, 403); // módulo inactivo

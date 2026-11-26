@@ -1,3 +1,4 @@
+import { sealBackup } from '../services/backup';
 /**
  * Copia de seguridad diaria (18.6). Uso: npm run backup -w server
  * - memory: copia server/data/db.json a server/data/backups/db-AAAA-MM-DD.json
@@ -17,7 +18,7 @@ async function main() {
     const p = new PostgresPersistence(env.databaseUrl, env.databaseSsl, defaultSchemaPath(env.serverRoot));
     const state = await p.load();
     const out = path.join(dir, `pg-${stamp}.json`);
-    fs.writeFileSync(out, JSON.stringify(state));
+    fs.writeFileSync(out, sealBackup(Buffer.from(JSON.stringify(state), 'utf8')));
     await p.close();
     console.log(`[backup] exportado a ${out} (${state.events.length} eventos)`);
     return;

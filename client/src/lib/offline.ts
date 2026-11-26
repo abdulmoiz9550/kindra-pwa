@@ -1,4 +1,4 @@
-import { get, set, del } from 'idb-keyval';
+import { getSecure as get, setSecure as set, delSecure as del } from './secureStore';
 import { api, ApiError } from './api';
 import { saveCode } from './storage';
 import { toast } from './toast';
@@ -25,7 +25,7 @@ export async function pendingReports(): Promise<PendingReport[]> {
 
 export async function enqueueReport(r: Omit<PendingReport, 'id' | 'queuedAt'>): Promise<PendingReport> {
   const list = await pendingReports();
-  const item: PendingReport = { ...r, id: `pr_${Date.now()}`, queuedAt: new Date().toISOString() };
+  const item: PendingReport = { ...r, id: `pr_${Date.now()}_${crypto.getRandomValues(new Uint32Array(1))[0].toString(36)}`, queuedAt: new Date().toISOString() };
   list.push(item);
   await set(KEY, list);
   notifyListeners();
@@ -50,16 +50,17 @@ export async function flushPending(): Promise<number> {
     for (const item of list) {
       try {
         const photoIds: string[] = [];
-        for (const p of item.photos) {
-          const ph = await api.post<{ id: string }>('/photos', p, { offlineQueuedAt: item.queuedAt });
+        for (const [i, p] of item.photos.entries()) {
+          // Cada envío lleva su identificador: si se reintenta, el servidor no lo duplica.
+          const ph = await api.post<{ id: string }>('/photos', p, { offlineQueuedAt: item.queuedAt, idempotencyKey: `${item.id}:p${i}` });
           photoIds.push(ph.id);
         }
         let voiceNoteId: string | null = null;
         if (item.voiceNote) {
-          const v = await api.post<{ id: string }>('/photos', { dataUrl: item.voiceNote, kind: 'voice' }, { offlineQueuedAt: item.queuedAt });
+          const v = await api.post<{ id: string }>('/photos', { dataUrl: item.voiceNote, kind: 'voice' }, { offlineQueuedAt: item.queuedAt, idempotencyKey: `${item.id}:v` });
           voiceNoteId = v.id;
         }
-        const r = await api.post<{ code: string; sector: { name: string } }>('/origins', { ...item.body, photoIds, voiceNoteId }, { offlineQueuedAt: item.queuedAt });
+        const r = await api.post<{ code: string; sector: { name: string } }>('/origins', { ...item.body, photoIds, voiceNoteId }, { offlineQueuedAt: item.queuedAt, idempotencyKey: item.id });
         saveCode(r.code, r.sector?.name);
         toast.success(`Volvió la conexión: tu reporte quedó registrado con el código ${r.code}.`);
         sent++;

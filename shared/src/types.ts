@@ -669,6 +669,10 @@ export interface Photo {
   uploadedBy?: string | null;
   kind: 'origin' | 'trip_departure' | 'trip_arrival' | 'reception' | 'before' | 'after' | 'selfie' | 'on_site' | 'evidence' | 'document' | 'voice' | 'other';
   moderation: 'pending' | 'approved' | 'rejected';
+  /** Addendum v4.2, sección 13: versión pública con caras y placas difuminadas (revisada por una persona). */
+  publicUrl?: string | null;
+  /** Una persona revisó caras y placas antes de publicar. */
+  blurReviewed?: boolean;
   location?: GeoPoint | null;
   takenAt?: string | null;
   uploadedAt: string;
@@ -821,6 +825,10 @@ export interface AppConfig {
   levels: LevelConfig[];
   raices: RaicesConfig;
   complaintChannelUrl: string;
+  /** Addendum v4.2, sección 11: minutos sin actividad tras los que se cierra la sesión. */
+  sessionIdleMinutes?: number;
+  /** Addendum v4.2, sección 12: días que se conserva la ubicación de vehículos (nivel 2). Sin valor = pendiente de aprobación. */
+  vehicleLocationRetentionDays?: number | null;
   /** Addendum v4.2, sección 9: licencia de los datos abiertos. Vacía = pendiente de definición. */
   openDataLicense?: string;
   /** Addendum v4.2, 10.7: número oficial de emergencias que AURA da ante un riesgo inmediato. */

@@ -64,6 +64,8 @@ export function registerPhoto(photo: Photo): Photo {
 export function moderatePhoto(id: string, decision: 'approved' | 'rejected'): Photo {
   const p = db().get('photos', id);
   if (!p) throw badRequest('La foto no existe.');
+  // Fotos donde pueden aparecer personas o placas: se aprueban solo tras la revisión de difuminado.
+  if (decision === 'approved' && !p.blurReviewed && ['origin', 'after', 'before', 'on_site', 'trip_departure', 'trip_arrival', 'evidence'].includes(p.kind)) throw badRequest('Antes de publicar, revisa caras y placas: difumínalas o confirma que no hay ninguna.', 'blur_review_required');
   return db().update('photos', id, { moderation: decision });
 }
 
@@ -85,7 +87,22 @@ export function photosByIds(ids: string[], onlyModerated = false): Photo[] {
   const out: Photo[] = [];
   for (const id of ids) {
     const p = db().get('photos', id);
-    if (p && (!onlyModerated || p.moderation === 'approved')) out.push(p);
+    // En público se usa la versión difuminada (addendum v4.2, sección 13).
+    if (p && (!onlyModerated || p.moderation === 'approved')) out.push(onlyModerated && p.publicUrl ? { ...p, url: p.publicUrl } : p);
   }
   return out;
+}
+
+/**
+ * Addendum v4.2, sección 13: antes de publicar, una persona revisa caras y placas. Si hay, sube la versión difuminada
+ * (el original queda restringido como evidencia); si no hay, lo deja constancia. Recién entonces se aprueba.
+ */
+export function publishReviewedPhoto(id: string, input: { dataUrl?: string | null; noPeople?: boolean }, reviewerId: string): Photo {
+  const store = db();
+  const p = store.get('photos', id);
+  if (!p) throw badRequest('La foto no existe.');
+  if (!input.dataUrl && !input.noPeople) throw badRequest('Difumina las caras y placas o confirma que no hay ninguna.');
+  let publicUrl: string | null = null;
+  if (input.dataUrl) publicUrl = savePhoto({ dataUrl: input.dataUrl, kind: 'evidence' as Photo['kind'], uploadedBy: reviewerId, location: null }).url;
+  return store.update('photos', id, { publicUrl, blurReviewed: true, moderation: 'approved' });
 }

@@ -306,10 +306,12 @@ function Backups() {
   const q = useAdminList<{ file: string; size: number; createdAt: string; remote?: boolean }>('backups');
   const { post, busy } = useAdminAction();
   const [result, setResult] = useState<{ file: string; ok: boolean; events: number; documents: number; chains: number; testedAt: string } | null>(null);
+  const lastTest = useAdminGet<{ at: string; ok: boolean; file: string } | null>('backups/last-test');
   if (q.isLoading) return <Spinner />;
   return (
     <>
       <Alert tone="info" className="mb-3">Las copias contienen información crítica: quedan en el servidor y no se descargan desde aquí. “Probar restauración” carga la copia en una base temporal y comprueba todos los sellos, sin tocar los datos reales.</Alert>
+      <p className="text-sm mb-2">Las copias se guardan cifradas. Prueba de restauración mensual automática: {lastTest.data ? `${lastTest.data.ok ? 'correcta' : 'con fallas'} el ${fmtDateTime(lastTest.data.at)}` : 'todavía no se ha hecho'}.</p>
       <div className="mb-3 flex justify-end"><Button disabled={busy} onClick={() => post('backups', {}, 'Copia creada.')}>Crear copia ahora</Button></div>
       {result && <Alert tone={result.ok ? 'ok' : 'bad'} className="mb-3" title={result.ok ? 'Restauración probada' : 'La restauración falló'}>{result.file}: {result.events} eventos, {result.documents} documentos y {result.chains} cadenas revisadas el {fmtDateTime(result.testedAt)}.</Alert>}
       {!(q.data || []).length ? <EmptyState title="Todavía no hay copias en este servidor" /> : (

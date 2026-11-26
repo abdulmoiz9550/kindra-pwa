@@ -19,13 +19,13 @@ import { EVENT_LABELS } from '@kindra/shared';
 import { gateCodeOfCenter, gateCodeOfWork, centerPoint } from '../services/tracking';
 import { traccarStatus } from '../services/traccar';
 import { env } from '../config/env';
-import { moderatePhoto } from '../services/photos';
+import { moderatePhoto, publishReviewedPhoto } from '../services/photos';
 import { runEscalations } from '../services/escalation';
 import { resetDemo } from '../seed/demo';
 import { badRequest } from '../core/errors';
 import { clientCount } from '../realtime/sse';
 import { listInfoRequests, actOnInfoRequest, securityLog, listRecovery, resolveRecovery, upsertRisk, createIncident, updateIncident } from '../services/governance';
-import { listAllBackups, createBackup, verifyBackupFile } from '../services/backup';
+import { listAllBackups, createBackup, verifyBackupFile, lastRestoreTest } from '../services/backup';
 import { upsertChallenge } from '../services/challenges';
 import { listSnapshots } from '../services/reportSnapshots';
 import { adminGroups, upsertGroup, upsertBusiness, businessBody } from '../services/profiles';
@@ -346,6 +346,14 @@ adminRouter.post(
   }),
 );
 
+adminRouter.post(
+  '/photos/:id/publish',
+  wrap((req, res) => {
+    const body = z.object({ dataUrl: z.string().nullable().optional(), noPeople: z.boolean().optional() }).parse(req.body);
+    res.json(publishReviewedPhoto(String(req.params.id), body, req.auth!.user.id));
+  }),
+);
+
 // ---------------------------------------------------------------- pre-registro, trabajos, reset
 adminRouter.get('/prereg-codes', (_req, res) => res.json(db().list('preregistrationCodes')));
 adminRouter.post(
@@ -446,6 +454,7 @@ adminRouter.post(
 adminRouter.get('/backups', wrap(async (_req, res) => {
   res.json(await listAllBackups());
 }));
+adminRouter.get('/backups/last-test', (_req, res) => res.json(lastRestoreTest()));
 adminRouter.post(
   '/backups',
   wrap(async (_req, res) => {

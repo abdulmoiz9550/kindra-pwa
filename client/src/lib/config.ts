@@ -13,6 +13,8 @@ export interface PublicConfig {
   complaintChannelUrl: string;
   levels: LevelConfig[];
   points: PointsConfig;
+  sessionIdleMinutes?: number;
+  whatsapp?: 'ok' | 'down' | 'not_configured';
   raices?: { values: Record<string, number>; dailyCaps: Record<string, number>; catalogApproved: boolean };
   incentives?: { status: 'pending' | 'approved'; reference: string | null; approvedAt: string | null; approvedBy: string | null };
   thresholds: { duplicateDistanceM: number; duplicateWindowDays: number; timeSkewMinutes: number; tripArrivalDeadlineHours: number; dailyReportLimit: number };

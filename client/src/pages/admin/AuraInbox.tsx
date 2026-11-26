@@ -85,6 +85,8 @@ function ModuleSettings() {
           <Field label="Horario de respuesta del equipo (fuera de horario)"><Input value={c.supportHours ?? ''} maxLength={120} onChange={(e) => set({ supportHours: e.target.value })} placeholder="Ej. de lunes a viernes, de 8:00 a 17:00" /></Field>
           <Field label="Días para confirmar o disputar un cierre"><Input type="number" min={1} max={60} value={c.thresholds.closureConfirmDays ?? 7} onChange={(e) => set({ thresholds: { ...c.thresholds, closureConfirmDays: Number(e.target.value) } })} /></Field>
           <Field label="Reportes por número y día (control de abuso)"><Input type="number" min={1} max={50} value={c.thresholds.dailyReportLimit} onChange={(e) => set({ thresholds: { ...c.thresholds, dailyReportLimit: Number(e.target.value) } })} /></Field>
+          <Field label="Minutos sin actividad para cerrar la sesión"><Input type="number" min={5} max={720} value={c.sessionIdleMinutes ?? 30} onChange={(e) => set({ sessionIdleMinutes: Number(e.target.value) })} /></Field>
+          <Field label="Días que se conserva el rastreo de vehículos (nivel 2)" hint="Vacío: no se borra nada hasta que se apruebe el plazo."><Input type="number" min={1} max={3650} value={c.vehicleLocationRetentionDays ?? ''} onChange={(e) => set({ vehicleLocationRetentionDays: e.target.value === '' ? null : Number(e.target.value) })} /></Field>
           <Field label="Licencia de los datos abiertos"><Input value={c.openDataLicense ?? ''} maxLength={200} onChange={(e) => set({ openDataLicense: e.target.value })} placeholder="Pendiente de definición" /></Field>
         </div>
         <h3 className="font-semibold mt-3 mb-1">Raíces por hecho validado</h3>

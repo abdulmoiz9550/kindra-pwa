@@ -1,3 +1,4 @@
+import Reconciliation from './Reconciliation';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -60,7 +61,7 @@ const num = (n: number | null | undefined) => (n === null || n === undefined ? '
 
 /** v4.0, secciones 3, 4, 8 y 20: reportes por centro físico y operador. */
 export default function Reports() {
-  const [tab, setTab] = useTab<'snapshot' | 'activity'>('snapshot');
+  const [tab, setTab] = useTab<'snapshot' | 'activity' | 'reconciliation'>('snapshot');
   return (
     <div>
       <PageTitle title="Reportes por centro" subtitle="Cifras por centro físico y por operador. Metros cúbicos y toneladas se muestran por separado, igual que el día y el acumulado." />
@@ -70,9 +71,10 @@ export default function Reports() {
         items={[
           { value: 'snapshot', label: 'Reporte operativo oficial' },
           { value: 'activity', label: 'Registros de Kindra' },
+          { value: 'reconciliation', label: 'Conciliación' },
         ]}
       />
-      <div className="mt-3">{tab === 'snapshot' ? <Snapshot /> : <ActivityReport />}</div>
+      <div className="mt-3">{tab === 'snapshot' ? <Snapshot /> : tab === 'activity' ? <ActivityReport /> : <Reconciliation />}</div>
     </div>
   );
 }

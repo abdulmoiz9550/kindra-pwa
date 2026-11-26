@@ -1,10 +1,11 @@
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { gunzipSync, gzipSync } from 'node:zlib';
 import type { KEvent } from '@kindra/shared';
 import { env } from '../config/env';
 import { db } from '../core/db';
-import { contentHashOf, finalHashOf } from '../core/events';
+import { appendEvent, contentHashOf, finalHashOf, SYSTEM_ACTOR } from '../core/events';
 import { badRequest, notFound } from '../core/errors';
 import { MemoryPersistence } from '../persistence/memory';
 import { remoteCopies } from './photoStore';
@@ -15,6 +16,23 @@ import type { LoadedState, Persistence } from '../persistence/types';
  * quedan en el servidor y no se descargan desde la aplicación.
  */
 const backupDir = () => path.join(env.dataDir, 'backups');
+
+/** Addendum v4.2, sección 13: copias cifradas (AES-256-GCM). La clave es BACKUP_KEY o, si falta, una derivada del secreto del servidor. */
+const MAGIC = Buffer.from('KENC1');
+const backupKey = () => crypto.createHash('sha256').update(process.env.BACKUP_KEY || `kindra-backup:${env.jwtSecret}`).digest();
+export function sealBackup(plain: Buffer): Buffer {
+  const iv = crypto.randomBytes(12);
+  const c = crypto.createCipheriv('aes-256-gcm', backupKey(), iv);
+  const data = Buffer.concat([c.update(plain), c.final()]);
+  return Buffer.concat([MAGIC, iv, c.getAuthTag(), data]);
+}
+export function openBackup(buf: Buffer): Buffer {
+  if (!buf.subarray(0, MAGIC.length).equals(MAGIC)) return buf; // copia anterior sin cifrar
+  const iv = buf.subarray(5, 17);
+  const d = crypto.createDecipheriv('aes-256-gcm', backupKey(), iv);
+  d.setAuthTag(buf.subarray(17, 33));
+  return Buffer.concat([d.update(buf.subarray(33)), d.final()]);
+}
 const KEEP = 14;
 
 export function listBackups() {
@@ -56,13 +74,13 @@ export async function createBackup(): Promise<{ file: string; events: number; re
   fs.mkdirSync(dir, { recursive: true });
   const file = `auto-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
   const json = JSON.stringify(state);
-  fs.writeFileSync(path.join(dir, file), json);
+  fs.writeFileSync(path.join(dir, file), sealBackup(Buffer.from(json, 'utf8')));
   for (const old of listBackups().filter((b) => b.file.startsWith('auto-')).slice(KEEP)) fs.unlinkSync(path.join(dir, old.file));
   let saved = false;
   const remote = remoteCopies();
   if (remote) {
     try {
-      await remote.save(`${file}.gz`, gzipSync(json));
+      await remote.save(`${file}.gz`, sealBackup(gzipSync(json)));
       saved = true;
       for (const old of (await remote.list()).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)).slice(KEEP)) await remote.remove(old.name);
     } catch (err) {
@@ -76,7 +94,7 @@ export function readBackup(fullPath: string): LoadedState {
   if (!fs.existsSync(fullPath)) throw notFound('La copia no existe.');
   let raw: LoadedState;
   try {
-    raw = JSON.parse(fs.readFileSync(fullPath, 'utf8')) as LoadedState;
+    raw = JSON.parse(openBackup(fs.readFileSync(fullPath)).toString('utf8')) as LoadedState;
   } catch {
     throw badRequest('La copia está dañada: no se puede leer.');
   }
@@ -117,9 +135,31 @@ export async function verifyBackupFile(file: string) {
     const data = await remoteCopies()?.load(`${path.basename(file)}.gz`);
     if (data) {
       fs.mkdirSync(backupDir(), { recursive: true });
-      fs.writeFileSync(local, gunzipSync(data));
+      fs.writeFileSync(local, sealBackup(gunzipSync(openBackup(Buffer.from(data)))));
     }
   }
   const state = readBackup(path.join(backupDir(), path.basename(file)));
-  return { file, testedAt: new Date().toISOString(), ...(await restoreInto(new MemoryPersistence(null), state)) };
+  const result = { file, testedAt: new Date().toISOString(), ...(await restoreInto(new MemoryPersistence(null), state)) };
+  appendEvent({ type: 'governance_action', objectType: 'system', objectId: 'governance', actor: SYSTEM_ACTOR, data: { action: 'restore_test', file, ok: result.ok, events: result.events, broken: result.broken.length }, silent: true });
+  return result;
+}
+
+/** Última prueba de restauración registrada. */
+export function lastRestoreTest(): { at: string; ok: boolean; file: string } | null {
+  const e = db().allEvents().filter((x) => x.type === 'governance_action' && (x.data as { action?: string }).action === 'restore_test').at(-1);
+  return e ? { at: e.serverTime, ok: !!(e.data as { ok?: boolean }).ok, file: String((e.data as { file?: string }).file) } : null;
+}
+
+/** Addendum v4.2, sección 13: prueba de restauración mensual automática sobre la copia más reciente. */
+export async function monthlyRestoreTest(): Promise<void> {
+  const last = lastRestoreTest();
+  if (last && Date.now() - Date.parse(last.at) < 30 * 86_400_000) return;
+  const latest = (await listAllBackups())[0];
+  if (!latest) return;
+  try {
+    await verifyBackupFile(latest.file);
+  } catch (err) {
+    console.error('[backup] la prueba de restauración mensual falló:', (err as Error).message);
+    appendEvent({ type: 'governance_action', objectType: 'system', objectId: 'governance', actor: SYSTEM_ACTOR, data: { action: 'restore_test', file: latest.file, ok: false, error: (err as Error).message.slice(0, 200) }, silent: true });
+  }
 }

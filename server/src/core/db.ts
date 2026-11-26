@@ -1,3 +1,4 @@
+import type { ReconDiscrepancy } from '../services/reconciliation';
 import type {
   Entity, User, Sector, Origin, VehicleType, Vehicle, Trip, Center, Reception, Batch, HazardDecision,
   QualityVerification, Work, Dispatch, Closure, DailySummary, JobsRecord, Observation, Lesson, LessonCompletion,
@@ -92,6 +93,7 @@ export interface Collections {
   auraSessions: AuraSession;
   auraProfiles: AuraProfile;
   supportTickets: SupportTicket;
+  reconDiscrepancies: ReconDiscrepancy;
   certificates: Certificate;
   spaces: Space;
   /** Secretos de verificación en dos pasos (nunca salen del servidor). */
@@ -152,7 +154,7 @@ export const PROJECTION_COLLECTIONS: CollectionName[] = [
 
 const ALL_COLLECTIONS: CollectionName[] = [
   'entities', 'users', 'sectors', 'centers', 'vehicleTypes', 'vehicles', 'lessons', 'auraTexts', 'config', 'photos',
-  'preregistrationCodes', 'notifications', 'auraSessions', 'certificates', 'spaces', 'twoFactorSecrets', 'trackPoints', 'tripRoutes', 'reportSnapshots', 'infoRequests', 'pickupRequests', 'risks', 'incidents', 'recoveryRequests', 'groups', 'memberships', 'groupActivities', 'wasteReports', 'businesses', 'moduleDefinitions', 'aiSuggestions', 'correctionRequests', 'news', 'reportAssignments', 'reviewLogs', 'ecoChallenges', 'courses', 'auraProfiles', 'supportTickets', ...PROJECTION_COLLECTIONS,
+  'preregistrationCodes', 'notifications', 'auraSessions', 'certificates', 'spaces', 'twoFactorSecrets', 'trackPoints', 'tripRoutes', 'reportSnapshots', 'infoRequests', 'pickupRequests', 'risks', 'incidents', 'recoveryRequests', 'groups', 'memberships', 'groupActivities', 'wasteReports', 'businesses', 'moduleDefinitions', 'aiSuggestions', 'correctionRequests', 'news', 'reportAssignments', 'reviewLogs', 'ecoChallenges', 'courses', 'auraProfiles', 'supportTickets', 'reconDiscrepancies', ...PROJECTION_COLLECTIONS,
 ];
 
 /**

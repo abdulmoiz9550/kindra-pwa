@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { env } from './config/env';
 import { authenticate, errorHandler } from './middleware/auth';
+import { idempotency } from './middleware/idempotency';
 import { restoreMissingUpload } from './services/photoStore';
 import { isUploadPath, requireSignedUpload, signUpload, unsignUpload } from './services/uploads';
 import { publicRouter } from './routes/public';
@@ -38,6 +39,7 @@ export function createApp() {
   app.use('/api/whatsapp', whatsappRouter);
   app.use(express.json({ limit: '6mb', reviver: (_k: string, v: unknown) => (isUploadPath(v) ? unsignUpload(v) : v) }));
   app.use(authenticate);
+  app.use(idempotency);
 
   app.get('/api/health', (_req, res) => res.json({ ok: true, at: new Date().toISOString() }));
   app.use('/api/public', publicRouter);
