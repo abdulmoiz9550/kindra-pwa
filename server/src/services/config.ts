@@ -53,9 +53,11 @@ export function ensureDefaults(): void {
     const hit = PARISHES.find((p) => s.name.toLowerCase().includes(p.name.toLowerCase()));
     if (hit) store.update('sectors', s.id, { parish: hit.name });
   }
-  // Macuto todavía no tiene sectores cargados: una entrada provisional, sin polígono, hasta que el administrador los cargue.
-  if (store.count('sectors') && !store.find('sectors', (s) => s.parish === 'Macuto')) {
-    store.put('sectors', { id: 'sc_macuto', name: 'Macuto (provisional)', parish: 'Macuto', polygon: [], authorized: true, provisional: true, spaceId: store.get('sectors', 'sc_este')?.spaceId ?? null } as Sector);
+  // Macuto y Urimare todavía no tienen sectores cargados: una zona provisional, sin polígono, hasta recibir las listas.
+  for (const [id, parish] of [['sc_macuto', 'Macuto'], ['sc_urimare', 'Urimare']] as const) {
+    if (store.count('sectors') && !store.find('sectors', (s) => s.parish === parish)) {
+      store.put('sectors', { id, name: `${parish} (provisional)`, parish, polygon: [], authorized: true, provisional: true, spaceId: store.get('sectors', 'sc_este')?.spaceId ?? null } as Sector);
+    }
   }
 }
 

@@ -11,7 +11,7 @@ import { MapView } from '../../components/MapView';
 import { PublicHeader } from '../../components/PublicHeader';
 
 type Light = 'red' | 'yellow' | 'green' | 'grey';
-interface SectorRow { id: string; name: string; parish: string; polygon: [number, number][]; received: number; validated: number; closed: number; confirmed: number; lotsByState: { label: string; count: number }[]; tonnesWeighed: number; tonnesEstimated: number; m3: number; light: Light; lightLabel: string }
+interface SectorRow { id: string; name: string; parish: string; polygon: [number, number][]; published: boolean; received: number | null; validated: number | null; closed: number | null; confirmed: number | null; lotsByState: { label: string; count: number | null }[]; tonnesWeighed: number | null; tonnesEstimated: number | null; m3: number | null; light: Light; lightLabel: string }
 interface Facility { id: string; name: string; type: 'CDT' | 'CDF'; location: { lat: number; lng: number }; unloadingPoint: { lat: number; lng: number } | null; operators: string[] }
 interface PortalData { cutoff: string; source: string; sectors: SectorRow[]; facilities: Facility[] }
 
@@ -42,19 +42,20 @@ export function SectorLights({ data }: { data: PortalData }) {
               <tr key={s.id}>
                 <td>{s.name}<span className="block text-xs text-muted">{s.parish}</span></td>
                 <td><span className="inline-flex items-center gap-1 font-semibold" style={{ color: LIGHT[s.light].color }}><span aria-hidden>{LIGHT[s.light].icon}</span>{LIGHT[s.light].text}</span></td>
+                {!s.published ? <td colSpan={7} className="text-xs text-muted">Menos de 5 reportes: el sector no se publica todavía.</td> : <>
                 <td className="text-right">{s.received}</td>
                 <td className="text-right">{s.validated}</td>
                 <td className="text-right">{s.closed}</td>
                 <td className="text-xs">{s.lotsByState.map((l) => `${l.label}: ${l.count}`).join(' · ')}</td>
                 <td className="text-right">{fmtNum(s.tonnesWeighed)}</td>
                 <td className="text-right">{fmtNum(s.tonnesEstimated)}</td>
-                <td className="text-right">{fmtNum(s.m3)}</td>
+                <td className="text-right">{fmtNum(s.m3)}</td></>}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <p className="text-xs text-muted mt-2">Las toneladas pesadas en báscula y las estimadas se muestran por separado; los m³ no se convierten.</p>
+      <p className="text-xs text-muted mt-2">Las toneladas pesadas en báscula y las estimadas se muestran por separado; los m³ no se convierten. Un sector con menos de 5 reportes no se publica.</p>
     </Card>
   );
 }
@@ -86,7 +87,7 @@ export function FacilitiesMap({ data }: { data: PortalData }) {
 }
 
 export function OpenDataCard() {
-  const q = useQuery({ queryKey: ['public', 'open-data'], queryFn: () => api.get<{ title: string; cutoff: string; license: string; dictionary: { field: string; description: string }[]; rows: number }>('/public/datos-abiertos') });
+  const q = useQuery({ queryKey: ['public', 'open-data'], queryFn: () => api.get<{ title: string; cutoff: string; license: string; attribution?: string; dictionary: { field: string; description: string }[]; rows: number }>('/public/datos-abiertos') });
   return (
     <Card title="Datos abiertos" subtitle="Indicadores agregados por sector. Nunca incluyen datos personales.">
       <div className="flex flex-wrap gap-2 mb-2">
@@ -96,6 +97,7 @@ export function OpenDataCard() {
       {q.data && (
         <>
           <p className="text-xs text-muted">Corte: {fmtDateTime(q.data.cutoff)} · Licencia: {q.data.license}</p>
+          {q.data.attribution && <p className="text-xs mt-1">Atribución: {q.data.attribution}</p>}
           <details className="mt-2 text-sm"><summary className="cursor-pointer">Diccionario de datos</summary><ul className="mt-1 space-y-0.5">{q.data.dictionary.map((d) => <li key={d.field}><code>{d.field}</code>: {d.description}</li>)}</ul></details>
         </>
       )}
@@ -131,5 +133,21 @@ export default function ParishPage() {
       <SectorLights data={portal.data} />
       <div className="no-print"><FacilitiesMap data={portal.data} /></div>
     </div>
+  );
+}
+
+/** Cifras oficiales frente a toneladas pesadas en báscula, con las discrepancias de la conciliación. */
+export function OfficialVsWeighed() {
+  const q = useQuery({ queryKey: ['public', 'conciliacion'], queryFn: () => api.get<{ source: string; reportedAt: string; note: string; rows: { facility: string; official: number | null; weighed: number }[]; discrepancies: { label: string; reason: string; status: string }[] } | null>('/public/conciliacion') });
+  if (!q.data) return null;
+  return (
+    <Card title="Cifras oficiales frente a pesadas" subtitle={`Fuente oficial: ${q.data.source} · ${fmtDateTime(q.data.reportedAt)}`}>
+      <table className="table-plain text-sm">
+        <thead><tr><th scope="col">Centro</th><th scope="col" className="text-right">t oficiales (acum.)</th><th scope="col" className="text-right">t pesadas en Kindra</th></tr></thead>
+        <tbody>{q.data.rows.map((r) => <tr key={r.facility}><td>{r.facility}</td><td className="text-right">{fmtNum(r.official)}</td><td className="text-right">{fmtNum(r.weighed)}</td></tr>)}</tbody>
+      </table>
+      <p className="text-xs text-muted mt-2">{q.data.note}</p>
+      {q.data.discrepancies.length > 0 && <ul className="text-sm mt-2 space-y-1">{q.data.discrepancies.map((d, i) => <li key={i}>{d.status === 'open' ? 'Abierta' : 'Resuelta'} · {d.label}: {d.reason}</li>)}</ul>}
+    </Card>
   );
 }

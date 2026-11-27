@@ -70,6 +70,9 @@ const RULES: { intent: V42Intent; re: RegExp }[] = [
   { intent: 'off_topic', re: /(?<!\p{L})(luz|electricidad|agua potable|tuber[ií]a|pago|dinero|bono|c[eé]dula|pasaporte|gas dom[eé]stico|internet|f[uú]tbol|pol[ií]tica|receta)(?!\p{L})/iu },
 ];
 const EMOTION_RE = /(enferm|preocupad|preocupa|miedo|asustad|angusti|molest|rabia|harta|harto|cansad[oa] de|triste|desesperad|no aguanto)/i;
+const ANON_RE = /(sin mis datos|an[oó]nim[oa]|reportar sin (dar )?(mi )?nombre)/i;
+const LIFE_RE = /(atrapad[oa]s?|herid[oa]s?|lesionad[oa]s?|incendio|fuego|humo|olor a gas|fuga de gas|se (cay[oó]|derrumb[oó])|derrumbe|colaps[oó]|aplastad)/i;
+const UNSTABLE_RE = /(inestable|se (va a|puede) caer|a punto de caer|grieta|agrietad|asbesto|fibrocemento|qu[ií]mic|t[oó]xic|olor raro|envases? de qu[ií]micos|material peligroso)/i;
 const YES_RE = /^\s*(s[ií]|dale|ok|okey|claro|va|de acuerdo|est[aá] bien|me parece|acepto|1)(?!\p{L})/iu;
 const NO_RE = /^\s*(no|nop|para nada|no acepto|prefiero que no|2)(?!\p{L})/iu;
 
@@ -181,7 +184,7 @@ export async function auraTurn(input: AuraInput, actor: Actor, channel: Channel)
     say(T('v42_blocked'));
     return out(false);
   }
-  const consented = channel.kind === 'whatsapp' || user ? !!profile?.consent : !!session.draft.consent;
+  const consented = !!session.draft.anon || (channel.kind === 'whatsapp' || user ? !!profile?.consent : !!session.draft.consent);
   let name = nameOf(profile, channel, user?.name || user?.alias || null);
   const nm = () => name || 'vecino';
   const pid = profile?.id ?? (channel.kind === 'whatsapp' ? `wa_${pseudonym(channel.waId!)}` : user ? `user_${user.id}` : session.id);
@@ -206,8 +209,18 @@ export async function auraTurn(input: AuraInput, actor: Actor, channel: Channel)
 
   // ---- 10.2 primer contacto y consentimiento ----
   if (!consented) {
-    if (session.step === 'v42_consent' && text) {
-      if (YES_RE.test(text) || /^(si|sí)/i.test(text)) {
+    // Reportar sin mis datos: sin nombre ni memoria (no hace falta guardar nada de la persona).
+    if (ANON_RE.test(text) || input.option === 'anon') {
+      session.draft = { anon: true, consent: { at: nowIso(), version: 'anon' } };
+      session.step = 'v42_r_start';
+      session.history = [];
+      store.put('auraSessions', { ...session, history: [] });
+      say(T('v42_anon_start'));
+      return reportFlowAnon();
+    }
+    // Un sí o un no claro cuenta aunque el servidor haya perdido el paso (por ejemplo, tras un reinicio).
+    if (text && (session.step === 'v42_consent' || input.option === 'sí' || input.option === 'no')) {
+      if (input.option === 'sí' || YES_RE.test(text) || /^s[ií](?!\p{L})/iu.test(text)) {
         const now = nowIso();
         profile = channel.kind === 'whatsapp' || user
           ? store.put('auraProfiles', { id: pid, userId: user?.id ?? null, channel: channel.kind, waIdEnc: channel.kind === 'whatsapp' ? encryptField(channel.waId) : null, profileNameEnc: encryptField(channel.profileName ?? null), preferredNameEnc: null, parish: null, usualSectorIds: [], consent: { at: now, version: CONSENT_VERSION }, lastConversationAt: now, conversations: 1, createdAt: now })
@@ -226,7 +239,7 @@ export async function auraTurn(input: AuraInput, actor: Actor, channel: Channel)
         quickReplies = menuReplies();
         return out();
       }
-      if (NO_RE.test(text)) {
+      if (input.option === 'no' || NO_RE.test(text)) {
         // No se guarda nada, ni el nombre.
         if (store.get('auraSessions', session.id)) store.remove('auraSessions', session.id);
         session.history = [];
@@ -236,7 +249,7 @@ export async function auraTurn(input: AuraInput, actor: Actor, channel: Channel)
     }
     say(name ? T('v42_greet_new', { nombre: name }) : T('v42_greet_new', { nombre: '' }).replace('¡Hola, !', '¡Hola!').replace('¡Qué tal, !', '¡Qué tal!'));
     say(T(channel.kind === 'whatsapp' ? 'v42_consent_whatsapp' : 'v42_consent_pwa'));
-    quickReplies = [{ label: 'Sí, me parece bien', value: 'sí' }, { label: 'No', value: 'no' }];
+    quickReplies = [{ label: 'Sí, me parece bien', value: 'sí' }, { label: 'No', value: 'no' }, { label: 'Reportar sin mis datos', value: 'anon' }];
     // Antes del sí solo se guarda el paso de la conversación, sin nombre ni mensajes.
     session.step = 'v42_consent';
     session.history = [];
@@ -269,7 +282,16 @@ export async function auraTurn(input: AuraInput, actor: Actor, channel: Channel)
 
   // ---- notas de voz (no se transcriben en esta fase) ----
   if (channel.voice || input.voiceNoteId) {
+    if (session.step.startsWith('v42_r_') && input.voiceNoteId) {
+      session.draft = { ...session.draft, r: { ...((session.draft.r as object) || {}), voiceNoteId: input.voiceNoteId } };
+      say(T('v42_voice_attached'));
+      return reportFlow();
+    }
     say(T('v42_voice'));
+    if (input.voiceNoteId) {
+      session.draft = { ...session.draft, voiceNoteId: input.voiceNoteId };
+      return handoff('Nota de voz para que la escuche una persona');
+    }
     quickReplies = [{ label: 'Hablar con una persona', value: 'hablar con una persona' }];
     return out();
   }
@@ -285,9 +307,20 @@ export async function auraTurn(input: AuraInput, actor: Actor, channel: Channel)
     say(T('v42_emotion', { nombre: nm() }));
     session.draft = { ...session.draft, upset: Number(session.draft.upset || 0) + 1 };
   }
-  if (intent === 'emergency') {
-    say(T('v42_emergency', { número: cfg.emergencyNumber?.trim() || 'el número oficial de emergencias de tu zona' }));
-    return handoff('Riesgo inmediato reportado en la conversación', true);
+  const nums = { life: cfg.emergencyNumbers?.life?.trim() || '911', civil: cfg.emergencyNumbers?.civil?.trim() || '166' };
+  if (LIFE_RE.test(text)) {
+    // Peligro para la vida: el número de emergencias va antes que cualquier otra cosa.
+    messages.unshift({ text: T('v42_emergency_life', { número: nums.life }), link: null, photoUrl: null });
+    return handoff('Peligro para la vida reportado en la conversación', true);
+  }
+  if (UNSTABLE_RE.test(text) || intent === 'emergency') {
+    say(T('v42_emergency_civil', { número: nums.civil }));
+    session.draft = { ...session.draft, hazard: true };
+    if (!session.step.startsWith('v42_r_')) {
+      session.draft = { ...session.draft, r: { ...((session.draft.r as object) || {}) }, hazard: true };
+      session.step = 'v42_r_start';
+    }
+    return reportFlow();
   }
   if (distressed && Number(session.draft.upset) >= 2) return handoff('Persona molesta en varias respuestas', true);
 
@@ -431,6 +464,10 @@ export async function auraTurn(input: AuraInput, actor: Actor, channel: Channel)
       .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
   }
 
+  function reportFlowAnon(): AuraResponse {
+    return reportFlow();
+  }
+
   function reportFlow(): AuraResponse {
     const r = { ...((session!.draft.r as Record<string, any>) || {}) };
     const s = session!.step;
@@ -459,6 +496,10 @@ export async function auraTurn(input: AuraInput, actor: Actor, channel: Channel)
       else r.reference = r.reference || text.slice(0, 200);
     }
     if (s === 'v42_r_photo' && /sin foto/i.test(text)) r.noPhoto = true;
+    if (s === 'v42_r_size') {
+      const v = input.option && ['small', 'medium', 'large'].includes(input.option) ? input.option : /peque|carretilla|poco|^1$/i.test(text) ? 'small' : /grande|cami[oó]n|mucho|^3$/i.test(text) ? 'large' : /median|camioneta|regular|^2$/i.test(text) ? 'medium' : null;
+      if (v) r.size = v;
+    }
     if (s === 'v42_r_ref') {
       r.refAsked = true;
       if (text && !/^(no|nada|ninguna|sin referencia)$/i.test(text)) r.reference = text.slice(0, 200);
@@ -502,6 +543,12 @@ export async function auraTurn(input: AuraInput, actor: Actor, channel: Channel)
       session!.step = 'v42_r_photo';
       return out();
     }
+    if (!r.size) {
+      say(T('v42_ask_size'));
+      quickReplies = [{ label: 'Pequeño (una carretilla)', value: 'small' }, { label: 'Mediano (una camioneta)', value: 'medium' }, { label: 'Grande (un camión o más)', value: 'large' }];
+      session!.step = 'v42_r_size';
+      return out();
+    }
     if (!r.refAsked && !r.reference) {
       say(T('v42_ask_reference'));
       quickReplies = [{ label: 'No', value: 'no' }];
@@ -512,6 +559,7 @@ export async function auraTurn(input: AuraInput, actor: Actor, channel: Channel)
   }
 
   function submit(r: Record<string, any>): AuraResponse {
+    const anon = !!session!.draft.anon;
     try {
       const res = createCitizenReport(
         {
@@ -519,24 +567,27 @@ export async function auraTurn(input: AuraInput, actor: Actor, channel: Channel)
           location: r.location ?? null,
           reference: r.reference ?? null,
           sectorId: r.sectorId,
-          size: 'medium',
-          reporterName: name,
-          anonymous: !user && !profile,
+          size: r.size || 'medium',
+          subcategory: session!.draft.hazard ? 'possible_hazardous' : null,
+          voiceNoteId: r.voiceNoteId ?? null,
+          reporterName: anon ? null : name,
+          anonymous: anon || (!user && !profile),
           source: channel.kind === 'whatsapp' ? 'whatsapp' : 'aura',
-          phone: channel.kind === 'whatsapp' ? channel.waId : null,
           deviceTime: input.deviceTime,
           offlineQueuedAt: input.offlineQueuedAt,
           clientKey: channel.kind === 'whatsapp' ? pseudonym(channel.waId!) : input.clientKey ?? null,
-          channelProfileId: profile?.id ?? null,
+          channelProfileId: anon ? null : profile?.id ?? null,
+          phone: anon ? null : channel.kind === 'whatsapp' ? channel.waId : null,
         },
-        user ? actor : { id: null, role: 'citizen', entityId: null },
+        user && !anon ? actor : { id: null, role: 'citizen', entityId: null },
       );
       originCode = res.origin.code;
-      if (profile) {
+      if (profile && !anon) {
         const sectors = [r.sectorId, ...profile.usualSectorIds.filter((x) => x !== r.sectorId)].slice(0, 3);
         profile = store.update('auraProfiles', profile.id, { parish: r.parish, usualSectorIds: sectors });
       }
-      say(T('v42_report_done', { nombre: nm(), código: res.origin.code }), `/reporte/${res.origin.code}`);
+      say(anon ? T('v42_report_done_anon', { código: res.origin.code }) : T('v42_report_done', { nombre: nm(), código: res.origin.code }), `/reporte/${res.origin.code}`);
+      if (session!.draft.hazard) say(T('v42_hazard_flagged'));
       if (res.possibleDuplicate) say(T('v42_grouped'));
       if (!r.photoIds?.length) say(T('v42_no_photo'));
       // Sugerencia de lección: como mucho una cada tres conversaciones y nunca si la persona está angustiada.
@@ -546,6 +597,12 @@ export async function auraTurn(input: AuraInput, actor: Actor, channel: Channel)
         if (profile) store.update('auraProfiles', profile.id, { lastTipAt: conv });
       }
       session!.contextCode = res.origin.code;
+      if (anon) {
+        if (store.get('auraSessions', session!.id)) store.remove('auraSessions', session!.id);
+        session!.history = [];
+        session!.step = 'idle';
+        return out(false);
+      }
       return reset();
     } catch (err) {
       const e = err as HttpError;
@@ -597,10 +654,14 @@ export async function auraTurn(input: AuraInput, actor: Actor, channel: Channel)
       return out();
     }
     const p = sectorProgressAll(sector.parish).sectors.find((x) => x.id === sector.id);
+    if (p && !p.published) {
+      say(`${sector.name} todavía tiene menos de 5 reportes, así que su avance no se publica. Si reportaste algo ahí, pídeme tu código y te digo cómo va.`);
+      return reset();
+    }
     const code = PARISHES.find((x) => x.name === sector.parish)?.code;
     const link = code ? `${env.publicBaseUrl}/tablero/parroquia/${code}` : `${env.publicBaseUrl}/tablero`;
     const fecha = new Date().toLocaleDateString('es-VE', { timeZone: 'America/Caracas', day: 'numeric', month: 'long' });
-    say(T('v42_progress', { sector: sector.name, semáforo: p?.lightLabel ?? 'Gris: sin datos', cerrados: p?.closed ?? 0, pendientes: p ? p.received - p.closed : 0, fecha, enlace: link }), code ? `/tablero/parroquia/${code}` : '/tablero');
+    say(T('v42_progress', { sector: sector.name, semáforo: p?.lightLabel ?? 'Gris: sin datos', cerrados: p?.closed ?? 0, pendientes: p ? (p.received ?? 0) - (p.closed ?? 0) : 0, fecha, enlace: link }), code ? `/tablero/parroquia/${code}` : '/tablero');
     return reset();
   }
 
@@ -679,7 +740,7 @@ export async function auraTurn(input: AuraInput, actor: Actor, channel: Channel)
     });
     appendEvent({ type: 'support_ticket', objectType: 'system', objectId: 'aura', actor: SYSTEM_ACTOR, data: { ticket: ticket.id, who: pseudonym(pid), urgent }, silent: true });
     for (const role of ['admin'] as const) notifyRole(role, 'support_ticket', `${urgent ? 'Urgente: ' : ''}una persona pidió hablar con el equipo desde AURA.`, { link: '/admin/conversaciones' });
-    const horario = cfg.supportHours?.trim() ? `Te responden ${cfg.supportHours.trim()}.` : '';
+    const horario = supportHoursText();
     say(T('v42_handoff', { horario }).trim());
     session!.step = 'idle';
     return out();
@@ -694,4 +755,15 @@ export async function auraReply(input: AuraInput, actor: Actor, channel: Channel
   if (r !== LEGACY) return r;
   const sessionId = channel.kind === 'whatsapp' ? `as_wa_${pseudonym(channel.waId!)}` : input.sessionId;
   return handleMessage({ ...input, sessionId }, actor);
+}
+
+/** Horario de atención (configurable). Fuera de horario, AURA dice cuándo responden. */
+export function supportHoursText(now = new Date()): string {
+  const cfg = getConfig();
+  const sch = cfg.supportSchedule ?? { days: [1, 2, 3, 4, 5], from: '08:00', to: '17:00' };
+  const hours = cfg.supportHours?.trim() || 'de lunes a viernes, de 8:00 a 17:00 (hora de Caracas)';
+  const local = new Date(now.toLocaleString('en-US', { timeZone: 'America/Caracas' }));
+  const hm = `${String(local.getHours()).padStart(2, '0')}:${String(local.getMinutes()).padStart(2, '0')}`;
+  const open = sch.days.includes(local.getDay()) && hm >= sch.from && hm < sch.to;
+  return open ? `El equipo atiende ${hours}; te responden pronto.` : `Ahora estamos fuera de horario. El equipo atiende ${hours} y te responde en cuanto abra.`;
 }

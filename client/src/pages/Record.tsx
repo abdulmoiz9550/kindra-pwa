@@ -74,6 +74,7 @@ export default function RecordPage() {
     <div className="max-w-2xl mx-auto">
       <PageTitle title={`Ficha ${o.code}`} subtitle={`${r.sectorName} · reportado ${fmtDateTime(o.createdAt)}`} actions={<OriginStateBadge state={state} />} />
       {r.reportStatus && <ReportStatusCard s={r.reportStatus} />}
+      {r.validationLayers && <LayersCard layers={r.validationLayers} />}
       <CitizenTripStatus code={o.code} />
       {r.isPublicVersion && (
         <Alert tone="info" className="mb-3">
@@ -223,6 +224,17 @@ export function ReportStatusCard({ s }: { s: NonNullable<TraceabilityRecord['rep
           );
         })}
       </ol>
+    </Card>
+  );
+}
+
+/** Las cuatro capas de validación del registro. */
+function LayersCard({ layers }: { layers: NonNullable<TraceabilityRecord['validationLayers']> }) {
+  return (
+    <Card className="mb-3" title="Capas de validación">
+      <ul className="text-sm space-y-1">
+        {layers.map((l) => <li key={l.layer} className={l.done ? '' : 'text-muted'}><span aria-hidden>{l.done ? '✓' : '○'}</span> <strong>{l.layer}</strong>: {l.what}{l.done && l.at ? ` · ${fmtDateTime(l.at)}` : l.done ? '' : ' · pendiente'}</li>)}
+      </ul>
     </Card>
   );
 }

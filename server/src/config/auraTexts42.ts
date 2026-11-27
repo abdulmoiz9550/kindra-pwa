@@ -9,9 +9,9 @@ const t = (key: string, label: string, variants: string[]): AuraTextEntry => ({ 
 
 export const AURA_TEXTS_V42: AuraTextEntry[] = [
   t('v42_greet_new', 'v4.2 · Primer contacto (saludo)', [
-    '¡Hola, [nombre]! Soy AURA, de Kindra 👋 Te ayudo a reportar escombro en Caraballeda, Catia La Mar y Macuto, y te voy contando qué pasa con él.',
-    '¡Hola, [nombre]! Te habla AURA, de Kindra 👋 Te acompaño para reportar escombro en Caraballeda, Catia La Mar y Macuto, y te aviso qué pasa con él.',
-    '¡Qué tal, [nombre]! Soy AURA, de Kindra 👋 Por aquí reportas escombro en Caraballeda, Catia La Mar y Macuto, y yo te voy contando cómo avanza.',
+    '¡Hola, [nombre]! Soy AURA, de Kindra 👋 Te ayudo a reportar escombro en Caraballeda, Catia La Mar, Macuto y Urimare, y te voy contando qué pasa con él.',
+    '¡Hola, [nombre]! Te habla AURA, de Kindra 👋 Te acompaño para reportar escombro en Caraballeda, Catia La Mar, Macuto y Urimare, y te aviso qué pasa con él.',
+    '¡Qué tal, [nombre]! Soy AURA, de Kindra 👋 Por aquí reportas escombro en Caraballeda, Catia La Mar, Macuto y Urimare, y yo te voy contando cómo avanza.',
   ]),
   t('v42_consent_whatsapp', 'v4.2 · Consentimiento (WhatsApp)', [
     'Antes de empezar: para atenderte uso tu nombre de WhatsApp, este número, la foto y el sector. Tu nombre nunca se publica, y si algún día quieres que borre tus datos, solo dímelo. ¿Te parece bien?',
@@ -49,9 +49,9 @@ export const AURA_TEXTS_V42: AuraTextEntry[] = [
     '¡Anotado, [nombre]!',
   ]),
   t('v42_ask_parish', 'v4.2 · Preguntar parroquia', [
-    '¿En qué parroquia está? Caraballeda, Catia La Mar o Macuto.',
-    '¿Por cuál parroquia es: Caraballeda, Catia La Mar o Macuto?',
-    'Dime la parroquia, porfa: Caraballeda, Catia La Mar o Macuto.',
+    '¿En qué parroquia está? Caraballeda, Catia La Mar, Macuto o Urimare.',
+    '¿Por cuál parroquia es: Caraballeda, Catia La Mar, Macuto o Urimare?',
+    'Dime la parroquia, porfa: Caraballeda, Catia La Mar, Macuto o Urimare.',
   ]),
   t('v42_suggest_parish', 'v4.2 · Sugerir parroquia habitual', [
     '¿Es por [parroquia] otra vez?',
@@ -207,6 +207,41 @@ export const AURA_TEXTS_V42: AuraTextEntry[] = [
     'Por hoy ya registraste varios puntos, gracias por estar tan pendiente 🙏 Si hay otro urgente, te paso con una persona del equipo.',
     'Hoy ya llegaste al máximo de reportes por número 🙏 Si es urgente, te comunico con alguien del equipo.',
     'Ya van varios reportes hoy desde este número. Si hay uno urgente, te paso con una persona.',
+  ]),
+  t('v42_anon_start', 'v4.2 · Reportar sin mis datos', [
+    'Listo, lo hacemos sin tus datos: no guardo tu nombre ni recuerdo esta conversación. Vamos con el reporte.',
+    'Perfecto, reporte sin tus datos: no guardo nombre ni memoria. Empecemos.',
+    'De acuerdo, sin datos personales y sin memoria. Cuéntame dónde está el escombro.',
+  ]),
+  t('v42_report_done_anon', 'v4.2 · Reporte sin datos registrado', [
+    'Listo, ya quedó anotado 🙏 Tu código es [código]. Guárdalo: con él puedes consultar el avance en Seguimiento.',
+    'Anotado 🙏 Tu código es [código]. Con ese código ves cómo avanza en Seguimiento.',
+    'Ya está registrado. Código: [código]. Guárdalo para consultar el avance.',
+  ]),
+  t('v42_ask_size', 'v4.2 · Tamaño estimado', [
+    '¿Más o menos qué tanto es? Pequeño (una carretilla), mediano (una camioneta) o grande (un camión o más).',
+    '¿Qué tamaño tiene, más o menos? Como una carretilla, una camioneta o un camión.',
+    'Un cálculo a ojo: ¿es pequeño, mediano o grande?',
+  ]),
+  t('v42_voice_attached', 'v4.2 · Nota de voz adjunta', [
+    'Recibí tu nota de voz y la adjunto al reporte: la escucha una persona del equipo. No la transcribo.',
+    'Guardé tu audio con el reporte para que lo escuche alguien del equipo.',
+    'Tu nota de voz va con el reporte; una persona la escucha.',
+  ]),
+  t('v42_emergency_life', 'v4.2 · Peligro para la vida (911)', [
+    'Si hay personas atrapadas, heridas, fuego o gas, llama ya al [número]. Aléjate del lugar.',
+    'Primero lo urgente: llama al [número] ahora mismo si hay heridos, personas atrapadas, fuego o gas.',
+    'Llama de inmediato al [número]. Tu vida y la de los demás van primero.',
+  ]),
+  t('v42_emergency_civil', 'v4.2 · Estructura inestable o material peligroso (166)', [
+    'Si la estructura está inestable o sospechas de material peligroso, no te acerques y avisa a Protección Civil al [número]. Igual lo dejo reportado y marcado como posible material peligroso.',
+    'No te acerques. Para estructuras inestables o materiales peligrosos llama a Protección Civil, [número]. Lo registro marcado como sospecha de material peligroso.',
+    'Mantén distancia y comunícate con Protección Civil al [número]. Yo lo dejo registrado con la marca de posible material peligroso.',
+  ]),
+  t('v42_hazard_flagged', 'v4.2 · Reporte marcado como posible material peligroso', [
+    'Quedó marcado como posible material peligroso: el Evaluador Técnico lo revisa antes de procesarlo.',
+    'Lo marqué como sospecha de material peligroso para que lo revise el Evaluador Técnico.',
+    'Va con la marca de posible material peligroso.',
   ]),
 ];
 

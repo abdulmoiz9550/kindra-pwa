@@ -21,6 +21,7 @@ export const LIGHT_LABELS: Record<Light, string> = {
 };
 
 const active = (o: Origin) => !['rejected', 'duplicate'].includes(o.state);
+export const MIN_PUBLISHED_REPORTS = 5;
 
 /** Consulta por código de reporte (R-…) o de lote (LG-…): estado público y fechas. */
 export function publicLookup(code: string) {
@@ -89,7 +90,9 @@ export function sectorProgressAll(parish?: string | null) {
     const tEstimated = sum((r) => r.receivedUnit === 't' && r.measurementMethod !== 'weighbridge');
     const m3 = sum((r) => r.receivedUnit === 'm3');
     const light: Light = redCount ? 'red' : inProgress ? 'yellow' : confirmed ? 'green' : 'grey';
-    return { id: s.id, name: s.name, parish: s.parish, polygon: s.polygon, received, validated, closed, confirmed, lotsByState: PUBLIC_LOT_STATES.map((label, i) => ({ label, count: lotStages[i] })), tonnesWeighed: tWeighed, tonnesEstimated: tEstimated, m3, light, lightLabel: LIGHT_LABELS[light] };
+    // Regla de publicación: un sector con menos de 5 reportes no se publica.
+    if (received < MIN_PUBLISHED_REPORTS) return { id: s.id, name: s.name, parish: s.parish, polygon: s.polygon, published: false, received: null, validated: null, closed: null, confirmed: null, lotsByState: PUBLIC_LOT_STATES.map((label) => ({ label, count: null })), tonnesWeighed: null, tonnesEstimated: null, m3: null, light: 'grey' as Light, lightLabel: 'Gris: menos de 5 reportes, no se publica' };
+    return { id: s.id, name: s.name, parish: s.parish, polygon: s.polygon, published: true, received, validated, closed, confirmed, lotsByState: PUBLIC_LOT_STATES.map((label, i) => ({ label, count: lotStages[i] })), tonnesWeighed: tWeighed, tonnesEstimated: tEstimated, m3, light, lightLabel: LIGHT_LABELS[light] };
   });
   return { cutoff: nowIso(), source: 'Registros de Kindra validados', parish: parish ?? null, sectors: rows };
 }
@@ -132,29 +135,34 @@ export const OPEN_DATA_DICTIONARY: { field: string; description: string }[] = [
   { field: 'metros_cubicos', description: 'Metros cúbicos recibidos. No se convierten a toneladas.' },
   { field: 'semaforo', description: 'rojo, amarillo, verde o gris según el avance del sector.' },
   { field: 'fecha_corte', description: 'Fecha y hora de corte de los datos (UTC).' },
+  { field: 'fuente', description: 'Atribución obligatoria al reutilizar los datos.' },
 ];
 
 export function openData() {
   const p = sectorProgressAll();
+  const cfg = getConfig();
+  const license = cfg.openDataLicense?.trim() || 'Pendiente de definición por el equipo Kindra';
+  const cut = new Date(p.cutoff).toLocaleDateString('es-VE', { timeZone: 'America/Caracas', day: 'numeric', month: 'long', year: 'numeric' });
+  const attribution = (cfg.openDataAttribution?.trim() || `Fuente: Kindra, datos al [fecha de corte], ${license}`).replace(/\[fecha de corte\]/gi, cut);
   const lightEs: Record<Light, string> = { red: 'rojo', yellow: 'amarillo', green: 'verde', grey: 'gris' };
-  const rows = p.sectors.map((s) => ({
+  const rows = p.sectors.filter((s) => s.published).map((s) => ({
     parroquia: s.parish,
     sector: s.name,
     reportes_recibidos: s.received,
     reportes_validados: s.validated,
     reportes_cerrados: s.closed,
-    lotes_retirado: s.lotsByState[0].count,
-    lotes_recibido: s.lotsByState[1].count,
-    lotes_procesado_y_ensayado: s.lotsByState[2].count,
-    lotes_destino_final: s.lotsByState[3].count,
+    lotes_retirado: s.lotsByState[0].count ?? 0,
+    lotes_recibido: s.lotsByState[1].count ?? 0,
+    lotes_procesado_y_ensayado: s.lotsByState[2].count ?? 0,
+    lotes_destino_final: s.lotsByState[3].count ?? 0,
     toneladas_pesadas: s.tonnesWeighed,
     toneladas_estimadas: s.tonnesEstimated,
     metros_cubicos: s.m3,
     semaforo: lightEs[s.light],
     fecha_corte: p.cutoff,
+    fuente: attribution,
   }));
-  const license = getConfig().openDataLicense?.trim() || 'Pendiente de definición por el equipo Kindra';
-  return { title: 'Kindra · Módulo 1 — Escombros: indicadores por sector', cutoff: p.cutoff, license, dictionary: OPEN_DATA_DICTIONARY, rows };
+  return { title: 'Kindra · Módulo 1 — Escombros: indicadores por sector', cutoff: p.cutoff, license, attribution, scope: 'La licencia cubre solo los datos agregados que genera Kindra. Las cifras oficiales conservan su fuente original y no se incluyen aquí.', minimumReports: MIN_PUBLISHED_REPORTS, dictionary: OPEN_DATA_DICTIONARY, rows };
 }
 
 export function openDataCsv(): string {
@@ -165,4 +173,33 @@ export function openDataCsv(): string {
     return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   return [cols.join(','), ...d.rows.map((r) => cols.map((c) => esc((r as Record<string, unknown>)[c])).join(','))].join('\n');
+}
+
+/**
+ * Comparación pública de cifras oficiales y pesadas (última conciliación), por centro. Las cifras oficiales conservan
+ * su fuente; las de Kindra son las pesadas en báscula. Las discrepancias abiertas se muestran con su motivo.
+ */
+export function publicReconciliation() {
+  const store = db();
+  const snap = store.list('reportSnapshots').sort((a, b) => (a.reportedAt < b.reportedAt ? 1 : -1))[0];
+  if (!snap) return null;
+  const byFacility = new Map<string, { facility: string; official: number | null; weighed: number }>();
+  for (const r of snap.rows) {
+    if (!r.facilityId) continue;
+    const name = store.get('centers', r.facilityId)?.name ?? r.label;
+    const cur = byFacility.get(r.facilityId) ?? { facility: name, official: null, weighed: 0 };
+    if (r.tonnesAccumulated != null) cur.official = Math.round(((cur.official ?? 0) + r.tonnesAccumulated) * 100) / 100;
+    byFacility.set(r.facilityId, cur);
+  }
+  for (const rec of store.filter('receptions', (x) => x.receivedUnit === 't' && x.measurementMethod === 'weighbridge' && x.receivedAt <= snap.reportedAt)) {
+    const cur = byFacility.get(rec.centerId);
+    if (cur) cur.weighed = Math.round((cur.weighed + (rec.receivedQuantity ?? 0)) * 100) / 100;
+  }
+  return {
+    source: snap.source,
+    reportedAt: snap.reportedAt,
+    note: 'Toneladas oficiales según la fuente (calculadas por el reporte, muchas con el factor fijo 1,10 t/m³) frente a toneladas pesadas en báscula registradas en Kindra.',
+    rows: [...byFacility.values()],
+    discrepancies: store.filter('reconDiscrepancies', (d) => d.snapshotId === snap.id).map((d) => ({ label: d.label, reason: d.reason, status: d.status })),
+  };
 }

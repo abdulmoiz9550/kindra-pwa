@@ -43,13 +43,17 @@ export function buildDashboard(sectorId: string | null): DashboardData {
   const store = db();
   const sectors = store.list('sectors');
   const sectorFilter = sectorId ? sectors.find((s) => s.id === sectorId) : undefined;
-  const inScope = (o: Origin) => (!sectorFilter || o.sectorId === sectorFilter.id) && o.state !== 'duplicate';
+  // Regla de publicación (documentos finales): un sector con menos de 5 reportes no se publica.
+  const reportsIn = (id: string) => store.filter('origins', (o) => o.sectorId === id && o.type === 'citizen' && !['duplicate', 'rejected'].includes(o.state)).length;
+  const published = (s: Sector) => reportsIn(s.id) >= 5;
+  const hidden = !!sectorFilter && !published(sectorFilter);
+  const inScope = (o: Origin) => !hidden && (!sectorFilter || o.sectorId === sectorFilter.id) && o.state !== 'duplicate';
   const origins = store.filter('origins', inScope);
   const counted = origins.filter((o) => o.state !== 'rejected');
   const latestOriginEvent = latest(store.allEvents().filter((e) => e.objectType === 'origin').map((e) => e.serverTime));
 
   // Semáforo y mapa de calor por sector
-  const sectorsInScope = sectorFilter ? [sectorFilter] : sectors;
+  const sectorsInScope = (sectorFilter ? [sectorFilter] : sectors).filter(published);
   const trafficLight = sectorsInScope.map((s: Sector) => {
     const os = store.filter('origins', (o) => o.sectorId === s.id && !['rejected', 'duplicate'].includes(o.state));
     let pending = 0, inProgress = 0, done = 0;

@@ -56,7 +56,9 @@ test('v4.2 · 16: reporte en texto libre sin repetir datos ya dados, con código
   assert.doesNotMatch(texts(r1), /1\. Reportar escombro/, 'no muestra el menú');
   assert.match(texts(r1), /foto/i);
   const r2 = await wa('584140000101', 'María Pérez', null, { photoId: photo() });
-  assert.match(texts(r2), /referencia/i);
+  assert.match(texts(r2), /qué tanto es/i, 'paso del tamaño estimado');
+  const r2b = await wa('584140000101', 'María Pérez', 'mediano');
+  assert.match(texts(r2b), /referencia/i);
   const r3 = await wa('584140000101', 'María Pérez', 'frente a la bodega');
   assert.match(texts(r3), /R-CB-\d{6}/);
   assert.match(texts(r3), /María/);
@@ -234,4 +236,34 @@ test('v4.2 · 14: un reporte oficial con diferencia mayor al 5 % abre una discre
   assert.ok(r.discrepancies.every((d) => d.status === 'open'));
   const v = reconciliationView(r.snapshot.id);
   assert.match(v.rows[0].official.tonnesMethod, /factor/);
+});
+
+test('27-nov · el «Sí» del botón vale aunque se haya perdido el paso; reportar sin mis datos no guarda nada', async () => {
+  const pwa = (input: Record<string, unknown>) => auraReply(input, anon, { kind: 'pwa' });
+  const a = await pwa({});
+  db().remove('auraSessions', a.session.id); // simula un reinicio entre los dos mensajes
+  const b = await pwa({ sessionId: a.session.id, option: 'sí', text: 'Sí, me parece bien' });
+  assert.doesNotMatch(texts(b), /Te parece bien|Estás de acuerdo/);
+  const profiles = db().count('auraProfiles');
+  const c = await pwa({});
+  const d = await pwa({ sessionId: c.session.id, option: 'anon', text: 'Reportar sin mis datos' });
+  assert.match(texts(d), /sin (tus )?datos/i);
+  assert.equal(db().count('auraProfiles'), profiles);
+});
+
+test('27-nov · AURA: 911 primero ante peligro para la vida; 166 y marca de material peligroso ante estructura inestable', async () => {
+  await wa('584140000201', 'Luis', 'hola');
+  await wa('584140000201', 'Luis', 'sí');
+  const life = await wa('584140000201', 'Luis', 'hay gente atrapada en un derrumbe');
+  assert.match(life.messages[0].text, /911/);
+  const civil = await wa('584140000201', 'Luis', 'la pared está inestable, se puede caer');
+  assert.match(texts(civil), /166/);
+});
+
+test('27-nov · Urimare existe y un sector con menos de 5 reportes no se publica', () => {
+  assert.ok(db().list('sectors').some((s) => s.parish === 'Urimare'));
+  const p = sectorProgressAll();
+  for (const s of p.sectors) if (!s.published) assert.equal(s.received, null);
+  assert.ok(openData().rows.every((r) => (r.reportes_recibidos ?? 0) >= 5));
+  assert.match(openData().attribution, /CC BY 4.0/);
 });

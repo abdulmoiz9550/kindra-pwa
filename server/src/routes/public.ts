@@ -1,6 +1,6 @@
 import { whatsappStatus } from '../services/whatsapp';
 import { logExport } from '../services/governance';
-import { openData, openDataCsv, parishPage, publicFacilities, publicLookup, sectorProgressAll } from '../services/portal';
+import { openData, openDataCsv, parishPage, publicFacilities, publicLookup, publicReconciliation, sectorProgressAll } from '../services/portal';
 import { Router } from 'express';
 import { z } from 'zod';
 import { KINDRA_TAGLINE, USE_TYPE_LABELS, SIZE_LABELS, URGENCY_LABELS, SUBCATEGORY_LABELS, REJECTION_REASON_LABELS, STRUCTURE_TYPE_LABELS, CAUSE_LABELS, ROLE_LABELS } from '@kindra/shared';
@@ -148,6 +148,7 @@ publicRouter.get('/reportes/:code/estado', (req, res) => {
 // ---------------------------------------------------------------- addendum v4.2, sección 9: portal público
 publicRouter.get('/consulta/:code', (req, res) => res.json(publicLookup(String(req.params.code))));
 publicRouter.get('/portal', (req, res) => res.json({ ...sectorProgressAll(typeof req.query.parroquia === 'string' ? req.query.parroquia : null), facilities: publicFacilities() }));
+publicRouter.get('/conciliacion', (_req, res) => res.json(publicReconciliation()));
 publicRouter.get('/parroquias/:code', (req, res) => res.json(parishPage(String(req.params.code))));
 publicRouter.get('/datos-abiertos.json', (req, res) => {
   logExport(req.auth?.actor ?? { id: null, role: 'citizen', entityId: null }, 'open_data', 0, { format: 'json' });

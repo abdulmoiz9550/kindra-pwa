@@ -359,11 +359,12 @@ export const EVENT_LABELS: Record<EventType, string> = {
   support_ticket: 'Conversación pasada a una persona',
 };
 
-/** Addendum v4.2, sección 2: las tres parroquias del Módulo 1, con su abreviatura para los códigos. */
+/** Addendum v4.2 y documentos finales: las cuatro parroquias del Módulo 1, con su abreviatura para los códigos. */
 export const PARISHES: { name: string; code: string }[] = [
   { name: 'Caraballeda', code: 'CB' },
   { name: 'Catia La Mar', code: 'CM' },
   { name: 'Macuto', code: 'MA' },
+  { name: 'Urimare', code: 'UR' },
 ];
 
 /** Addendum v4.2, sección 7: estados del reporte ciudadano. */

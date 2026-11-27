@@ -58,8 +58,18 @@ whatsappRouter.post('/webhook', express.raw({ type: '*/*', limit: '2mb' }), (req
             photoId = photo.id;
           }
         }
+        // Notas de voz: se guardan como adjunto para que las escuche una persona; nunca se transcriben.
+        let voiceNoteId: string | null = null;
+        if (m.type === 'audio' && m.mediaId) {
+          const audio = await downloadMedia(m.mediaId, 'audio');
+          if (audio) {
+            const v = savePhoto({ dataUrl: audio, kind: 'voice', uploadedBy: null, location: null, takenAt: null });
+            await persistUpload(v.url);
+            voiceNoteId = v.id;
+          }
+        }
         const r = await auraReply(
-          { text: m.type === 'text' || m.type === 'interactive' || m.type === 'image' ? m.text : null, photoId, location: m.location },
+          { text: m.type === 'text' || m.type === 'interactive' || m.type === 'image' ? m.text : null, photoId, location: m.location, voiceNoteId },
           { id: null, role: 'citizen', entityId: null },
           { kind: 'whatsapp', waId: m.waId, profileName: m.profileName, voice: m.type === 'audio' },
         );

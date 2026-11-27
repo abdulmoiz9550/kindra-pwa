@@ -18,6 +18,14 @@ async function main() {
   const backupHours = Number(process.env.BACKUP_INTERVAL_HOURS) || 0;
   if (backupHours > 0) setInterval(() => void createBackup().catch((err) => console.error('[backup] error:', (err as Error).message)), backupHours * 3_600_000).unref();
 
+  // Servicio siempre despierto: en Render el plan gratuito se duerme tras 15 minutos sin visitas. El servidor se
+  // visita a sí mismo por su dirección pública cada 10 minutos para cargar al instante a cualquier hora.
+  const publicUrl = process.env.RENDER_EXTERNAL_URL || process.env.KEEP_ALIVE_URL;
+  if (publicUrl && process.env.KEEP_ALIVE !== 'false') {
+    const ping = () => void fetch(`${publicUrl.replace(/\/$/, '')}/api/health`).catch(() => undefined);
+    setInterval(ping, 10 * 60_000).unref();
+  }
+
   // En Render el disco se borra: la copia diaria queda en Supabase.
   if (process.env.RENDER) {
     const daily = () => void dailyRemoteBackup().then(() => monthlyRestoreTest()).catch((err) => console.error('[backup] error:', (err as Error).message));

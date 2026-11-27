@@ -82,18 +82,19 @@ export const sendTemplate = (to: string, name: string, firstName: string, lang =
   send({ to, type: 'template', template: { name, language: { code: lang }, components: [{ type: 'body', parameters: [{ type: 'text', text: firstName || 'vecino' }] }] } });
 
 /** Descarga una imagen recibida (id de medio de Meta) como data URL para guardarla con la misma función de la PWA. */
-export async function downloadMedia(mediaId: string): Promise<string | null> {
+export async function downloadMedia(mediaId: string, kind: 'image' | 'audio' = 'image'): Promise<string | null> {
   if (!whatsappConfigured()) return null;
   try {
     const meta = await graph(mediaId);
     if (!meta.ok) return null;
     const info = (await meta.json()) as { url?: string; mime_type?: string };
-    if (!info.url || !/^image\/(jpeg|png|webp)$/.test(info.mime_type || '')) return null;
+    const mime = (info.mime_type || '').split(';')[0];
+    if (!info.url || !(kind === 'image' ? /^image\/(jpeg|png|webp)$/ : /^audio\/(ogg|mpeg|mp4|webm)$/).test(mime)) return null;
     const file = await fetch(info.url, { headers: { Authorization: `Bearer ${whatsappEnv().token}` } });
     if (!file.ok) return null;
     const buf = Buffer.from(await file.arrayBuffer());
     if (buf.length > 6 * 1024 * 1024) return null;
-    return `data:${info.mime_type};base64,${buf.toString('base64')}`;
+    return `data:${mime};base64,${buf.toString('base64')}`;
   } catch {
     return null;
   }
@@ -126,7 +127,7 @@ export function parseWebhook(body: unknown): IncomingMessage[] {
           profileName: names.get(waId) || null,
           type,
           text: m.text?.body ?? m.interactive?.button_reply?.title ?? m.interactive?.list_reply?.title ?? m.image?.caption ?? null,
-          mediaId: m.image?.id ?? null,
+          mediaId: m.image?.id ?? m.audio?.id ?? m.voice?.id ?? null,
           location: m.location ? { lat: Number(m.location.latitude), lng: Number(m.location.longitude) } : null,
           messageId: String(m.id ?? ''),
         });

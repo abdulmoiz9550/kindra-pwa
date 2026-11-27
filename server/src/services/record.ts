@@ -196,6 +196,7 @@ export function buildRecord(o: Origin, opts: { publicVersion: boolean; hideRepor
     sectorName: sector?.name || '',
     fields,
     completeness: fields.filter((f) => f.complete).length,
+    validationLayers: validationLayers(o),
     history,
     chains,
     // Addendum v4.2, sección 12: la ubicación del vehículo nunca sale en la ficha.
@@ -245,4 +246,28 @@ export function recordToCsv(r: TraceabilityRecord): string {
   lines.push('historial_seq,tipo,descripción,entidad,usuario,hora_servidor,hora_dispositivo,hora_inconsistente,hash');
   for (const h of r.history) lines.push([h.seq, h.type, h.label, h.entityName ?? '', h.userAlias ?? '', h.serverTime, h.deviceTime, h.inconsistentTime ? 'sí' : 'no', h.hash].map(esc).join(','));
   return lines.join('\n');
+}
+
+/**
+ * Las cuatro capas de validación (addendum v4.2, sección 8; la capa 3 se llama «Institucional»): qué capa validó el
+ * registro y cuándo. Solo hechos registrados; ninguna capa se marca por sí sola.
+ */
+export function validationLayers(o: Origin): { layer: string; what: string; done: boolean; at: string | null }[] {
+  const store = db();
+  const trips = o.tripIds.map((id) => store.get('trips', id)).filter((t): t is NonNullable<typeof t> => !!t);
+  const removal = store.find('closures', (c) => c.originId === o.id && c.type === 'removal');
+  const batches = o.batchIds.map((id) => store.get('batches', id)).filter((b): b is NonNullable<typeof b> => !!b);
+  const approved = batches.map((b) => (b.qualityVerificationId ? store.get('qualityVerifications', b.qualityVerificationId) : undefined)).filter((q) => q?.result === 'approved');
+  const received = trips.filter((t) => t.state === 'received');
+  const processed = batches.some((b) => !!b.outputs);
+  const centers = new Set(received.map((t) => t.centerId));
+  const snap = store.list('reportSnapshots').filter((s) => s.rows.some((r) => r.facilityId && centers.has(r.facilityId))).sort((a, b) => (a.reportedAt < b.reportedAt ? 1 : -1))[0];
+  const openDisc = snap ? store.filter('reconDiscrepancies', (d) => d.snapshotId === snap.id && d.status === 'open' && !!d.facilityId && centers.has(d.facilityId)).length : 0;
+  const community = removal?.citizenResponse === 'confirmed' ? removal.respondedAt ?? null : o.verifiedOnSiteAt ?? null;
+  return [
+    { layer: '1. Ciudadana', what: 'El punto existe: foto con fecha y sector, duplicados descartados', done: !!o.validatedAt, at: o.validatedAt ?? null },
+    { layer: '2. Comunitaria', what: 'El retiro o cierre ocurrió: verificación en campo o Confirmar del ciudadano', done: !!community, at: community },
+    { layer: '3. Institucional', what: 'Recepción, procesamiento y calidad', done: received.length > 0 && processed && approved.length > 0, at: approved.map((q) => q!.createdAt).sort().at(-1) ?? null },
+    { layer: '4. Cruce', what: 'Consistencia con las cifras oficiales (conciliación semanal)', done: !!snap && openDisc === 0 && received.some((t) => (t.arrival?.serverTime ?? '') <= snap.reportedAt), at: snap?.importedAt ?? null },
+  ];
 }

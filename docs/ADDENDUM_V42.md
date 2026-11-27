@@ -50,3 +50,18 @@ Status codes (v4.0 section 1): **1** working and verified, **2** partial, **3** 
 3. Open-data licence, official emergency number for AURA, support hours, data-retention periods.
 4. Sector lists for Macuto (and final sector boundaries for the other parishes).
 5. Storage account for the second backup copy outside Supabase; email provider key.
+
+## 3. Client answers of 27 November 2026 (applied)
+
+- Fourth parish Urimare (UR): in the parish lists, codes, QR boards (4) and AURA; provisional zones for Macuto and Urimare until the sector lists arrive.
+- Open data: CC BY 4.0 for Kindra's aggregated data only, attribution "Fuente: Kindra – Desechos con Destinos, datos al [fecha de corte], CC BY 4.0" in the JSON and as a `fuente` column in the CSV (CSV has no place for metadata lines without breaking parsers). Configurable.
+- AURA emergencies by situation: 911 first for danger to life; 166 (Protección Civil) for unstable structures or suspected hazardous material, and the report is flagged as possible hazardous material; debris without risk is reported in Kindra. Numbers configurable.
+- Support hours Monday to Friday 8:00–17:00 Caracas time, configurable; AURA says when the team will answer.
+- Retention: vehicle tracking 90 days; reporters' personal data until the case closes plus 12 months, then anonymized (daily job). Level-1 departure/arrival positions are inside sealed log events and are never shown outside the three authorized roles; deleting them would break the chained hash.
+- "Reportar sin mis datos" in AURA: no name, no memory, no session kept.
+- Estimated size is a step of the AURA report (the PWA report already had it).
+- Voice notes: attached to the report or handed to a person; never transcribed.
+- Publication rule: a sector with fewer than 5 reports is not published (portal, open data, dashboard, AURA).
+- Layer 3 named "Institucional" (reception, processing and quality) in the validation-layers card of each record.
+- Public comparison of official vs weighed tonnes with discrepancies on the portal.
+- Keep-alive: the server pings its public address every 10 minutes so Render does not put it to sleep.

@@ -12,7 +12,7 @@ import { Card, Spinner, Alert, StatTile, HelpTip, SourceNote, ProgressBar, Empty
 import { MapView } from '../../components/MapView';
 import { PublicHeader } from '../../components/PublicHeader';
 import { HBars, StatusBars, TableToggle } from '../../components/charts/Bars';
-import { FacilitiesMap, OpenDataCard, SectorLights, usePortal } from './Portal';
+import { FacilitiesMap, OfficialVsWeighed, OpenDataCard, SectorLights, usePortal } from './Portal';
 
 interface DashboardData {
   generatedAt: string;
@@ -433,6 +433,7 @@ function PortalTop() {
       </Card>
       {p.data && <SectorLights data={p.data} />}
       {p.data && <FacilitiesMap data={p.data} />}
+      <OfficialVsWeighed />
       <OpenDataCard />
     </div>
   );

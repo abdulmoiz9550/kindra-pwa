@@ -103,6 +103,7 @@ export function startScheduler(intervalSeconds: number): void {
       // Addendum v4.2, sección 7: sin respuesta en el plazo, el cierre queda «Cerrado sin Confirmación».
       expireClosures();
       purgeVehicleTrack();
+      anonymizeClosedReporters();
     } catch (err) {
       console.error('[jobs] error en escalamientos:', (err as Error).message);
     }
@@ -124,5 +125,26 @@ export function purgeVehicleTrack(): number {
     store.remove('trackPoints', p.id);
     n++;
   }
+  return n;
+}
+
+/**
+ * Retención aprobada por el cliente (27 de noviembre de 2026): los datos personales de quien reporta se conservan
+ * hasta cerrar el caso más 12 meses (configurable) y después se anonimizan. El caso sigue para la trazabilidad.
+ */
+export function anonymizeClosedReporters(now = Date.now()): number {
+  const months = getConfig().personalDataRetentionMonths;
+  if (!months || months < 1) return 0;
+  const store = db();
+  const limit = now - months * 30.44 * 86_400_000;
+  let n = 0;
+  for (const o of store.filter('origins', (x) => x.type === 'citizen' && (!!x.reporterName || !!x.reporterPhone || !!x.reporterId || !!x.channelProfileId))) {
+    const removal = store.find('closures', (c) => c.originId === o.id && c.type === 'removal');
+    const closedAt = o.closedAt || o.closedNoConfirmationAt || (removal?.citizenResponse === 'confirmed' ? removal.respondedAt : null) || (['rejected', 'duplicate'].includes(o.state) ? o.createdAt : null);
+    if (!closedAt || Date.parse(closedAt) > limit) continue;
+    store.update('origins', o.id, { reporterName: null, reporterPhone: null, reporterId: null, channelProfileId: null, anonymous: true });
+    n++;
+  }
+  if (n) appendEvent({ type: 'governance_action', objectType: 'system', objectId: 'governance', actor: SYSTEM_ACTOR, data: { action: 'retention_anonymized', reports: n, months }, silent: true });
   return n;
 }

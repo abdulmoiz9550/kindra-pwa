@@ -65,6 +65,14 @@ export const DEFAULT_CONFIG: AppConfig = {
     catalogApproved: false,
   },
   sessionIdleMinutes: 30,
+  // Respuestas del cliente del 27 de noviembre de 2026. Todo configurable en Administración.
+  openDataLicense: 'CC BY 4.0',
+  openDataAttribution: 'Fuente: Kindra – Desechos con Destinos, datos al [fecha de corte], CC BY 4.0',
+  emergencyNumbers: { life: '911', civil: '166' },
+  supportHours: 'de lunes a viernes, de 8:00 a 17:00 (hora de Caracas)',
+  supportSchedule: { days: [1, 2, 3, 4, 5], from: '08:00', to: '17:00' },
+  vehicleLocationRetentionDays: 90,
+  personalDataRetentionMonths: 12,
   complaintChannelUrl: '',
   help: DEFAULT_HELP,
   hazardChecklist: [

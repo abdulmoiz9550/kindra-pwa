@@ -833,6 +833,14 @@ export interface AppConfig {
   openDataLicense?: string;
   /** Addendum v4.2, 10.7: número oficial de emergencias que AURA da ante un riesgo inmediato. */
   emergencyNumber?: string;
+  /** Números que AURA da según la situación: peligro para la vida y Protección Civil. */
+  emergencyNumbers?: { life: string; civil: string };
+  /** Horario de atención del equipo (hora de Caracas). Días: 0 domingo … 6 sábado. */
+  supportSchedule?: { days: number[]; from: string; to: string };
+  /** Texto de atribución de los datos abiertos. [fecha de corte] se reemplaza. */
+  openDataAttribution?: string;
+  /** Meses que se conservan los datos personales de quien reporta después de cerrar el caso; luego se anonimizan. */
+  personalDataRetentionMonths?: number | null;
   /** Addendum v4.2, 10.4: tiempo de respuesta que AURA indica fuera de horario. */
   supportHours?: string;
   hazardChecklist: { key: string; label: string; provisional: boolean }[];
@@ -923,6 +931,7 @@ export interface TraceabilityRecord {
   /** Addendum v4.2: estado del reporte y estado público del lote (1 a 4). */
   reportStatus?: { key: string; label: string; reason: string | null; lotCodes: string[]; publicStage: number; publicStageLabel: string | null; confirmBy: string | null } | null;
   publicStage?: number;
+  validationLayers?: { layer: string; what: string; done: boolean; at: string | null }[];
   sectorName: string;
   fields: RecordField[];
   completeness: number;
