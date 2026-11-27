@@ -273,6 +273,7 @@ export function validateOrigin(id: string, actor: Actor, priority?: OriginPriori
   const o = getOriginOrThrow(id);
   if (o.type !== 'citizen' && o.state !== 'registered') throw conflict('Los orígenes institucionales nacen validados.');
   assertNotOwn(o, actor, 'validar');
+  if (o.type === 'citizen' && !o.photoIds.length && !confirmedOnSite(o)) throw conflict('Este reporte llegó sin foto: queda «Por Verificar» hasta que un Contralor Comunitario confirme en campo que el punto existe.', 'needs_field_verification');
   assertTransition('origin', 'origin_validated', o.state, { actor, origin: o });
   appendEvent({ type: 'origin_validated', objectType: 'origin', objectId: o.id, actor, data: { priority: priority ?? null }, deviceTime });
   const sector = sectorName(o.sectorId);
@@ -711,4 +712,10 @@ export function notifyPublicStage(o: Origin, stage: number): void {
     if (t.type !== 'citizen') continue;
     notifyOrigin(t, 'status_change', `Tu reporte ${t.code} avanzó: el lote está en «${label}».`);
   }
+}
+
+/** Un Contralor Comunitario confirmó en campo que el punto existe (las verificaciones anteriores sin resultado cuentan como «existe»). */
+export function confirmedOnSite(o: Origin): boolean {
+  if (o.fieldVerification) return o.fieldVerification.result === 'exists';
+  return !!o.verifiedOnSiteAt;
 }

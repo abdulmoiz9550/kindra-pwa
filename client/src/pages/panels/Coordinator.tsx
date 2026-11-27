@@ -224,7 +224,10 @@ function QuickActions({ o, onDone, onOpen }: { o: OriginView; onDone: () => void
   const can = (a: string) => o.allowedActions.includes(a);
   return (
     <>
-      {can('origin_validated') && (
+      {can('origin_validated') && o.type === 'citizen' && !o.photoIds.length && !(o.fieldVerification ? o.fieldVerification.result === 'exists' : o.verifiedOnSiteAt) && (
+        <span className="text-xs text-muted self-center">Sin foto: Por Verificar hasta que un Contralor Comunitario lo confirme en campo.</span>
+      )}
+      {can('origin_validated') && !(o.type === 'citizen' && !o.photoIds.length && !(o.fieldVerification ? o.fieldVerification.result === 'exists' : o.verifiedOnSiteAt)) && (
         <>
           <Select value={priority} onChange={(e) => setPriority(e.target.value as OriginPriority)} className="!w-auto !min-h-[40px] !py-1 text-sm" aria-label="Prioridad">
             {(['high', 'medium', 'low'] as const).map((p) => (

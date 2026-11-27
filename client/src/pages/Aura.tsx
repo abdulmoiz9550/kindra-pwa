@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Send, Camera, MapPin, Mic, RotateCcw } from 'lucide-react';
 import { api, errorMessage } from '../lib/api';
 import { saveCode } from '../lib/storage';
-import { compressImage, uploadPhoto, getPosition, listenOnce, speechRecognitionAvailable } from '../lib/media';
+import { compressImage, uploadPhoto, getPosition } from '../lib/media';
 import { toast } from '../lib/toast';
 import { VoiceNoteRecorder } from '../components/VoiceNoteRecorder';
 import { Button, Spinner } from '../components/ui';
@@ -135,15 +135,6 @@ export default function Aura() {
     }
   };
 
-  const dictate = async () => {
-    try {
-      const t = await listenOnce();
-      setText(t);
-    } catch (err) {
-      toast.error(errorMessage(err));
-    }
-  };
-
   const sendVoiceNote = async () => {
     if (!voiceNote) return;
     setBusy(true);
@@ -246,11 +237,6 @@ export default function Aura() {
           <button type="button" className="chip" onClick={shareLocation} disabled={busy}>
             <MapPin size={16} className="mr-1" /> Ubicación
           </button>
-          {speechRecognitionAvailable() && (
-            <button type="button" className="chip" onClick={dictate} disabled={busy}>
-              <Mic size={16} className="mr-1" /> Dictar
-            </button>
-          )}
           <button type="button" className="chip" onClick={() => setShowVoice((v) => !v)} disabled={busy}>
             <Mic size={16} className="mr-1" /> Nota de voz
           </button>

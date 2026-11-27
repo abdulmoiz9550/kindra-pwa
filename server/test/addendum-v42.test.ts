@@ -267,3 +267,17 @@ test('27-nov · Urimare existe y un sector con menos de 5 reportes no se publica
   assert.ok(openData().rows.every((r) => (r.reportes_recibidos ?? 0) >= 5));
   assert.match(openData().attribution, /CC BY 4.0/);
 });
+
+test('27-nov · sin foto: queda Por Verificar y no se valida hasta que un Contralor confirme que existe', async () => {
+  const { verifyOnSite } = await import('../src/services/monitor');
+  const store = db();
+  const sector = store.list('sectors').find((s) => s.parish === 'Caraballeda' && s.polygon.length)!;
+  const o = createCitizenReport({ photoIds: [], sectorId: sector.id, size: 'small', source: 'pwa' }, anon).origin;
+  assert.equal(reportStatus(o).key, 'received');
+  assert.throws(() => validateOrigin(o.id, coord()), (e: { code?: string }) => e.code === 'needs_field_verification');
+  const monitor = store.list('users').find((u) => u.roles.includes('monitor'))!;
+  store.update('users', monitor.id, { sectorId: sector.id });
+  verifyOnSite(o.code, store.get('users', monitor.id)!, { id: monitor.id, role: 'monitor', entityId: null }, photo(), null, 'exists');
+  validateOrigin(o.id, coord());
+  assert.equal(reportStatus(store.get('origins', o.id)!).key, 'validated');
+});
