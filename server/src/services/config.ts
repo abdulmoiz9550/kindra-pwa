@@ -38,6 +38,11 @@ export function ensureDefaults(): void {
     // añade claves nuevas sin tocar las editadas
     for (const t of DEFAULT_AURA_TEXTS) if (!store.get('auraTexts', t.key)) store.put('auraTexts', { ...t, id: t.key } as AuraTextEntry & { id: string });
   }
+  // 27-nov: cuarta parroquia Urimare en los textos guardados que solo nombraban tres.
+  for (const t of store.list('auraTexts')) {
+    if (!t.variants.some((v) => v.includes('Catia La Mar y Macuto'))) continue;
+    store.update('auraTexts', t.key, { variants: t.variants.map((v) => v.replace('Catia La Mar y Macuto', 'Catia La Mar, Macuto y Urimare')) });
+  }
   if (store.count('lessons') === 0) for (const l of DEFAULT_LESSONS) store.put('lessons', l);
   // Addendum v4.2, 3.2: cursos de Training. Solo se agregan los que faltan; nunca se pisa lo editado.
   for (const c of DEFAULT_COURSES) if (!store.get('courses', c.id)) store.put('courses', c);

@@ -30,6 +30,21 @@ before(async () => {
   await initPlatform({ persistence: new MemoryPersistence(null), seed: true, quiet: true });
 });
 
+test('28-nov · AURA no repite el saludo si la persona escribe otra cosa antes de responder al consentimiento', async () => {
+  const first = await auraReply({ text: null }, anon, { kind: 'pwa' } as never);
+  assert.match(texts(first), /Soy AURA|Te habla AURA|Qué tal/);
+  assert.match(texts(first), /Urimare/);
+  const sid = first.session.id;
+  const hola = await auraReply({ sessionId: sid, text: 'Hola' } as never, anon, { kind: 'pwa' } as never);
+  assert.doesNotMatch(texts(hola), /Soy AURA|Te habla AURA/, 'no vuelve a saludar');
+  assert.match(texts(hola), /«sí» o «no»/);
+  // Si el servidor perdió la sesión (reinicio), tampoco repite el saludo.
+  const lost = await auraReply({ sessionId: 'as_perdida', text: 'Hola' } as never, anon, { kind: 'pwa' } as never);
+  assert.doesNotMatch(texts(lost), /Soy AURA|Te habla AURA/);
+  const yes = await auraReply({ sessionId: sid, text: 'sí' } as never, anon, { kind: 'pwa' } as never);
+  assert.doesNotMatch(texts(yes), /«sí» o «no»/);
+});
+
 test('v4.2 · 18 y 13: AURA saluda por el nombre de WhatsApp, pide consentimiento y no guarda nada antes del sí', async () => {
   const r1 = await wa('584140000101', 'María Pérez', 'hola');
   assert.match(texts(r1), /¡(Hola|Qué tal), María!/);
@@ -158,8 +173,12 @@ test('v4.2 · 27: tope diario de Raíces por reportes validados', () => {
     }
   }
   const after = computePoints(u.id);
-  const applied = after.ledger.filter((e) => e.action === 'reportValidated' && e.status === 'applied' && new Date(e.at).toDateString() === new Date().toDateString()).length;
-  assert.ok(applied <= 3, `máximo 3 al día (había ${today})`);
+  // El tope se cuenta por día de Caracas, no por el día de la máquina que corre la prueba.
+  const day = (iso: string) => new Date(iso).toLocaleDateString('en-CA', { timeZone: 'America/Caracas' });
+  const perDay = new Map<string, number>();
+  for (const e of after.ledger) if (e.action === 'reportValidated' && e.status === 'applied') perDay.set(day(e.at), (perDay.get(day(e.at)) ?? 0) + 1);
+  assert.ok(Math.max(...perDay.values()) <= 3, `máximo 3 al día (antes había ${today})`);
+  assert.ok(after.ledger.some((e) => e.action === 'reportValidated' && e.status === 'capped'), 'el excedente queda con tope');
 });
 
 test('v4.2 · 3, 6 y 4 estados: asignar reporte a un lote; sin ensayo validado no llega al estado 3', () => {

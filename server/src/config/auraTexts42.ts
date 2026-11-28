@@ -23,7 +23,12 @@ export const AURA_TEXTS_V42: AuraTextEntry[] = [
     'Una cosa antes de seguir: para atenderte uso el nombre de tu cuenta, la foto y el sector. Tu nombre no se publica nunca y puedes pedirme que borre tus datos. ¿Estás de acuerdo?',
     'Antes de arrancar: necesito el nombre de tu cuenta, la foto y el sector para atenderte. Tu nombre nunca sale publicado, y borro tus datos cuando me lo pidas. ¿Te parece bien?',
   ]),
-  t('v42_consent_no', 'v4.2 · Consentimiento rechazado', [
+  t('v42_consent_nudge', 'v4.2 · Recordatorio del consentimiento pendiente', [
+    'Para seguir necesito tu respuesta: ¿te parece bien que use tu nombre, la foto y el sector? Responde «sí» o «no», o toca «Reportar sin mis datos».',
+    'Antes de continuar, dime si estás de acuerdo: responde «sí» o «no». Si prefieres, toca «Reportar sin mis datos».',
+    'Solo me falta tu respuesta para seguir: ¿«sí» o «no»? También puedes reportar sin dar tus datos.',
+  ]),
+  t('v42_consent_no','v4.2 · Consentimiento rechazado', [
     'Entendido, no guardo nada. Puedes ver cómo va tu parroquia en [enlace] o buscar al Contralor Comunitario de tu sector.',
     'Perfecto, no guardo ningún dato. El avance de tu parroquia está en [enlace], y el Contralor Comunitario de tu sector también te puede ayudar.',
     'Listo, no queda nada guardado. Si quieres ver el avance, entra a [enlace], o acércate al Contralor Comunitario de tu sector.',

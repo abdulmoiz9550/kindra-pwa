@@ -169,7 +169,9 @@ export async function auraTurn(input: AuraInput, actor: Actor, channel: Channel)
   const sessionId = channel.kind === 'whatsapp' ? `as_wa_${pseudonym(channel.waId!)}` : input.sessionId || null;
   let session = sessionId ? store.get('auraSessions', sessionId) : undefined;
   if (!session) {
-    session = { id: sessionId || newId('as'), userId: actor.id, step: 'idle', draft: {}, contextCode: null, name: null, createdAt: nowIso(), updatedAt: nowIso(), lastVariant: {}, history: [] };
+    // En la PWA, un id que el servidor ya no tiene (reinicio) significa que la persona ya vio el saludo.
+    const greeted = channel.kind !== 'whatsapp' && !!sessionId;
+    session = { id: sessionId || newId('as'), userId: actor.id, step: greeted ? 'v42_consent' : 'idle', draft: {}, contextCode: null, name: null, createdAt: nowIso(), updatedAt: nowIso(), lastVariant: {}, history: [] };
   }
   const rk = session.id;
   const T = (key: string, vars: Record<string, string | number | null | undefined> = {}) => pickText(key, vars, rk);
@@ -185,6 +187,7 @@ export async function auraTurn(input: AuraInput, actor: Actor, channel: Channel)
     return out(false);
   }
   const consented = !!session.draft.anon || (channel.kind === 'whatsapp' || user ? !!profile?.consent : !!session.draft.consent);
+  if (consented && session.step === 'v42_consent') session.step = 'idle';
   let name = nameOf(profile, channel, user?.name || user?.alias || null);
   const nm = () => name || 'vecino';
   const pid = profile?.id ?? (channel.kind === 'whatsapp' ? `wa_${pseudonym(channel.waId!)}` : user ? `user_${user.id}` : session.id);
@@ -247,9 +250,16 @@ export async function auraTurn(input: AuraInput, actor: Actor, channel: Channel)
         return out(false);
       }
     }
+    const consentReplies: QuickReply[] = [{ label: 'Sí, me parece bien', value: 'sí' }, { label: 'No', value: 'no' }, { label: 'Reportar sin mis datos', value: 'anon' }];
+    // Ya saludó y preguntó: no repite el saludo, solo recuerda la pregunta pendiente.
+    if (session.step === 'v42_consent' && (text || input.photoId || input.location || input.voiceNoteId)) {
+      say(T('v42_consent_nudge'));
+      quickReplies = consentReplies;
+      return out(false);
+    }
     say(name ? T('v42_greet_new', { nombre: name }) : T('v42_greet_new', { nombre: '' }).replace('¡Hola, !', '¡Hola!').replace('¡Qué tal, !', '¡Qué tal!'));
     say(T(channel.kind === 'whatsapp' ? 'v42_consent_whatsapp' : 'v42_consent_pwa'));
-    quickReplies = [{ label: 'Sí, me parece bien', value: 'sí' }, { label: 'No', value: 'no' }, { label: 'Reportar sin mis datos', value: 'anon' }];
+    quickReplies = consentReplies;
     // Antes del sí solo se guarda el paso de la conversación, sin nombre ni mensajes.
     session.step = 'v42_consent';
     session.history = [];
